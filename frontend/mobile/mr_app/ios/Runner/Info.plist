@@ -10,6 +10,12 @@
 	<string>Alleviare MR</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Alleviare MR requires Face ID authentication for secure representative login.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Alleviare MR requires GPS location to verify geofenced doctor visits and field attendance.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Alleviare MR requires background location for field route tracking.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Alleviare MR requires camera access to attach receipts and doctor visit verification photos.</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
