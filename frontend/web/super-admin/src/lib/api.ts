@@ -89,6 +89,28 @@ export const api = {
       }
       return data;
     },
+    superAdminLogin: async (usernameOrEmail: string, password: string, remember = true) => {
+      const data = await fetchWithAuth<UserSession>('/auth/super-admin/login', {
+        method: 'POST',
+        body: JSON.stringify({ usernameOrEmail, password })
+      });
+      if (data && data.token) {
+        tokenStorage.set(data.token, remember);
+        tokenStorage.setUser(data, remember);
+      }
+      return data;
+    },
+    staffLogin: async (usernameOrEmail: string, password: string, remember = true) => {
+      const data = await fetchWithAuth<UserSession>('/auth/staff/login', {
+        method: 'POST',
+        body: JSON.stringify({ usernameOrEmail, password })
+      });
+      if (data && data.token) {
+        tokenStorage.set(data.token, remember);
+        tokenStorage.setUser(data, remember);
+      }
+      return data;
+    },
     getMe: () => fetchWithAuth<UserSession>('/auth/me'),
     logout: () => tokenStorage.clear()
   },
