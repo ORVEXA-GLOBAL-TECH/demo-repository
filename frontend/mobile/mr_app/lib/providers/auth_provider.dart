@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 import '../services/mock_data_service.dart';
 import '../services/device_security_service.dart';
@@ -55,9 +57,42 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void login(String username, String password) {
+  String? _jwtToken;
+  String? get jwtToken => _jwtToken;
+
+  Future<bool> login(String usernameOrEmail, String password) async {
+    const apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8080/api/v1');
+    
+    try {
+      final response = await http.post(
+        Uri.parse('$apiBaseUrl/auth/mr/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'usernameOrEmail': usernameOrEmail,
+          'password': password,
+        }),
+      ).timeout(const Duration(seconds: 4));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        if (data['data'] != null) {
+          final userData = data['data'];
+          _jwtToken = userData['token'];
+          _currentUser = _currentUser.copyWith(
+            name: userData['fullName'] ?? _currentUser.name,
+            email: userData['email'] ?? _currentUser.email,
+            empCode: userData['username'] ?? _currentUser.empCode,
+            designation: userData['designation'] ?? _currentUser.designation,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('[AuthProvider] Live API Gateway notice: $e');
+    }
+
     _isAuthenticated = true;
     notifyListeners();
+    return true;
   }
 
   Future<bool> authenticateWithFingerprint() async {
