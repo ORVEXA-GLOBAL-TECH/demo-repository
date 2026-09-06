@@ -87,7 +87,7 @@ interface TenantContextType {
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export function TenantProvider({ children }: { children: React.ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(DEMO_AUTH_USERS[0]);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("all");
   const [companies, setCompanies] = useState<PharmaCompany[]>(MOCK_COMPANIES);
   const [products, setProducts] = useState<DrugProduct[]>(MOCK_PRODUCTS);
