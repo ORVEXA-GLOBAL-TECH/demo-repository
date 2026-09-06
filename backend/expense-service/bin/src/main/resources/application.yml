@@ -1,0 +1,21 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: expense-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/expense_db
+    username: alleviare_admin
+    password: AlleviarePassword123!
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

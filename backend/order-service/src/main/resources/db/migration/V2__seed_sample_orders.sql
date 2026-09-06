@@ -1,0 +1,27 @@
+-- V2__seed_sample_orders.sql
+
+INSERT INTO orders (id, order_number, mr_id, customer_id, total_amount, status, order_notes) VALUES
+(
+    '77777777-7777-7777-7777-777777777701',
+    'ORD-2026-0801',
+    '22222222-2222-2222-2222-222222222208',
+    '55555555-5555-5555-5555-555555555501',
+    42500.00,
+    'APPROVED',
+    'Urgent replenishment order for Apollo Pharmacy Parel'
+),
+(
+    '77777777-7777-7777-7777-777777777702',
+    'ORD-2026-0802',
+    '22222222-2222-2222-2222-222222222209',
+    '55555555-5555-5555-5555-555555555502',
+    38000.00,
+    'SUBMITTED',
+    'Regular monthly chemist booking'
+)
+ON CONFLICT (order_number) DO NOTHING;
+
+INSERT INTO order_items (id, order_id, product_id, quantity, unit_price, total_price) VALUES
+('88888888-8888-8888-8888-888888888801', '77777777-7777-7777-7777-777777777701', '33333333-3333-3333-3333-333333333301', 100, 240.00, 24000.00),
+('88888888-8888-8888-8888-888888888802', '77777777-7777-7777-7777-777777777701', '33333333-3333-3333-3333-333333333302', 100, 185.00, 18500.00)
+ON CONFLICT (id) DO NOTHING;
