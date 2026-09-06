@@ -62,3 +62,40 @@ jobs:
           name: alleviare-mr-web-build
           path: frontend/mobile/mr_app/build/web
           retention-days: 30
+
+  build_windows:
+    name: Build Windows Desktop App (.exe)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Enable Windows Desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install Dependencies
+        working-directory: frontend/mobile/mr_app
+        run: flutter pub get
+
+      - name: Build Windows Desktop Release
+        working-directory: frontend/mobile/mr_app
+        run: flutter build windows --release
+
+      - name: Compress Windows Executable Bundle
+        shell: pwsh
+        run: |
+          Compress-Archive -Path frontend/mobile/mr_app/build/windows/x64/runner/Release/* -DestinationPath alleviare-mr-windows-app.zip
+
+      - name: Upload Windows App (.exe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: alleviare-mr-windows-x64.zip
+          path: alleviare-mr-windows-app.zip
+          retention-days: 30
