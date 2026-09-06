@@ -213,7 +213,7 @@ class _FieldNotesScreenState extends State<FieldNotesScreen> {
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 80),
                     itemCount: filtered.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 12),
+                    separatorBuilder: (context, index) => const SizedBox(height: 12),
                     itemBuilder: (ctx, idx) {
                       final note = filtered[idx];
                       final isPinned = note['isPinned'] as bool;

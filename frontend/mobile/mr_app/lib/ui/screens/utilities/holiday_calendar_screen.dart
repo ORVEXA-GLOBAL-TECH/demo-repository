@@ -86,7 +86,7 @@ class HolidayCalendarScreen extends StatelessWidget {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: holidays.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            separatorBuilder: (context, index) => const SizedBox(height: 10),
             itemBuilder: (ctx, idx) {
               final h = holidays[idx];
               final Color col = h['color'] as Color;

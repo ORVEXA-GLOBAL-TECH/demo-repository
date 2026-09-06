@@ -107,7 +107,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: Image.network(
                               user.avatarUrl,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => const CircleAvatar(
+                              errorBuilder: (context, error, stackTrace) => const CircleAvatar(
                                 backgroundColor: Color(0xFF0288D1),
                                 child: Icon(Icons.person, color: Colors.white, size: 36),
                               ),

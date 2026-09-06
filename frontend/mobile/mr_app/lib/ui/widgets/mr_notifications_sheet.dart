@@ -122,7 +122,7 @@ class MrNotificationsSheet extends StatelessWidget {
             child: ListView.separated(
               shrinkWrap: true,
               itemCount: notifications.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              separatorBuilder: (context, index) => const SizedBox(height: 10),
               itemBuilder: (ctx, idx) {
                 final item = notifications[idx];
                 return Container(

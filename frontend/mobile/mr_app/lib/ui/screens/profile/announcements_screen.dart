@@ -48,7 +48,7 @@ class AnnouncementsScreen extends StatelessWidget {
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: announcements.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        separatorBuilder: (context, index) => const SizedBox(height: 12),
         itemBuilder: (ctx, idx) {
           final a = announcements[idx];
           return Container(

@@ -178,7 +178,7 @@ class _AppUserGuideScreenState extends State<AppUserGuideScreen> {
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: filtered.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (ctx, idx) {
                 final guide = filtered[idx];
                 final Color col = guide['color'] as Color;

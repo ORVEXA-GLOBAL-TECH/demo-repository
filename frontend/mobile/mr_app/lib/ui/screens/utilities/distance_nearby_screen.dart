@@ -217,7 +217,7 @@ class _DistanceNearbyScreenState extends State<DistanceNearbyScreen> with Single
           ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: _nearbyEntities.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 12),
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
             itemBuilder: (ctx, idx) {
               final item = _nearbyEntities[idx];
               final Color typeCol = item['typeColor'] as Color;

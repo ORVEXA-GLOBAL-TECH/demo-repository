@@ -925,7 +925,7 @@ class _TourPlanScreenState extends State<TourPlanScreen> {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 80),
       itemCount: weekPlans.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (ctx, idx) {
         final plan = weekPlans[idx];
         final progress = plan.completionProgress;

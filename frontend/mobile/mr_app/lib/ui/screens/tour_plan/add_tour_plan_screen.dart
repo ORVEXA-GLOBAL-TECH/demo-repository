@@ -412,7 +412,7 @@ class _AddTourPlanScreenState extends State<AddTourPlanScreen> with SingleTicker
                         // 1. Doctors List
                         ListView.separated(
                           itemCount: doctorProvider.doctors.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          separatorBuilder: (context, index) => const Divider(height: 1),
                           itemBuilder: (ctx, idx) {
                             final doc = doctorProvider.doctors[idx];
                             final sel = _selectedDoctorIds.contains(doc.id);
@@ -440,7 +440,7 @@ class _AddTourPlanScreenState extends State<AddTourPlanScreen> with SingleTicker
                         // 2. Retailers / Chemists List
                         ListView.separated(
                           itemCount: doctorProvider.chemists.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          separatorBuilder: (context, index) => const Divider(height: 1),
                           itemBuilder: (ctx, idx) {
                             final chem = doctorProvider.chemists[idx];
                             final sel = _selectedChemistIds.contains(chem.id);
@@ -468,7 +468,7 @@ class _AddTourPlanScreenState extends State<AddTourPlanScreen> with SingleTicker
                         // 3. Private Clinics List
                         ListView.separated(
                           itemCount: clinics.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          separatorBuilder: (context, index) => const Divider(height: 1),
                           itemBuilder: (ctx, idx) {
                             final fac = clinics[idx];
                             final sel = _selectedClinicIds.contains(fac.id);
@@ -496,7 +496,7 @@ class _AddTourPlanScreenState extends State<AddTourPlanScreen> with SingleTicker
                         // 4. Hospitals List (Govt & Multi-Specialty)
                         ListView.separated(
                           itemCount: hospitals.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          separatorBuilder: (context, index) => const Divider(height: 1),
                           itemBuilder: (ctx, idx) {
                             final fac = hospitals[idx];
                             final sel = _selectedHospitalIds.contains(fac.id);
@@ -525,7 +525,7 @@ class _AddTourPlanScreenState extends State<AddTourPlanScreen> with SingleTicker
                         // 5. Stockists List
                         ListView.separated(
                           itemCount: doctorProvider.stockists.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          separatorBuilder: (context, index) => const Divider(height: 1),
                           itemBuilder: (ctx, idx) {
                             final stk = doctorProvider.stockists[idx];
                             final sel = _selectedStockistIds.contains(stk.id);

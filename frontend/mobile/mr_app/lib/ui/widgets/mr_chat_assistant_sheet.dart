@@ -158,7 +158,7 @@ class _MrChatAssistantSheetState extends State<MrChatAssistantSheet> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: _quickPrompts.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              separatorBuilder: (context, index) => const SizedBox(width: 8),
               itemBuilder: (ctx, idx) {
                 return ActionChip(
                   label: Text(

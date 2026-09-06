@@ -103,7 +103,7 @@ class _MrTasksTodoScreenState extends State<MrTasksTodoScreen> {
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: _tasks.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
+        separatorBuilder: (context, index) => const SizedBox(height: 10),
         itemBuilder: (ctx, idx) {
           final t = _tasks[idx];
           return Container(
@@ -201,7 +201,7 @@ class HolidayCalendarScreen extends StatelessWidget {
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: holidays.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
+        separatorBuilder: (context, index) => const SizedBox(height: 10),
         itemBuilder: (ctx, idx) {
           final h = holidays[idx];
           return Container(
@@ -282,7 +282,7 @@ class SalarySlipsScreen extends StatelessWidget {
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: slips.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        separatorBuilder: (context, index) => const SizedBox(height: 12),
         itemBuilder: (ctx, idx) {
           final s = slips[idx];
           final netAmount = currency.format(s['netUsd'] as double);
@@ -372,7 +372,7 @@ class CompanyDocumentsScreen extends StatelessWidget {
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: docs.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
+        separatorBuilder: (context, index) => const SizedBox(height: 10),
         itemBuilder: (ctx, idx) {
           final d = docs[idx];
           return Container(
@@ -570,7 +570,7 @@ class NearbyDoctorsScreen extends StatelessWidget {
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: nearby.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
+        separatorBuilder: (context, index) => const SizedBox(height: 10),
         itemBuilder: (ctx, idx) {
           final n = nearby[idx];
           return Container(
@@ -647,7 +647,7 @@ class UserGuideScreen extends StatelessWidget {
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: guides.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
+        separatorBuilder: (context, index) => const SizedBox(height: 10),
         itemBuilder: (ctx, idx) {
           final g = guides[idx];
           return Container(

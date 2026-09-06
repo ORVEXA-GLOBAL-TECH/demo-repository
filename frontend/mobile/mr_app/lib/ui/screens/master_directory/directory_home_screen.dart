@@ -234,7 +234,7 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> with SingleTi
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
                   itemCount: doctors.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  separatorBuilder: (context, index) => const SizedBox(height: 10),
                   itemBuilder: (ctx, idx) {
                     final doc = doctors[idx];
                     return Container(
@@ -335,7 +335,7 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> with SingleTi
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
       itemCount: chemists.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      separatorBuilder: (context, index) => const SizedBox(height: 10),
       itemBuilder: (ctx, idx) {
         final chem = chemists[idx];
         return Container(
@@ -417,7 +417,7 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> with SingleTi
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
       itemCount: facilities.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      separatorBuilder: (context, index) => const SizedBox(height: 10),
       itemBuilder: (ctx, idx) {
         final fac = facilities[idx];
         final isGovt = fac.sector == FacilitySector.government;
@@ -521,7 +521,7 @@ class _DirectoryHomeScreenState extends State<DirectoryHomeScreen> with SingleTi
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
       itemCount: stockists.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      separatorBuilder: (context, index) => const SizedBox(height: 10),
       itemBuilder: (ctx, idx) {
         final stk = stockists[idx];
         return Container(

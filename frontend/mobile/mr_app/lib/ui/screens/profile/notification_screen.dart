@@ -155,7 +155,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: _notifications.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  separatorBuilder: (context, index) => const SizedBox(height: 10),
                   itemBuilder: (ctx, idx) {
                     final n = _notifications[idx];
                     final isUnread = n['unread'] == true;

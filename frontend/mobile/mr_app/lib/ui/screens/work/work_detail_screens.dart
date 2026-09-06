@@ -133,7 +133,7 @@ class _DoctorSponsorshipScreenState extends State<DoctorSponsorshipScreen> {
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: _requests.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        separatorBuilder: (context, index) => const SizedBox(height: 12),
         itemBuilder: (ctx, idx) {
           final req = _requests[idx];
           final formattedAmount = currency.format(req['amountUsd'] as double);
@@ -254,7 +254,7 @@ class TradeSchemesScreen extends StatelessWidget {
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: schemes.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        separatorBuilder: (context, index) => const SizedBox(height: 12),
         itemBuilder: (ctx, idx) {
           final item = schemes[idx];
           return Container(
@@ -376,7 +376,7 @@ class VideoLibraryScreen extends StatelessWidget {
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: videos.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        separatorBuilder: (context, index) => const SizedBox(height: 12),
         itemBuilder: (ctx, idx) {
           final vid = videos[idx];
           return Container(
