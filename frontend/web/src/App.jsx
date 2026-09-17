@@ -14,7 +14,7 @@ import TrackingPage from './pages/TrackingPage';
 import AttendancePage from './pages/AttendancePage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import AiToolsPage from './pages/AiToolsPage';
-import { getNotifications } from './services/api';
+import { getNotifications, SOCKET_URL } from './services/api';
 import './styles/theme.css';
 
 export default function App() {
@@ -27,21 +27,26 @@ export default function App() {
     loadNotifications();
 
     // Connect to Backend Real-Time WebSockets
-    const socket = io('http://localhost:5000');
-    socket.on('connect', () => {
-      socket.emit('join_territory', 'North Zone India');
-    });
+    let socket;
+    try {
+      socket = io(SOCKET_URL, { transports: ['websocket', 'polling'], autoConnect: true });
+      socket.on('connect', () => {
+        socket.emit('join_territory', 'North Zone India');
+      });
 
-    socket.on('new_dcr_notification', () => {
-      loadNotifications();
-    });
+      socket.on('new_dcr_notification', () => {
+        loadNotifications();
+      });
 
-    socket.on('new_order_notification', () => {
-      loadNotifications();
-    });
+      socket.on('new_order_notification', () => {
+        loadNotifications();
+      });
+    } catch (err) {
+      console.warn('WebSocket connection fallback:', err.message);
+    }
 
     return () => {
-      socket.disconnect();
+      if (socket) socket.disconnect();
     };
   }, []);
 

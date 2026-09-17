@@ -1,4 +1,12 @@
-const BASE_URL = '/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+    ? 'https://alleviare-sfa-api-2026.azurewebsites.net/api'
+    : '/api');
+
+export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+    ? 'https://alleviare-sfa-api-2026.azurewebsites.net'
+    : 'http://localhost:5000');
 
 export async function fetchWithAuth(endpoint, options = {}) {
   const token = localStorage.getItem('alleviare_token');
@@ -9,7 +17,7 @@ export async function fetchWithAuth(endpoint, options = {}) {
   };
 
   try {
-    const res = await fetch(`${BASE_URL}${endpoint}`, {
+    const res = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers
     });
