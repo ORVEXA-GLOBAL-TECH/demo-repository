@@ -137,10 +137,10 @@ export const markNotificationRead = (id) => fetchWithAuth(`/notifications/${id}/
 export const markAllNotificationsRead = () => fetchWithAuth('/notifications/mark-all-read', { method: 'POST' });
 
 // Auth & Users
-export const loginUser = (email, role) => {
+export const loginUser = (email, role, platform = 'web') => {
   return fetchWithAuth('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, role })
+    body: JSON.stringify({ email, role, platform })
   });
 };
 

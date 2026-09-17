@@ -9,13 +9,17 @@ export default function Navbar({ title, unreadCount = 0, onToggleNotifications }
     switch (role) {
       case 'SUPER_ADMIN': return 'badge-approved';
       case 'ADMIN': return 'badge-approved';
-      case 'RSM': return 'badge-pending';
-      case 'ASM': return 'badge-invoiced';
+      case 'DIRECTOR': return 'badge-approved';
+      case 'MANAGER': return 'badge-pending';
+      case 'SALES_MANAGER': return 'badge-pending';
+      case 'SALES_SUPERVISOR': return 'badge-invoiced';
+      case 'ACCOUNTANT': return 'badge-approved';
       default: return 'badge-submitted';
     }
   };
 
   const isWebOnly = role === 'SUPER_ADMIN' || role === 'ADMIN';
+  const isAppOnly = role === 'MR';
 
   return (
     <header className="top-navbar">
@@ -35,13 +39,19 @@ export default function Navbar({ title, unreadCount = 0, onToggleNotifications }
           borderRadius: '20px',
           fontSize: '0.74rem',
           fontWeight: '700',
-          backgroundColor: isWebOnly ? '#fef3c7' : '#dcfce7',
-          color: isWebOnly ? '#92400e' : '#166534',
+          backgroundColor: isWebOnly ? '#fef3c7' : isAppOnly ? '#fee2e2' : '#dcfce7',
+          color: isWebOnly ? '#92400e' : isAppOnly ? '#991b1b' : '#166534',
           display: 'inline-flex',
           alignItems: 'center',
           gap: '4px'
         }}>
-          {isWebOnly ? <><Monitor size={12} /> Web Only</> : <><Monitor size={12} /> + <Smartphone size={12} /> Web & App</>}
+          {isWebOnly ? (
+            <><Monitor size={12} /> Web Only</>
+          ) : isAppOnly ? (
+            <><Smartphone size={12} /> Mobile App Only</>
+          ) : (
+            <><Monitor size={12} /> + <Smartphone size={12} /> Web & App</>
+          )}
         </span>
 
         <span className={`status-badge ${getRoleBadgeClass()}`}>

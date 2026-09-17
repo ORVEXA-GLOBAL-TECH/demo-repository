@@ -19,12 +19,26 @@ router.post('/login', (req, res) => {
   }
 
   // Platform Access Control Check
-  // Super Admin & Admin have Web access ONLY; others have both Web & Mobile App
-  if (platform === 'app' && (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN')) {
-    return res.status(403).json({
-      success: false,
-      message: 'Access Denied: Super Admin and Admin accounts are restricted to the Web Portal only. Please access via the desktop browser interface.'
-    });
+  // Super Admin & Admin: Web Only
+  // MR: App Only
+  // Accountant, Director, Manager, Sales Manager, Sales Supervisor: Both Web & App
+  if (user.allowedPlatforms && !user.allowedPlatforms.includes(platform)) {
+    if (platform === 'app' && user.allowedPlatforms.includes('web')) {
+      return res.status(403).json({
+        success: false,
+        message: `Access Denied: ${user.name} (${user.role}) is restricted to the Web Portal only. Please access via the desktop browser interface.`
+      });
+    } else if (platform === 'web' && user.allowedPlatforms.includes('app')) {
+      return res.status(403).json({
+        success: false,
+        message: `Access Denied: ${user.name} (${user.role}) is restricted to the Mobile App only. Please access via the field mobile application.`
+      });
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: `Access Denied: Your account (${user.role}) is not authorized to access this platform (${platform}).`
+      });
+    }
   }
 
   const token = jwt.sign(

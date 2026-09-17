@@ -10,9 +10,12 @@ import {
 import { colors } from '../theme/colors';
 
 const APP_USERS = [
-  { role: 'MR', name: 'Amit Verma', title: 'Senior Medical Representative', territory: 'South Delhi & Noida', empId: 'ALV-MR-2026-089' },
-  { role: 'ASM', name: 'Suresh Raina', title: 'Area Sales Manager (Field Leader)', territory: 'Delhi NCR Region', empId: 'ALV-ASM-2026-014' },
-  { role: 'RSM', name: 'Priya Mukherjee', title: 'Regional Sales Manager (North)', territory: 'North Zone India', empId: 'ALV-RSM-2026-003' }
+  { role: 'MR', name: 'Amit Verma', title: 'Senior Medical Representative', territory: 'South Delhi & Noida', empId: 'ALV-MR-2026-089', isAppOnly: true },
+  { role: 'SALES_SUPERVISOR', name: 'Suresh Raina', title: 'Area Sales Supervisor (Field Leader)', territory: 'Delhi NCR Region', empId: 'ALV-SUP-2026-014', isAppOnly: false },
+  { role: 'SALES_MANAGER', name: 'Priya Mukherjee', title: 'Regional Sales Manager (North Zone)', territory: 'North Zone India', empId: 'ALV-MGR-2026-003', isAppOnly: false },
+  { role: 'MANAGER', name: 'Meenakshi Sundaram', title: 'Commercial Operations Manager', territory: 'Operations HQ', empId: 'ALV-OPS-2026-008', isAppOnly: false },
+  { role: 'DIRECTOR', name: 'Vikramaditya Singhania', title: 'Commercial & Managing Director', territory: 'Executive Pan-India', empId: 'ALV-DIR-2026-001', isAppOnly: false },
+  { role: 'ACCOUNTANT', name: 'Rameshwar Gupta', title: 'Chief Financial Accountant & Claims Officer', territory: 'Finance Division', empId: 'ALV-ACC-2026-022', isAppOnly: false }
 ];
 
 export default function ProfileScreen() {
@@ -22,7 +25,7 @@ export default function ProfileScreen() {
   const handleAttemptAdminLogin = () => {
     Alert.alert(
       'Access Restricted',
-      '⚠️ Super Admin and Admin accounts have Web Portal access ONLY.\n\nPlease sign in using your desktop or laptop web browser to access the full national administrative dashboard.'
+      '⚠️ Super Admin and Admin accounts have Web Portal access ONLY.\n\nPlease sign in using your desktop or laptop web browser to access the national administrative dashboard.'
     );
   };
 
@@ -40,40 +43,44 @@ export default function ProfileScreen() {
         <Text style={styles.name}>{activeUser.name}</Text>
         <Text style={styles.role}>{activeUser.title}</Text>
         <Text style={styles.empId}>Employee ID: {activeUser.empId}</Text>
-        <View style={styles.badgeBoth}>
-          <Text style={styles.badgeBothText}>✓ Authorized: Mobile App + Web Portal</Text>
+        <View style={activeUser.isAppOnly ? styles.badgeAppOnly : styles.badgeBoth}>
+          <Text style={activeUser.isAppOnly ? styles.badgeAppOnlyText : styles.badgeBothText}>
+            {activeUser.isAppOnly ? '📱 Authorized: Mobile App Only' : '✓ Authorized: Mobile App + Web Portal'}
+          </Text>
         </View>
       </View>
 
       {/* Switch Mobile Persona */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>👥 Switch Field Persona (Mobile App Enabled)</Text>
-        <View style={styles.personaRow}>
-          {APP_USERS.map((u, idx) => (
-            <TouchableOpacity
-              key={u.role}
-              style={[styles.personaBtn, selectedUserIndex === idx && styles.personaBtnActive]}
-              onPress={() => setSelectedUserIndex(idx)}
-            >
-              <Text style={[styles.personaBtnText, selectedUserIndex === idx && styles.personaBtnTextActive]}>
-                {u.role}
-              </Text>
-              <Text style={[styles.personaSubText, selectedUserIndex === idx && styles.personaSubTextActive]}>
-                {u.name.split(' ')[0]}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <Text style={styles.cardTitle}>👥 Switch Persona (Mobile App Enabled Roles)</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 8 }}>
+          <View style={styles.personaRow}>
+            {APP_USERS.map((u, idx) => (
+              <TouchableOpacity
+                key={u.role}
+                style={[styles.personaBtn, selectedUserIndex === idx && styles.personaBtnActive]}
+                onPress={() => setSelectedUserIndex(idx)}
+              >
+                <Text style={[styles.personaBtnText, selectedUserIndex === idx && styles.personaBtnTextActive]}>
+                  {u.role.replace('_', ' ')}
+                </Text>
+                <Text style={[styles.personaSubText, selectedUserIndex === idx && styles.personaSubTextActive]}>
+                  {u.name.split(' ')[0]}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
 
         {/* Admin Test Button */}
         <TouchableOpacity style={styles.adminRestrictedBtn} onPress={handleAttemptAdminLogin}>
-          <Text style={styles.adminRestrictedText}>🛡️ Admin / Super Admin (Web Only Info)</Text>
+          <Text style={styles.adminRestrictedText}>🛡️ Super Admin & Admin (Web Only Notice)</Text>
         </TouchableOpacity>
       </View>
 
       {/* Target Progress Card */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>🎯 Monthly Territory Target ({activeUser.role} View)</Text>
+        <Text style={styles.cardTitle}>🎯 Target & Performance ({activeUser.role.replace('_', ' ')} View)</Text>
         
         <View style={styles.targetRow}>
           <Text style={styles.targetLabel}>Sales Achievement (₹4,50,000 Target):</Text>
@@ -101,7 +108,9 @@ export default function ProfileScreen() {
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Platform Authorization:</Text>
-          <Text style={[styles.infoValue, { color: '#16a34a' }]}>Web Portal + Mobile App</Text>
+          <Text style={[styles.infoValue, { color: activeUser.isAppOnly ? '#0284c7' : '#16a34a', fontWeight: '700' }]}>
+            {activeUser.isAppOnly ? 'Mobile App Only' : 'Web Portal + Mobile App'}
+          </Text>
         </View>
       </View>
 
@@ -174,6 +183,20 @@ const styles = StyleSheet.create({
   badgeBothText: {
     fontSize: 11,
     color: '#15803d',
+    fontWeight: '700'
+  },
+  badgeAppOnly: {
+    backgroundColor: '#e0f2fe',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#bae6fd'
+  },
+  badgeAppOnlyText: {
+    fontSize: 11,
+    color: '#0369a1',
     fontWeight: '700'
   },
   card: {

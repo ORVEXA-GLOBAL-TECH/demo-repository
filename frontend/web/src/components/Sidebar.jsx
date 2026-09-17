@@ -102,16 +102,23 @@ export default function Sidebar({ activeTab, setActiveTab }) {
             onChange={(e) => switchRole(e.target.value)}
           >
             <option value="SUPER_ADMIN">👑 Super Admin (Web Only)</option>
-            <option value="ADMIN">🛡️ Admin / Director (Web Only)</option>
-            <option value="RSM">👔 RSM Manager (Web + App)</option>
-            <option value="ASM">💼 ASM Area Manager (Web + App)</option>
-            <option value="MR">🚗 Field Rep / MR (Web + App)</option>
+            <option value="ADMIN">🛡️ Admin (Web Only)</option>
+            <option value="DIRECTOR">🏛️ Director (Web + App)</option>
+            <option value="MANAGER">💼 Manager (Web + App)</option>
+            <option value="SALES_MANAGER">👔 Sales Manager (Web + App)</option>
+            <option value="SALES_SUPERVISOR">📋 Sales Supervisor (Web + App)</option>
+            <option value="ACCOUNTANT">💰 Accountant (Web + App)</option>
+            <option value="MR">🚗 MR (App Only - Restricted on Web)</option>
           </select>
           <div style={{ marginTop: '8px', fontSize: '0.72rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span>Access:</span>
             {isWebOnly ? (
               <strong style={{ color: '#fbbf24', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                 <Monitor size={12} /> Web Portal Only
+              </strong>
+            ) : role === 'MR' ? (
+              <strong style={{ color: '#f87171', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                <Smartphone size={12} /> Mobile App Only
               </strong>
             ) : (
               <strong style={{ color: '#4ade80', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>

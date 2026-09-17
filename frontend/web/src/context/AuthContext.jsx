@@ -9,7 +9,7 @@ const DEFAULT_USERS = {
     name: 'Executive Board / Super Admin',
     email: 'superadmin@alleviare.com',
     role: 'SUPER_ADMIN',
-    designation: 'Enterprise Super Administrator',
+    designation: 'Global Enterprise Super Administrator',
     territory: 'Enterprise Global HQ',
     allowedPlatforms: ['web']
   },
@@ -18,36 +18,63 @@ const DEFAULT_USERS = {
     name: 'Dr. Rajesh Sharma',
     email: 'admin@alleviare.com',
     role: 'ADMIN',
-    designation: 'National Sales Director',
+    designation: 'National Corporate Admin / Ops Lead',
     territory: 'National HQ (All Zones)',
     allowedPlatforms: ['web']
   },
-  RSM: {
+  DIRECTOR: {
     id: 'usr-002',
+    name: 'Vikramaditya Singhania',
+    email: 'director@alleviare.com',
+    role: 'DIRECTOR',
+    designation: 'Commercial & Managing Director',
+    territory: 'Pan India Commercial Ops',
+    allowedPlatforms: ['web', 'app']
+  },
+  MANAGER: {
+    id: 'usr-003',
+    name: 'Meenakshi Sundaram',
+    email: 'manager@alleviare.com',
+    role: 'MANAGER',
+    designation: 'Commercial Operations Manager',
+    territory: 'Pan India Operations HQ',
+    allowedPlatforms: ['web', 'app']
+  },
+  SALES_MANAGER: {
+    id: 'usr-004',
     name: 'Priya Mukherjee',
-    email: 'rsm@alleviare.com',
-    role: 'RSM',
-    designation: 'Regional Sales Manager',
+    email: 'salesmanager@alleviare.com',
+    role: 'SALES_MANAGER',
+    designation: 'Regional Sales Manager (North Zone)',
     territory: 'North Zone India',
     allowedPlatforms: ['web', 'app']
   },
-  ASM: {
-    id: 'usr-003',
+  SALES_SUPERVISOR: {
+    id: 'usr-005',
     name: 'Suresh Raina',
-    email: 'asm@alleviare.com',
-    role: 'ASM',
-    designation: 'Area Sales Manager',
+    email: 'salessupervisor@alleviare.com',
+    role: 'SALES_SUPERVISOR',
+    designation: 'Area Sales Supervisor (Delhi NCR)',
     territory: 'Delhi NCR Region',
     allowedPlatforms: ['web', 'app']
   },
+  ACCOUNTANT: {
+    id: 'usr-006',
+    name: 'Rameshwar Gupta',
+    email: 'accountant@alleviare.com',
+    role: 'ACCOUNTANT',
+    designation: 'Chief Financial Accountant & Claims Officer',
+    territory: 'Central Finance Division',
+    allowedPlatforms: ['web', 'app']
+  },
   MR: {
-    id: 'usr-004',
+    id: 'usr-007',
     name: 'Amit Verma',
     email: 'mr@alleviare.com',
     role: 'MR',
-    designation: 'Medical Representative',
+    designation: 'Medical Representative (Field Officer)',
     territory: 'South Delhi & Noida',
-    allowedPlatforms: ['web', 'app']
+    allowedPlatforms: ['app']
   }
 };
 
@@ -57,9 +84,16 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
 
   const switchRole = async (newRole) => {
+    const target = DEFAULT_USERS[newRole] || DEFAULT_USERS.SUPER_ADMIN;
+    
+    // Check if target persona is restricted from Web portal
+    if (target.allowedPlatforms && !target.allowedPlatforms.includes('web')) {
+      alert(`⚠️ Access Restricted: ${target.name} (${target.role}) is restricted to the Mobile App ONLY.\n\nMedical Representatives must access via the field mobile application.`);
+      return;
+    }
+
     try {
-      const target = DEFAULT_USERS[newRole] || DEFAULT_USERS.SUPER_ADMIN;
-      const res = await loginUser(target.email, newRole);
+      const res = await loginUser(target.email, newRole, 'web');
       if (res && res.user) {
         setCurrentUser(res.user);
         setRole(res.user.role);
@@ -70,13 +104,14 @@ export function AuthProvider({ children }) {
         setRole(newRole);
       }
     } catch (e) {
-      setCurrentUser(DEFAULT_USERS[newRole] || DEFAULT_USERS.SUPER_ADMIN);
+      console.warn('Backend login fallback to local state:', e.message);
+      setCurrentUser(target);
       setRole(newRole);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, role, switchRole, token }}>
+    <AuthContext.Provider value={{ currentUser, role, switchRole, token, defaultUsers: DEFAULT_USERS }}>
       {children}
     </AuthContext.Provider>
   );
