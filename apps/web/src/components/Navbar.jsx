@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Search, Activity, User, Building2 } from 'lucide-react';
+import { Bell, Search, Activity, User, Building2, Shield } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar({ title }) {
@@ -8,7 +8,8 @@ export default function Navbar({ title }) {
   const getRoleBadgeClass = () => {
     switch (role) {
       case 'ADMIN': return 'badge-approved';
-      case 'MANAGER': return 'badge-pending';
+      case 'RSM': return 'badge-pending';
+      case 'ASM': return 'badge-invoiced';
       default: return 'badge-submitted';
     }
   };
@@ -20,32 +21,33 @@ export default function Navbar({ title }) {
       </div>
 
       <div className="top-actions">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '0.85rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '0.82rem' }}>
           <Building2 size={16} />
-          <span>Territory: <strong>{currentUser.territory}</strong></span>
+          <span>HQ: <strong>{currentUser.territory}</strong></span>
         </div>
 
         <span className={`status-badge ${getRoleBadgeClass()}`}>
-          Role: {role}
+          <Shield size={13} /> {role}
         </span>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingLeft: '12px', borderLeft: '1px solid #e2e8f0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingLeft: '14px', borderLeft: '1px solid #e2e8f0' }}>
           <div style={{
-            width: '36px',
-            height: '36px',
+            width: '38px',
+            height: '38px',
             borderRadius: '50%',
-            background: '#e0e7ff',
-            color: '#3730a3',
+            background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+            color: '#ffffff',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontWeight: '700',
-            fontSize: '0.9rem'
+            fontWeight: '800',
+            fontSize: '0.9rem',
+            boxShadow: '0 2px 6px rgba(37, 99, 235, 0.3)'
           }}>
-            {currentUser.name.charAt(0)}
+            {currentUser.avatar || currentUser.name.charAt(0)}
           </div>
           <div>
-            <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#0f172a' }}>{currentUser.name}</div>
+            <div style={{ fontSize: '0.86rem', fontWeight: '800', color: '#0f172a' }}>{currentUser.name}</div>
             <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{currentUser.designation}</div>
           </div>
         </div>

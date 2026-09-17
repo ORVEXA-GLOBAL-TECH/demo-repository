@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { loginUser } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -10,22 +10,30 @@ const DEFAULT_USERS = {
     email: 'admin@alleviare.com',
     role: 'ADMIN',
     designation: 'National Sales Director',
-    territory: 'Headquarters'
+    territory: 'National HQ (All Zones)'
   },
-  MANAGER: {
+  RSM: {
     id: 'usr-002',
     name: 'Priya Mukherjee',
-    email: 'manager@alleviare.com',
-    role: 'MANAGER',
-    designation: 'Regional Sales Manager (North)',
-    territory: 'Delhi NCR & North Zone'
+    email: 'rsm@alleviare.com',
+    role: 'RSM',
+    designation: 'Regional Sales Manager',
+    territory: 'North Zone India'
+  },
+  ASM: {
+    id: 'usr-003',
+    name: 'Suresh Raina',
+    email: 'asm@alleviare.com',
+    role: 'ASM',
+    designation: 'Area Sales Manager',
+    territory: 'Delhi NCR Region'
   },
   MR: {
-    id: 'usr-003',
+    id: 'usr-004',
     name: 'Amit Verma',
     email: 'mr@alleviare.com',
     role: 'MR',
-    designation: 'Medical Representative (Cardio & Diabetes)',
+    designation: 'Medical Representative',
     territory: 'South Delhi & Noida'
   }
 };

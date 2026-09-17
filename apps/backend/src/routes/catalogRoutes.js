@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { doctors, chemists, products } from '../data/mockStore.js';
+import { doctors, chemists, products, stockists } from '../data/mockStore.js';
 
 const router = Router();
 
@@ -49,10 +49,12 @@ router.get('/doctors', (req, res) => {
   res.json({ success: true, count: result.length, data: result });
 });
 
-// POST /api/catalog/doctors (Add doctor)
+// POST /api/catalog/doctors
 router.post('/doctors', (req, res) => {
   const newDoctor = {
     id: `doc-${Date.now()}`,
+    monthlyTargetVisits: 2,
+    completedVisitsThisMonth: 0,
     ...req.body
   };
   doctors.unshift(newDoctor);
@@ -74,6 +76,11 @@ router.get('/chemists', (req, res) => {
   }
 
   res.json({ success: true, count: result.length, data: result });
+});
+
+// GET /api/catalog/stockists
+router.get('/stockists', (req, res) => {
+  res.json({ success: true, count: stockists.length, data: stockists });
 });
 
 export default router;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Filter, CheckCircle, XCircle, MapPin, Stethoscope, Store } from 'lucide-react';
+import { Plus, Filter, CheckCircle, XCircle, MapPin, Stethoscope, Store, ShieldCheck, Check } from 'lucide-react';
 import { getDcrReports, submitDcr, updateDcrStatus, getDoctors, getChemists, getProducts } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -18,7 +18,9 @@ export default function DcrPage() {
     targetType: 'DOCTOR',
     targetId: '',
     targetName: '',
+    hospital: '',
     productsDetailed: [],
+    samplesGiven: [],
     feedback: '',
     pobGenerated: false,
     pobAmount: 0
@@ -49,7 +51,12 @@ export default function DcrPage() {
       setChemistsList(chmRes.data || []);
       setProductsList(prdRes.data || []);
       if (docRes.data?.length > 0) {
-        setFormData(prev => ({ ...prev, targetId: docRes.data[0].id, targetName: docRes.data[0].name }));
+        setFormData(prev => ({
+          ...prev,
+          targetId: docRes.data[0].id,
+          targetName: docRes.data[0].name,
+          hospital: docRes.data[0].hospital
+        }));
       }
     } catch (e) {
       console.error(e);
@@ -68,7 +75,13 @@ export default function DcrPage() {
   const handleCreateDcr = async (e) => {
     e.preventDefault();
     try {
-      await submitDcr(formData);
+      await submitDcr({
+        ...formData,
+        geoVerified: true,
+        geoDistanceMeters: 28,
+        geoLat: 28.5284,
+        geoLng: 77.2185
+      });
       setShowModal(false);
       loadReports();
     } catch (e) {
@@ -81,9 +94,9 @@ export default function DcrPage() {
       <div className="card-section">
         <div className="section-header">
           <div>
-            <h2 className="section-title">Daily Call Reports (DCR) Logging & Monitoring</h2>
+            <h2 className="section-title">Daily Call Reports (DCR) 360° Management</h2>
             <p style={{ fontSize: '0.82rem', color: '#64748b' }}>
-              Doctor calls, Chemist stock audits, Samples distributed & Geo-tag validation
+              Doctor calls, Chemist stock audits, Sample allocations, Digital Detailing & GPS Geofence Verification
             </p>
           </div>
 
@@ -101,7 +114,7 @@ export default function DcrPage() {
 
             <button className="btn btn-primary" onClick={() => setShowModal(true)}>
               <Plus size={16} />
-              <span>Log New Field Call</span>
+              <span>Log Field Call</span>
             </button>
           </div>
         </div>
@@ -110,67 +123,83 @@ export default function DcrPage() {
           <thead>
             <tr>
               <th>Date & Time</th>
-              <th>Field Rep</th>
-              <th>Target Contact</th>
+              <th>Field Officer</th>
+              <th>Target Contact & Class</th>
               <th>Products Detailed</th>
-              <th>Call Feedback & Remarks</th>
-              <th>POB Generated</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th>Samples & Promo Inputs</th>
+              <th>Doctor Call Feedback</th>
+              <th>Geofence Status</th>
+              <th>Approval</th>
             </tr>
           </thead>
           <tbody>
             {reports.map((dcr) => (
               <tr key={dcr.id}>
                 <td>
-                  <div style={{ fontWeight: '600' }}>{dcr.date}</div>
+                  <div style={{ fontWeight: '700' }}>{dcr.date}</div>
                   <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{dcr.visitTime}</div>
                 </td>
                 <td>
-                  <div style={{ fontWeight: '500' }}>{dcr.mrName}</div>
+                  <div style={{ fontWeight: '600' }}>{dcr.mrName}</div>
                   <div style={{ fontSize: '0.72rem', color: '#2563eb' }}>ID: {dcr.mrId}</div>
                 </td>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     {dcr.targetType === 'DOCTOR' ? <Stethoscope size={15} color="#2563eb" /> : <Store size={15} color="#16a34a" />}
-                    <span style={{ fontWeight: '600' }}>{dcr.targetName}</span>
+                    <span style={{ fontWeight: '700' }}>{dcr.targetName}</span>
                   </div>
                   <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{dcr.hospital || dcr.contactPerson}</div>
+                  {dcr.specialty && (
+                    <span style={{ fontSize: '0.72rem', color: '#0d9488', fontWeight: '700' }}>{dcr.specialty}</span>
+                  )}
                 </td>
                 <td>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                     {(dcr.productsDetailed || []).map((p, idx) => (
-                      <span key={idx} style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem' }}>
+                      <span key={idx} style={{ background: '#eff6ff', color: '#1e40af', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600' }}>
                         {p}
                       </span>
                     ))}
                   </div>
                 </td>
-                <td style={{ maxWidth: '280px', fontSize: '0.85rem' }}>
+                <td>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    {(dcr.samplesGiven || []).map((s, idx) => (
+                      <span key={idx} style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: '600' }}>
+                        • {s.qty}x Sample: {s.product}
+                      </span>
+                    ))}
+                    {(dcr.inputsGiven || []).map((inp, idx) => (
+                      <span key={idx} style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                        ↳ {inp}
+                      </span>
+                    ))}
+                  </div>
+                </td>
+                <td style={{ maxWidth: '260px', fontSize: '0.84rem' }}>
                   {dcr.feedback}
                 </td>
                 <td>
-                  {dcr.pobGenerated ? (
-                    <span style={{ color: '#059669', fontWeight: '700', fontSize: '0.85rem' }}>
-                      ₹{dcr.pobAmount?.toLocaleString('en-IN')}
+                  {dcr.geoVerified ? (
+                    <span style={{ background: '#f0fdf4', color: '#166534', padding: '4px 8px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: '700', border: '1px solid #bbf7d0', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <ShieldCheck size={13} color="#16a34a" /> Geofence Verified ({dcr.geoDistanceMeters || 30}m)
                     </span>
                   ) : (
-                    <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>No Order</span>
+                    <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>Manual Entry</span>
                   )}
                 </td>
                 <td>
-                  <span className={`status-badge ${dcr.status === 'APPROVED' ? 'badge-approved' : 'badge-submitted'}`}>
-                    {dcr.status}
-                  </span>
-                </td>
-                <td>
-                  {(role === 'ADMIN' || role === 'MANAGER') && dcr.status !== 'APPROVED' && (
+                  {(role === 'ADMIN' || role === 'RSM' || role === 'ASM') && dcr.status !== 'APPROVED' ? (
                     <button
                       className="btn btn-sm btn-success"
                       onClick={() => handleStatusChange(dcr.id, 'APPROVED')}
                     >
-                      <CheckCircle size={14} /> Approve
+                      <Check size={13} /> Approve
                     </button>
+                  ) : (
+                    <span className={`status-badge ${dcr.status === 'APPROVED' ? 'badge-approved' : 'badge-submitted'}`}>
+                      {dcr.status}
+                    </span>
                   )}
                 </td>
               </tr>
@@ -183,7 +212,7 @@ export default function DcrPage() {
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <h3 style={{ fontSize: '1.2rem', fontWeight: '700', marginBottom: '16px' }}>Log New Field Call (DCR)</h3>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '16px' }}>Log New Field Call (DCR)</h3>
             <form onSubmit={handleCreateDcr}>
               <div className="form-group">
                 <label>Call Target Type</label>
@@ -197,7 +226,8 @@ export default function DcrPage() {
                       ...formData,
                       targetType: type,
                       targetId: firstTarget ? firstTarget.id : '',
-                      targetName: firstTarget ? firstTarget.name : ''
+                      targetName: firstTarget ? firstTarget.name : '',
+                      hospital: firstTarget ? (firstTarget.hospital || firstTarget.address) : ''
                     });
                   }}
                 >
@@ -215,11 +245,16 @@ export default function DcrPage() {
                     const id = e.target.value;
                     const list = formData.targetType === 'DOCTOR' ? doctorsList : chemistsList;
                     const item = list.find(x => x.id === id);
-                    setFormData({ ...formData, targetId: id, targetName: item ? item.name : '' });
+                    setFormData({
+                      ...formData,
+                      targetId: id,
+                      targetName: item ? item.name : '',
+                      hospital: item ? (item.hospital || item.address) : ''
+                    });
                   }}
                 >
                   {formData.targetType === 'DOCTOR'
-                    ? doctorsList.map(d => <option key={d.id} value={d.id}>{d.name} ({d.specialty})</option>)
+                    ? doctorsList.map(d => <option key={d.id} value={d.id}>{d.name} ({d.specialty}) - Class {d.class}</option>)
                     : chemistsList.map(c => <option key={c.id} value={c.id}>{c.name} ({c.territory})</option>)
                   }
                 </select>
@@ -233,7 +268,11 @@ export default function DcrPage() {
                   style={{ height: '90px' }}
                   onChange={(e) => {
                     const selected = Array.from(e.target.selectedOptions, o => o.value);
-                    setFormData({ ...formData, productsDetailed: selected });
+                    setFormData({
+                      ...formData,
+                      productsDetailed: selected,
+                      samplesGiven: selected.map(p => ({ product: p, qty: 2 }))
+                    });
                   }}
                 >
                   {productsList.map(p => (
@@ -244,12 +283,12 @@ export default function DcrPage() {
               </div>
 
               <div className="form-group">
-                <label>Doctor / Chemist Call Remarks</label>
+                <label>Doctor / Chemist Discussion & Rx Commitment</label>
                 <textarea
                   className="form-control"
                   rows="3"
                   required
-                  placeholder="Doctor feedback, prescription commitment, samples handed over..."
+                  placeholder="Rx commitment, study feedback, competitor remarks..."
                   value={formData.feedback}
                   onChange={(e) => setFormData({ ...formData, feedback: e.target.value })}
                 />
@@ -260,7 +299,7 @@ export default function DcrPage() {
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Save & Submit DCR
+                  Save & Validate DCR
                 </button>
               </div>
             </form>

@@ -24,6 +24,9 @@ export async function fetchWithAuth(endpoint, options = {}) {
   }
 }
 
+// Dashboard Summary
+export const getDashboardSummary = () => fetchWithAuth('/dashboard/summary');
+
 // Catalog APIs
 export const getProducts = (params = {}) => {
   const query = new URLSearchParams(params).toString();
@@ -46,6 +49,8 @@ export const getChemists = (params = {}) => {
   const query = new URLSearchParams(params).toString();
   return fetchWithAuth(`/catalog/chemists?${query}`);
 };
+
+export const getStockists = () => fetchWithAuth('/catalog/stockists');
 
 // DCR APIs
 export const getDcrReports = (params = {}) => {
@@ -109,6 +114,18 @@ export const updateExpenseStatus = (id, status, managerRemarks = '') => {
 
 // Tour Plans
 export const getTourPlans = () => fetchWithAuth('/tour-plans');
+
+// Attendance & Leaves
+export const getAttendance = () => fetchWithAuth('/attendance');
+export const recordPunchIn = (data) => fetchWithAuth('/attendance/punch-in', { method: 'POST', body: JSON.stringify(data) });
+export const recordPunchOut = (data) => fetchWithAuth('/attendance/punch-out', { method: 'POST', body: JSON.stringify(data) });
+export const applyLeave = (leaveData) => fetchWithAuth('/attendance/leave-request', { method: 'POST', body: JSON.stringify(leaveData) });
+
+// Analytics
+export const getAnalytics = () => fetchWithAuth('/analytics');
+
+// Live GPS Tracking
+export const getLiveTracking = () => fetchWithAuth('/tracking');
 
 // Auth & Users
 export const loginUser = (email, role) => {

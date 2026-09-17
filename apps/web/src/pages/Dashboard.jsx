@@ -7,103 +7,121 @@ import {
   TrendingUp,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  MapPin,
+  Target,
+  ArrowUpRight
 } from 'lucide-react';
-import { getDcrReports, getOrders, getExpenses, getDoctors } from '../services/api';
+import { getDashboardSummary } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-export default function Dashboard() {
-  const { role } = useAuth();
-  const [stats, setStats] = useState({
-    dcrCount: 0,
-    ordersTotal: 0,
-    pendingExpenses: 0,
-    doctorsCovered: 0
-  });
-  const [recentDcrs, setRecentDcrs] = useState([]);
-  const [recentOrders, setRecentOrders] = useState([]);
+export default function Dashboard({ setActiveTab }) {
+  const { role, currentUser } = useAuth();
+  const [summary, setSummary] = useState(null);
 
   useEffect(() => {
-    loadDashboardData();
+    loadSummary();
   }, []);
 
-  const loadDashboardData = async () => {
+  const loadSummary = async () => {
     try {
-      const [dcrRes, orderRes, expRes, docRes] = await Promise.all([
-        getDcrReports(),
-        getOrders(),
-        getExpenses(),
-        getDoctors()
-      ]);
-
-      const totalOrderVal = (orderRes.data || []).reduce((acc, o) => acc + (o.netAmount || 0), 0);
-      const pendingExp = (expRes.data || []).filter(e => e.status === 'SUBMITTED').length;
-
-      setStats({
-        dcrCount: dcrRes.count || 0,
-        ordersTotal: totalOrderVal,
-        pendingExpenses: pendingExp,
-        doctorsCovered: docRes.count || 0
-      });
-
-      setRecentDcrs((dcrRes.data || []).slice(0, 5));
-      setRecentOrders((orderRes.data || []).slice(0, 4));
+      const res = await getDashboardSummary();
+      setSummary(res.data || null);
     } catch (err) {
-      console.error('Failed loading dashboard stats:', err);
+      console.error('Failed loading dashboard summary:', err);
     }
   };
 
+  if (!summary) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading Enterprise Dashboard...</div>;
+
+  const { metrics, recentVisits, recentOrders, brandPerformance, todayAttendance } = summary;
+
   return (
     <div>
+      {/* Top Banner with Officer Quick Status */}
+      <div className="card-section" style={{ background: 'linear-gradient(135deg, #1e3a8a, #0f172a)', color: '#ffffff', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#60a5fa', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.05em' }}>
+              MNC Field Sales Force Automation Suite • Real-time Operations
+            </div>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginTop: '4px' }}>
+              Welcome back, {currentUser.name}
+            </h2>
+            <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '4px' }}>
+              Role: <strong style={{ color: '#38bdf8' }}>{currentUser.designation}</strong> • Territory: <strong>{currentUser.territory}</strong>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button className="btn btn-primary" onClick={() => setActiveTab('dcr')}>
+              + Log DCR Call
+            </button>
+            <button className="btn btn-success" onClick={() => setActiveTab('orders')}>
+              + Book POB Order
+            </button>
+            <button className="btn btn-secondary" onClick={() => setActiveTab('tracking')}>
+              <MapPin size={16} /> Live GPS Tracking
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Top Stat Cards */}
       <div className="stats-grid">
         <div className="stat-card">
           <div>
-            <div className="stat-label">Total DCR Calls Today</div>
-            <div className="stat-value">{stats.dcrCount} Calls</div>
-            <div style={{ fontSize: '0.78rem', color: '#059669', marginTop: '4px', fontWeight: '600' }}>
-              ↑ 100% Target Met (North Zone)
+            <div className="stat-label">Monthly Territory Quota</div>
+            <div className="stat-value">₹{metrics.monthlyAchieved?.toLocaleString('en-IN')}</div>
+            <div className="progress-bar-container">
+              <div className="progress-bar-fill" style={{ width: `${metrics.quotaAchievementPct}%`, backgroundColor: '#2563eb' }} />
+            </div>
+            <div style={{ fontSize: '0.78rem', color: '#059669', marginTop: '6px', fontWeight: '700' }}>
+              {metrics.quotaAchievementPct}% of ₹{metrics.monthlyQuota?.toLocaleString('en-IN')} Quota
             </div>
           </div>
           <div className="stat-icon" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
-            <Clock size={24} />
+            <Target size={24} />
           </div>
         </div>
 
         <div className="stat-card">
           <div>
-            <div className="stat-label">Total POB Orders Booked</div>
-            <div className="stat-value">₹{stats.ordersTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-            <div style={{ fontSize: '0.78rem', color: '#059669', marginTop: '4px', fontWeight: '600' }}>
-              ↑ 14.8% vs last week
+            <div className="stat-label">Doctor Call Coverage (DCR)</div>
+            <div className="stat-value">{metrics.totalDoctorVisits} / {metrics.targetDoctorVisits} Calls</div>
+            <div className="progress-bar-container">
+              <div className="progress-bar-fill" style={{ width: `${metrics.doctorCoveragePct}%`, backgroundColor: '#16a34a' }} />
+            </div>
+            <div style={{ fontSize: '0.78rem', color: '#059669', marginTop: '6px', fontWeight: '700' }}>
+              {metrics.doctorCoveragePct}% Target Coverage
             </div>
           </div>
           <div className="stat-icon" style={{ backgroundColor: '#f0fdf4', color: '#16a34a' }}>
-            <ShoppingBag size={24} />
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div>
-            <div className="stat-label">Doctor Master Coverage</div>
-            <div className="stat-value">{stats.doctorsCovered} Specialists</div>
-            <div style={{ fontSize: '0.78rem', color: '#6366f1', marginTop: '4px', fontWeight: '600' }}>
-              Saket, Okhla & Noida
-            </div>
-          </div>
-          <div className="stat-icon" style={{ backgroundColor: '#faf5ff', color: '#9333ea' }}>
             <Stethoscope size={24} />
           </div>
         </div>
 
         <div className="stat-card">
           <div>
-            <div className="stat-label">Pending Approvals</div>
-            <div className="stat-value" style={{ color: stats.pendingExpenses > 0 ? '#e11d48' : '#0f172a' }}>
-              {stats.pendingExpenses} Claims
+            <div className="stat-label">Total Realized POB Sales</div>
+            <div className="stat-value">₹{metrics.totalRevenue?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+            <div style={{ fontSize: '0.78rem', color: '#7c3aed', marginTop: '6px', fontWeight: '700' }}>
+              Direct chemist sales generation
             </div>
-            <div style={{ fontSize: '0.78rem', color: '#d97706', marginTop: '4px', fontWeight: '600' }}>
-              Requires Manager Sign-off
+          </div>
+          <div className="stat-icon" style={{ backgroundColor: '#faf5ff', color: '#7c3aed' }}>
+            <ShoppingBag size={24} />
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div>
+            <div className="stat-label">Pending Approval Queue</div>
+            <div className="stat-value" style={{ color: metrics.pendingApprovalsCount > 0 ? '#e11d48' : '#0f172a' }}>
+              {metrics.pendingApprovalsCount} Items
+            </div>
+            <div style={{ fontSize: '0.78rem', color: '#d97706', marginTop: '6px', fontWeight: '700' }}>
+              Requires RSM / ASM Sign-Off
             </div>
           </div>
           <div className="stat-icon" style={{ backgroundColor: '#fff7ed', color: '#ea580c' }}>
@@ -112,51 +130,60 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Two Column Section */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '24px' }}>
+      {/* Two Column: Live DCR Visits & Recent POB Orders */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '24px' }}>
         {/* Recent DCR Visits */}
         <div className="card-section">
           <div className="section-header">
             <div>
-              <h2 className="section-title">Live Field Visits & Calls (DCR)</h2>
-              <p style={{ fontSize: '0.8rem', color: '#64748b' }}>Real-time MR call log & detailing updates</p>
+              <h2 className="section-title">Live Field Calls & Geofence Status (DCR)</h2>
+              <p style={{ fontSize: '0.8rem', color: '#64748b' }}>Real-time MR detailing, sample distribution & GPS validation</p>
             </div>
-            <span className="status-badge badge-approved">Live Sync</span>
+            <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('dcr')}>
+              View All DCRs <ArrowUpRight size={14} />
+            </button>
           </div>
 
           <table className="custom-table">
             <thead>
               <tr>
-                <th>Target / Doctor</th>
+                <th>Target Contact</th>
                 <th>Type</th>
-                <th>Time</th>
-                <th>Samples / Detailing</th>
+                <th>Time & Geofence</th>
+                <th>Products Detailed</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {recentDcrs.map((dcr) => (
+              {recentVisits.map((dcr) => (
                 <tr key={dcr.id}>
                   <td>
-                    <div style={{ fontWeight: '600' }}>{dcr.targetName}</div>
+                    <div style={{ fontWeight: '700' }}>{dcr.targetName}</div>
                     <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{dcr.hospital || dcr.contactPerson}</div>
                   </td>
                   <td>
                     <span style={{
                       padding: '3px 8px',
                       borderRadius: '4px',
-                      fontSize: '0.75rem',
-                      fontWeight: '700',
+                      fontSize: '0.72rem',
+                      fontWeight: '800',
                       backgroundColor: dcr.targetType === 'DOCTOR' ? '#eff6ff' : '#f0fdf4',
                       color: dcr.targetType === 'DOCTOR' ? '#2563eb' : '#16a34a'
                     }}>
                       {dcr.targetType}
                     </span>
                   </td>
-                  <td>{dcr.visitTime}</td>
+                  <td>
+                    <div style={{ fontWeight: '600' }}>{dcr.visitTime}</div>
+                    {dcr.geoVerified && (
+                      <span style={{ fontSize: '0.7rem', color: '#059669', fontWeight: '700' }}>
+                        ✓ Geofence Validated ({dcr.geoDistanceMeters}m)
+                      </span>
+                    )}
+                  </td>
                   <td>
                     <div style={{ fontSize: '0.8rem' }}>
-                      {dcr.productsDetailed?.join(', ') || 'N/A'}
+                      {dcr.productsDetailed?.join(', ') || 'General Call'}
                     </div>
                   </td>
                   <td>
@@ -174,17 +201,20 @@ export default function Dashboard() {
         <div className="card-section">
           <div className="section-header">
             <div>
-              <h2 className="section-title">Latest Personal Order Bookings (POB)</h2>
-              <p style={{ fontSize: '0.8rem', color: '#64748b' }}>Direct chemist order flow & stockist distribution</p>
+              <h2 className="section-title">Latest Chemist Order Bookings (POB)</h2>
+              <p style={{ fontSize: '0.8rem', color: '#64748b' }}>Secondary sales flow routed to assigned wholesale stockists</p>
             </div>
+            <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('orders')}>
+              View All Orders <ArrowUpRight size={14} />
+            </button>
           </div>
 
           <table className="custom-table">
             <thead>
               <tr>
                 <th>Order #</th>
-                <th>Chemist</th>
-                <th>Net Amount</th>
+                <th>Chemist & Stockist</th>
+                <th>Net Payable</th>
                 <th>Payment Terms</th>
                 <th>Status</th>
               </tr>
@@ -192,15 +222,17 @@ export default function Dashboard() {
             <tbody>
               {recentOrders.map((ord) => (
                 <tr key={ord.id}>
-                  <td style={{ fontWeight: '600', color: '#2563eb' }}>{ord.orderNumber}</td>
+                  <td style={{ fontWeight: '700', color: '#2563eb' }}>{ord.orderNumber}</td>
                   <td>
-                    <div style={{ fontWeight: '500' }}>{ord.chemistName}</div>
+                    <div style={{ fontWeight: '600' }}>{ord.chemistName}</div>
                     <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Stockist: {ord.stockistName}</div>
                   </td>
-                  <td style={{ fontWeight: '700' }}>₹{ord.netAmount?.toLocaleString('en-IN')}</td>
+                  <td style={{ fontWeight: '800' }}>₹{ord.netAmount?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
                   <td style={{ fontSize: '0.8rem' }}>{ord.paymentTerms}</td>
                   <td>
-                    <span className={`status-badge ${ord.status === 'APPROVED' ? 'badge-approved' : 'badge-pending'}`}>
+                    <span className={`status-badge ${
+                      ord.status === 'APPROVED' ? 'badge-approved' : ord.status === 'INVOICED' ? 'badge-invoiced' : 'badge-pending'
+                    }`}>
                       {ord.status}
                     </span>
                   </td>

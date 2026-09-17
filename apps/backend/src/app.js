@@ -11,6 +11,10 @@ import orderRoutes from './routes/orderRoutes.js';
 import expenseRoutes from './routes/expenseRoutes.js';
 import tourRoutes from './routes/tourRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import dashboardRoutes from './routes/dashboardRoutes.js';
+import attendanceRoutes from './routes/attendanceRoutes.js';
+import analyticsRoutes from './routes/analyticsRoutes.js';
+import trackingRoutes from './routes/trackingRoutes.js';
 
 const app = express();
 
@@ -24,25 +28,30 @@ app.use(morgan('dev'));
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'UP',
-    service: 'Alleviare SFA API Engine (Node.js + Express)',
+    service: 'Alleviare Pharma SFA Enterprise Core Engine (Node.js + Express)',
+    version: '2.0.0-enterprise',
     timestamp: new Date().toISOString()
   });
 });
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/catalog', catalogRoutes);
 app.use('/api/dcr', dcrRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/tour-plans', tourRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/tracking', trackingRoutes);
 app.use('/api/users', userRoutes);
 
 // 404 handler
 app.use((req, res, next) => {
   res.status(404).json({
     success: false,
-    message: `API Route not found: ${req.method} ${req.originalUrl}`
+    message: `Enterprise API Route not found: ${req.method} ${req.originalUrl}`
   });
 });
 
