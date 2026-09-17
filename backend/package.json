@@ -4,6 +4,9 @@
   "description": "Alleviare Pharma SFA Backend API built with Node.js and Express",
   "main": "server.js",
   "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"
