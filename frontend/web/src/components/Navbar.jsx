@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Building2, Shield } from 'lucide-react';
+import { Bell, Building2, Shield, Monitor, Smartphone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar({ title, unreadCount = 0, onToggleNotifications }) {
@@ -7,12 +7,15 @@ export default function Navbar({ title, unreadCount = 0, onToggleNotifications }
 
   const getRoleBadgeClass = () => {
     switch (role) {
+      case 'SUPER_ADMIN': return 'badge-approved';
       case 'ADMIN': return 'badge-approved';
       case 'RSM': return 'badge-pending';
       case 'ASM': return 'badge-invoiced';
       default: return 'badge-submitted';
     }
   };
+
+  const isWebOnly = role === 'SUPER_ADMIN' || role === 'ADMIN';
 
   return (
     <header className="top-navbar">
@@ -25,6 +28,21 @@ export default function Navbar({ title, unreadCount = 0, onToggleNotifications }
           <Building2 size={16} />
           <span>HQ: <strong>{currentUser.territory}</strong></span>
         </div>
+
+        {/* Platform Entitlement Chip */}
+        <span style={{
+          padding: '4px 10px',
+          borderRadius: '20px',
+          fontSize: '0.74rem',
+          fontWeight: '700',
+          backgroundColor: isWebOnly ? '#fef3c7' : '#dcfce7',
+          color: isWebOnly ? '#92400e' : '#166534',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          {isWebOnly ? <><Monitor size={12} /> Web Only</> : <><Monitor size={12} /> + <Smartphone size={12} /> Web & App</>}
+        </span>
 
         <span className={`status-badge ${getRoleBadgeClass()}`}>
           <Shield size={13} /> {role}

@@ -2,6 +2,17 @@
 
 export const users = [
   {
+    id: 'usr-000',
+    name: 'Executive Board / Super Admin',
+    email: 'superadmin@alleviare.com',
+    role: 'SUPER_ADMIN',
+    designation: 'Global / Enterprise Super Administrator',
+    territory: 'Enterprise Global HQ',
+    phone: '+91 9876543200',
+    avatar: 'SA',
+    allowedPlatforms: ['web'] // Web Only
+  },
+  {
     id: 'usr-001',
     name: 'Dr. Rajesh Sharma',
     email: 'admin@alleviare.com',
@@ -9,7 +20,8 @@ export const users = [
     designation: 'National Sales Director',
     territory: 'All Zones (National HQ)',
     phone: '+91 9876543210',
-    avatar: 'RS'
+    avatar: 'RS',
+    allowedPlatforms: ['web'] // Web Only
   },
   {
     id: 'usr-002',
@@ -19,7 +31,8 @@ export const users = [
     designation: 'Regional Sales Manager (North Zone)',
     territory: 'Delhi NCR, Punjab & UP West',
     phone: '+91 9876543211',
-    avatar: 'PM'
+    avatar: 'PM',
+    allowedPlatforms: ['web', 'app'] // Both Web and Mobile App
   },
   {
     id: 'usr-003',
@@ -29,7 +42,8 @@ export const users = [
     designation: 'Area Sales Manager (Delhi NCR)',
     territory: 'South Delhi & Noida',
     phone: '+91 9876543212',
-    avatar: 'SR'
+    avatar: 'SR',
+    allowedPlatforms: ['web', 'app'] // Both Web and Mobile App
   },
   {
     id: 'usr-004',
@@ -39,7 +53,8 @@ export const users = [
     designation: 'Senior Medical Representative (Cardio & Diabetes)',
     territory: 'South Delhi (Saket & Hauz Khas)',
     phone: '+91 9876543213',
-    avatar: 'AV'
+    avatar: 'AV',
+    allowedPlatforms: ['web', 'app'] // Both Web and Mobile App
   }
 ];
 

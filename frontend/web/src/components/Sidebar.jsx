@@ -10,7 +10,9 @@ import {
   Clock,
   TrendingUp,
   Sparkles,
-  FileCode2
+  FileCode2,
+  Monitor,
+  Smartphone
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -32,6 +34,8 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     { id: 'analytics', label: 'Quota & Sales Analytics', icon: TrendingUp },
     { id: 'ai-tools', label: 'AI Studio & Route TSP', icon: Sparkles }
   ];
+
+  const isWebOnly = role === 'SUPER_ADMIN' || role === 'ADMIN';
 
   return (
     <aside className="sidebar">
@@ -97,13 +101,23 @@ export default function Sidebar({ activeTab, setActiveTab }) {
             value={role}
             onChange={(e) => switchRole(e.target.value)}
           >
-            <option value="ADMIN">👑 Super Admin / Director</option>
-            <option value="RSM">👔 Regional Sales Manager (RSM)</option>
-            <option value="ASM">💼 Area Sales Manager (ASM)</option>
-            <option value="MR">🚗 Medical Representative (MR)</option>
+            <option value="SUPER_ADMIN">👑 Super Admin (Web Only)</option>
+            <option value="ADMIN">🛡️ Admin / Director (Web Only)</option>
+            <option value="RSM">👔 RSM Manager (Web + App)</option>
+            <option value="ASM">💼 ASM Area Manager (Web + App)</option>
+            <option value="MR">🚗 Field Rep / MR (Web + App)</option>
           </select>
-          <div style={{ marginTop: '8px', fontSize: '0.74rem', color: '#94a3b8' }}>
-            Active: <strong style={{ color: '#38bdf8' }}>{currentUser.name}</strong>
+          <div style={{ marginTop: '8px', fontSize: '0.72rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span>Access:</span>
+            {isWebOnly ? (
+              <strong style={{ color: '#fbbf24', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                <Monitor size={12} /> Web Portal Only
+              </strong>
+            ) : (
+              <strong style={{ color: '#4ade80', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                <Monitor size={12} /><Smartphone size={12} /> Web + Mobile App
+              </strong>
+            )}
           </div>
         </div>
       </div>
