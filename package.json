@@ -1,0 +1,27 @@
+{
+  "name": "alleviare-sfa-suite",
+  "version": "1.0.0",
+  "description": "Alleviare Pharma Field Sales Force Automation (SFA) Monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev:backend",
+    "dev:backend": "npm --prefix apps/backend start",
+    "dev:web": "npm --prefix apps/web dev",
+    "dev:mobile": "npm --prefix apps/mobile start",
+    "build:web": "npm --prefix apps/web build"
+  },
+  "keywords": [
+    "pharma-sfa",
+    "dcr",
+    "react",
+    "vite",
+    "nodejs",
+    "express",
+    "react-native"
+  ],
+  "author": "Alleviare Team",
+  "license": "ISC"
+}

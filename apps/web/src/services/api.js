@@ -1,0 +1,124 @@
+const BASE_URL = '/api';
+
+export async function fetchWithAuth(endpoint, options = {}) {
+  const token = localStorage.getItem('alleviare_token');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...options.headers
+  };
+
+  try {
+    const res = await fetch(`${BASE_URL}${endpoint}`, {
+      ...options,
+      headers
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Request failed with status ${res.status}`);
+    }
+    return await res.json();
+  } catch (error) {
+    console.error(`API Error on ${endpoint}:`, error);
+    throw error;
+  }
+}
+
+// Catalog APIs
+export const getProducts = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return fetchWithAuth(`/catalog/products?${query}`);
+};
+
+export const getDoctors = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return fetchWithAuth(`/catalog/doctors?${query}`);
+};
+
+export const addDoctor = (docData) => {
+  return fetchWithAuth('/catalog/doctors', {
+    method: 'POST',
+    body: JSON.stringify(docData)
+  });
+};
+
+export const getChemists = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return fetchWithAuth(`/catalog/chemists?${query}`);
+};
+
+// DCR APIs
+export const getDcrReports = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return fetchWithAuth(`/dcr?${query}`);
+};
+
+export const submitDcr = (dcrData) => {
+  return fetchWithAuth('/dcr', {
+    method: 'POST',
+    body: JSON.stringify(dcrData)
+  });
+};
+
+export const updateDcrStatus = (id, status) => {
+  return fetchWithAuth(`/dcr/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status })
+  });
+};
+
+// Orders APIs
+export const getOrders = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return fetchWithAuth(`/orders?${query}`);
+};
+
+export const createOrder = (orderData) => {
+  return fetchWithAuth('/orders', {
+    method: 'POST',
+    body: JSON.stringify(orderData)
+  });
+};
+
+export const updateOrderStatus = (id, status) => {
+  return fetchWithAuth(`/orders/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status })
+  });
+};
+
+// Expenses APIs
+export const getExpenses = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return fetchWithAuth(`/expenses?${query}`);
+};
+
+export const submitExpense = (expenseData) => {
+  return fetchWithAuth('/expenses', {
+    method: 'POST',
+    body: JSON.stringify(expenseData)
+  });
+};
+
+export const updateExpenseStatus = (id, status, managerRemarks = '') => {
+  return fetchWithAuth(`/expenses/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, managerRemarks })
+  });
+};
+
+// Tour Plans
+export const getTourPlans = () => fetchWithAuth('/tour-plans');
+
+// Auth & Users
+export const loginUser = (email, role) => {
+  return fetchWithAuth('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, role })
+  });
+};
+
+export const getUsers = (role) => {
+  const query = role ? `?role=${role}` : '';
+  return fetchWithAuth(`/users${query}`);
+};
