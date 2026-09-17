@@ -8,7 +8,9 @@ import {
   CalendarCheck,
   Radio,
   Clock,
-  TrendingUp
+  TrendingUp,
+  Sparkles,
+  FileCode2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -27,7 +29,8 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     { id: 'tour-plan', label: 'Tour Plans & Beats (MTP)', icon: CalendarCheck },
     { id: 'tracking', label: 'Live GPS & Geofence', icon: Radio },
     { id: 'attendance', label: 'Attendance & Leaves', icon: Clock },
-    { id: 'analytics', label: 'Quota & Sales Analytics', icon: TrendingUp }
+    { id: 'analytics', label: 'Quota & Sales Analytics', icon: TrendingUp },
+    { id: 'ai-tools', label: 'AI Studio & Route TSP', icon: Sparkles }
   ];
 
   return (
@@ -72,6 +75,18 @@ export default function Sidebar({ activeTab, setActiveTab }) {
             </button>
           );
         })}
+
+        <div className="nav-section-label" style={{ marginTop: '6px' }}>API & Developer</div>
+        <a
+          href="http://localhost:5000/api/docs"
+          target="_blank"
+          rel="noreferrer"
+          className="nav-link"
+          style={{ color: '#38bdf8' }}
+        >
+          <FileCode2 size={18} />
+          <span>Swagger API Docs ↗</span>
+        </a>
       </nav>
 
       <div className="sidebar-footer">

@@ -1,6 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerDocument } from './swagger.js';
 import { config } from './config/index.js';
 
 // Route imports
@@ -15,21 +19,40 @@ import dashboardRoutes from './routes/dashboardRoutes.js';
 import attendanceRoutes from './routes/attendanceRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import trackingRoutes from './routes/trackingRoutes.js';
+import aiRoutes from './routes/aiRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 
 const app = express();
 
+// Security headers with Helmet
+app.use(helmet({
+  contentSecurityPolicy: false // Allows Swagger UI inline scripts
+}));
+
+// Basic Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  message: { success: false, message: 'Too many requests from this IP, please try again later.' }
+});
+app.use('/api', limiter);
+
 // Middlewares
 app.use(cors({ origin: config.corsOrigin }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
+
+// OpenAPI / Swagger Documentation endpoint
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'UP',
     service: 'Alleviare Pharma SFA Enterprise Core Engine (Node.js + Express)',
-    version: '2.0.0-enterprise',
+    version: '2.5.0-enterprise',
+    swaggerDocs: '/api/docs',
     timestamp: new Date().toISOString()
   });
 });
@@ -45,6 +68,8 @@ app.use('/api/tour-plans', tourRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/tracking', trackingRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
 
 // 404 handler

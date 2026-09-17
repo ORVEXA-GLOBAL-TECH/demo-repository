@@ -1,8 +1,8 @@
 import React from 'react';
-import { Bell, Search, Activity, User, Building2, Shield } from 'lucide-react';
+import { Bell, Building2, Shield } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-export default function Navbar({ title }) {
+export default function Navbar({ title, unreadCount = 0, onToggleNotifications }) {
   const { currentUser, role } = useAuth();
 
   const getRoleBadgeClass = () => {
@@ -29,6 +29,47 @@ export default function Navbar({ title }) {
         <span className={`status-badge ${getRoleBadgeClass()}`}>
           <Shield size={13} /> {role}
         </span>
+
+        {/* Notification Bell Button */}
+        <button
+          onClick={onToggleNotifications}
+          style={{
+            position: 'relative',
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '50%',
+            width: '38px',
+            height: '38px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer'
+          }}
+          title="Notifications & Alerts"
+        >
+          <Bell size={18} color="#475569" />
+          {unreadCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: '-2px',
+              right: '-2px',
+              backgroundColor: '#ef4444',
+              color: '#ffffff',
+              fontSize: '0.68rem',
+              fontWeight: '800',
+              borderRadius: '9999px',
+              minWidth: '18px',
+              height: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 4px',
+              border: '2px solid #ffffff'
+            }}>
+              {unreadCount}
+            </span>
+          )}
+        </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingLeft: '14px', borderLeft: '1px solid #e2e8f0' }}>
           <div style={{

@@ -127,6 +127,15 @@ export const getAnalytics = () => fetchWithAuth('/analytics');
 // Live GPS Tracking
 export const getLiveTracking = () => fetchWithAuth('/tracking');
 
+// AI Microservice APIs
+export const optimizeRoute = (doctorIds) => fetchWithAuth('/ai/optimize-route', { method: 'POST', body: JSON.stringify({ doctorIds }) });
+export const scanPrescriptionOcr = (sampleType) => fetchWithAuth('/ai/ocr-prescription', { method: 'POST', body: JSON.stringify({ sampleType }) });
+
+// Notifications
+export const getNotifications = () => fetchWithAuth('/notifications');
+export const markNotificationRead = (id) => fetchWithAuth(`/notifications/${id}/read`, { method: 'PATCH' });
+export const markAllNotificationsRead = () => fetchWithAuth('/notifications/mark-all-read', { method: 'POST' });
+
 // Auth & Users
 export const loginUser = (email, role) => {
   return fetchWithAuth('/auth/login', {
