@@ -41,10 +41,7 @@ body { font-family: var(--font-sans); background-color: var(--bg-main); color: v
 .nav-link { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--radius-sm); color: #cbd5e1; text-decoration: none; font-size: 0.85rem; font-weight: 500; cursor: pointer; border: none; background: transparent; width: 100%; text-align: left; transition: all 0.15s; }
 .nav-link:hover { background: var(--bg-sidebar-hover); color: #fff; transform: translateX(3px); }
 .nav-link.active { background: linear-gradient(90deg, #2563eb, #1d4ed8); color: #fff; font-weight: 700; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35); }
-.sidebar-footer { padding: 14px; border-top: 1px solid rgba(255, 255, 255, 0.08); background: rgba(0, 0, 0, 0.3); }
-.role-switcher-card { padding: 10px; background: rgba(255, 255, 255, 0.04); border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.08); }
-.role-label { font-size: 0.68rem; text-transform: uppercase; color: #94a3b8; margin-bottom: 5px; font-weight: 800; }
-.role-select { width: 100%; padding: 7px 9px; background: #0f172a; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; color: #f8fafc; font-size: 0.8rem; outline: none; cursor: pointer; }
+
 
 /* Top Navbar */
 .top-navbar { height: 65px; background: #fff; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; z-index: 10; }

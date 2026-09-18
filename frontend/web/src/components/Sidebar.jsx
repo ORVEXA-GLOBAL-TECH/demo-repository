@@ -11,8 +11,6 @@ import {
   TrendingUp,
   Sparkles,
   FileCode2,
-  Monitor,
-  Smartphone,
   Building2,
   Globe2,
   UserCog,
@@ -26,7 +24,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 
 export default function Sidebar({ activeTab, setActiveTab }) {
-  const { currentUser, role, switchRole } = useAuth();
+  const { currentUser, role } = useAuth();
 
   // Super Admin SaaS Platform Governance Navigation
   const saasNav = [
@@ -58,7 +56,6 @@ export default function Sidebar({ activeTab, setActiveTab }) {
   ];
 
   const isSuperAdmin = role === 'SUPER_ADMIN';
-  const isWebOnly = role === 'SUPER_ADMIN' || role === 'ADMIN';
 
   return (
     <aside className="sidebar">
@@ -159,50 +156,6 @@ export default function Sidebar({ activeTab, setActiveTab }) {
           <span>Swagger API Docs ↗</span>
         </a>
       </nav>
-
-      <div className="sidebar-footer">
-        <div className="role-switcher-card">
-          <div className="role-label">Switch Persona / Role</div>
-          <select
-            className="role-select"
-            value={role}
-            onChange={(e) => {
-              const nextRole = e.target.value;
-              switchRole(nextRole);
-              if (nextRole === 'SUPER_ADMIN') {
-                setActiveTab('saas-overview');
-              } else {
-                setActiveTab('dashboard');
-              }
-            }}
-          >
-            <option value="SUPER_ADMIN">👑 Super Admin (SaaS Platform Owner)</option>
-            <option value="ADMIN">🛡️ Company Admin (Tenant Operator)</option>
-            <option value="DIRECTOR">🏛️ General Manager / Director</option>
-            <option value="MANAGER">💼 Operations Manager</option>
-            <option value="SALES_MANAGER">👔 Sales Manager</option>
-            <option value="SALES_SUPERVISOR">📋 Sales Supervisor</option>
-            <option value="ACCOUNTANT">💰 Accountant / Finance</option>
-            <option value="MR">🚗 MR (Mobile App Only)</option>
-          </select>
-          <div style={{ marginTop: '8px', fontSize: '0.72rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span>Access:</span>
-            {isWebOnly ? (
-              <strong style={{ color: '#fbbf24', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                <Monitor size={12} /> Web Portal Only
-              </strong>
-            ) : role === 'MR' ? (
-              <strong style={{ color: '#f87171', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                <Smartphone size={12} /> Mobile App Only
-              </strong>
-            ) : (
-              <strong style={{ color: '#4ade80', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                <Monitor size={12} /><Smartphone size={12} /> Web + Mobile App
-              </strong>
-            )}
-          </div>
-        </div>
-      </div>
     </aside>
   );
 }
