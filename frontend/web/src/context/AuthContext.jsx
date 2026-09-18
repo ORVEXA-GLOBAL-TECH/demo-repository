@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { loginUser } from '../services/api';
 
 const AuthContext = createContext(null);
 
-const DEFAULT_USERS = {
+export const DEFAULT_USERS = {
   SUPER_ADMIN: {
     id: 'usr-000',
     name: 'Executive Board / Super Admin',
@@ -79,14 +79,114 @@ const DEFAULT_USERS = {
 };
 
 export function AuthProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState(DEFAULT_USERS.SUPER_ADMIN);
-  const [role, setRole] = useState('SUPER_ADMIN');
-  const [token, setToken] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('alleviare_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [role, setRole] = useState(() => {
+    try {
+      const saved = localStorage.getItem('alleviare_user');
+      return saved ? JSON.parse(saved).role : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [token, setToken] = useState(() => {
+    return localStorage.getItem('alleviare_token') || null;
+  });
+
+  // Portal switcher: 'staff' | 'superadmin'
+  const [activePortal, setActivePortal] = useState(() => {
+    if (typeof window !== 'undefined' && window.location.hash.toLowerCase().includes('superadmin')) {
+      return 'superadmin';
+    }
+    return 'staff';
+  });
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (window.location.hash.toLowerCase().includes('superadmin')) {
+        setActivePortal('superadmin');
+      } else if (window.location.hash.toLowerCase().includes('staff') || window.location.hash.toLowerCase().includes('login')) {
+        setActivePortal('staff');
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const switchLoginPortal = (portal) => {
+    setActivePortal(portal);
+    if (typeof window !== 'undefined') {
+      window.location.hash = portal === 'superadmin' ? '#superadmin' : '#login';
+    }
+  };
+
+  const login = async ({ email, role: requestedRole, portalType = 'staff' }) => {
+    // Determine target persona
+    let target = null;
+    if (email) {
+      target = Object.values(DEFAULT_USERS).find(u => u.email.toLowerCase() === email.toLowerCase());
+    }
+    if (!target && requestedRole) {
+      target = DEFAULT_USERS[requestedRole];
+    }
+    if (!target) {
+      target = portalType === 'superadmin' ? DEFAULT_USERS.SUPER_ADMIN : DEFAULT_USERS.ADMIN;
+    }
+
+    // Strict Super Admin Portal Validation
+    if (portalType === 'superadmin') {
+      if (target.role !== 'SUPER_ADMIN') {
+        throw new Error('Access Denied: This terminal is strictly reserved for Super Administrators. Please log in through the Corporate Staff Portal.');
+      }
+    }
+
+    // Platform restriction check
+    if (target.allowedPlatforms && !target.allowedPlatforms.includes('web')) {
+      throw new Error(`⚠️ Access Restricted: ${target.name} (${target.role}) is restricted to the Mobile App ONLY.\n\nMedical Representatives must access via the field mobile application.`);
+    }
+
+    try {
+      const res = await loginUser(target.email, target.role, 'web');
+      if (res && res.user) {
+        setCurrentUser(res.user);
+        setRole(res.user.role);
+        setToken(res.token || 'demo-token');
+        localStorage.setItem('alleviare_user', JSON.stringify(res.user));
+        localStorage.setItem('alleviare_token', res.token || 'demo-token');
+        return res.user;
+      }
+    } catch (e) {
+      console.warn('Backend login fallback to local credentials:', e.message);
+    }
+
+    // Fallback local sign-in
+    setCurrentUser(target);
+    setRole(target.role);
+    setToken('mock-jwt-token-' + Date.now());
+    localStorage.setItem('alleviare_user', JSON.stringify(target));
+    localStorage.setItem('alleviare_token', 'mock-jwt-token-' + Date.now());
+    return target;
+  };
+
+  const logout = () => {
+    setCurrentUser(null);
+    setRole(null);
+    setToken(null);
+    localStorage.removeItem('alleviare_user');
+    localStorage.removeItem('alleviare_token');
+  };
 
   const switchRole = async (newRole) => {
-    const target = DEFAULT_USERS[newRole] || DEFAULT_USERS.SUPER_ADMIN;
+    const target = DEFAULT_USERS[newRole] || DEFAULT_USERS.ADMIN;
     
-    // Check if target persona is restricted from Web portal
     if (target.allowedPlatforms && !target.allowedPlatforms.includes('web')) {
       alert(`⚠️ Access Restricted: ${target.name} (${target.role}) is restricted to the Mobile App ONLY.\n\nMedical Representatives must access via the field mobile application.`);
       return;
@@ -98,20 +198,35 @@ export function AuthProvider({ children }) {
         setCurrentUser(res.user);
         setRole(res.user.role);
         setToken(res.token);
+        localStorage.setItem('alleviare_user', JSON.stringify(res.user));
         localStorage.setItem('alleviare_token', res.token);
       } else {
         setCurrentUser(target);
         setRole(newRole);
+        localStorage.setItem('alleviare_user', JSON.stringify(target));
       }
     } catch (e) {
       console.warn('Backend login fallback to local state:', e.message);
       setCurrentUser(target);
       setRole(newRole);
+      localStorage.setItem('alleviare_user', JSON.stringify(target));
     }
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, role, switchRole, token, defaultUsers: DEFAULT_USERS }}>
+    <AuthContext.Provider
+      value={{
+        currentUser,
+        role,
+        token,
+        activePortal,
+        switchLoginPortal,
+        login,
+        logout,
+        switchRole,
+        defaultUsers: DEFAULT_USERS
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

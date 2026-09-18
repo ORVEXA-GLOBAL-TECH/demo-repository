@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import NotificationDrawer from './components/NotificationDrawer';
@@ -14,16 +14,21 @@ import TrackingPage from './pages/TrackingPage';
 import AttendancePage from './pages/AttendancePage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import AiToolsPage from './pages/AiToolsPage';
+import SuperAdminLoginPage from './pages/SuperAdminLoginPage';
+import StaffLoginPage from './pages/StaffLoginPage';
 import { getNotifications, SOCKET_URL } from './services/api';
 import './styles/theme.css';
 
-export default function App() {
+function MainApp() {
+  const { currentUser, activePortal } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   useEffect(() => {
+    if (!currentUser) return;
+
     loadNotifications();
 
     // Connect to Backend Real-Time WebSockets
@@ -31,7 +36,7 @@ export default function App() {
     try {
       socket = io(SOCKET_URL, { transports: ['websocket', 'polling'], autoConnect: true });
       socket.on('connect', () => {
-        socket.emit('join_territory', 'North Zone India');
+        socket.emit('join_territory', currentUser.territory || 'North Zone India');
       });
 
       socket.on('new_dcr_notification', () => {
@@ -48,7 +53,7 @@ export default function App() {
     return () => {
       if (socket) socket.disconnect();
     };
-  }, []);
+  }, [currentUser]);
 
   const loadNotifications = async () => {
     try {
@@ -59,6 +64,14 @@ export default function App() {
       console.error(e);
     }
   };
+
+  // If user is not authenticated, display the appropriate Login Page
+  if (!currentUser) {
+    if (activePortal === 'superadmin') {
+      return <SuperAdminLoginPage />;
+    }
+    return <StaffLoginPage />;
+  }
 
   const getPageTitle = () => {
     switch (activeTab) {
@@ -93,27 +106,33 @@ export default function App() {
   };
 
   return (
-    <AuthProvider>
-      <div className="app-container">
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-        <div className="main-wrapper">
-          <Navbar
-            title={getPageTitle()}
-            unreadCount={unreadCount}
-            onToggleNotifications={() => setIsDrawerOpen(true)}
-          />
-          <main className="content-area">
-            {renderContent()}
-          </main>
-        </div>
-
-        <NotificationDrawer
-          isOpen={isDrawerOpen}
-          onClose={() => setIsDrawerOpen(false)}
-          notifications={notifications}
-          onRefresh={loadNotifications}
+    <div className="app-container">
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <div className="main-wrapper">
+        <Navbar
+          title={getPageTitle()}
+          unreadCount={unreadCount}
+          onToggleNotifications={() => setIsDrawerOpen(true)}
         />
+        <main className="content-area">
+          {renderContent()}
+        </main>
       </div>
+
+      <NotificationDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        notifications={notifications}
+        onRefresh={loadNotifications}
+      />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <MainApp />
     </AuthProvider>
   );
 }

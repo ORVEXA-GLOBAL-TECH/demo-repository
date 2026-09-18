@@ -1,9 +1,9 @@
 import React from 'react';
-import { Bell, Building2, Shield, Monitor, Smartphone } from 'lucide-react';
+import { Bell, Building2, Shield, Monitor, Smartphone, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar({ title, unreadCount = 0, onToggleNotifications }) {
-  const { currentUser, role } = useAuth();
+  const { currentUser, role, logout } = useAuth();
 
   const getRoleBadgeClass = () => {
     switch (role) {
@@ -30,7 +30,7 @@ export default function Navbar({ title, unreadCount = 0, onToggleNotifications }
       <div className="top-actions">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '0.82rem' }}>
           <Building2 size={16} />
-          <span>HQ: <strong>{currentUser.territory}</strong></span>
+          <span>HQ: <strong>{currentUser?.territory || 'Enterprise HQ'}</strong></span>
         </div>
 
         {/* Platform Entitlement Chip */}
@@ -104,22 +104,32 @@ export default function Navbar({ title, unreadCount = 0, onToggleNotifications }
             width: '38px',
             height: '38px',
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+            background: role === 'SUPER_ADMIN' ? 'linear-gradient(135deg, #d97706, #b45309)' : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
             color: '#ffffff',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontWeight: '800',
             fontSize: '0.9rem',
-            boxShadow: '0 2px 6px rgba(37, 99, 235, 0.3)'
+            boxShadow: role === 'SUPER_ADMIN' ? '0 2px 8px rgba(217, 119, 6, 0.4)' : '0 2px 6px rgba(37, 99, 235, 0.3)'
           }}>
-            {currentUser.avatar || currentUser.name.charAt(0)}
+            {currentUser?.avatar || (currentUser?.name ? currentUser.name.charAt(0) : 'U')}
           </div>
           <div>
-            <div style={{ fontSize: '0.86rem', fontWeight: '800', color: '#0f172a' }}>{currentUser.name}</div>
-            <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{currentUser.designation}</div>
+            <div style={{ fontSize: '0.86rem', fontWeight: '800', color: '#0f172a' }}>{currentUser?.name || 'User'}</div>
+            <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{currentUser?.designation || role}</div>
           </div>
         </div>
+
+        {/* Explicit Sign Out Button */}
+        <button
+          onClick={logout}
+          className="logout-btn-nav"
+          title="Sign out of current session"
+        >
+          <LogOut size={14} />
+          <span>Sign Out</span>
+        </button>
       </div>
     </header>
   );

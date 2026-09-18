@@ -12,12 +12,13 @@ import {
   Sparkles,
   FileCode2,
   Monitor,
-  Smartphone
+  Smartphone,
+  LogOut
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Sidebar({ activeTab, setActiveTab }) {
-  const { currentUser, role, switchRole } = useAuth();
+  const { currentUser, role, switchRole, logout } = useAuth();
 
   const coreNav = [
     { id: 'dashboard', label: 'Executive Dashboard', icon: LayoutDashboard },
@@ -126,6 +127,31 @@ export default function Sidebar({ activeTab, setActiveTab }) {
               </strong>
             )}
           </div>
+          <button
+            onClick={logout}
+            style={{
+              marginTop: '12px',
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              padding: '8px 12px',
+              background: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              borderRadius: '8px',
+              color: '#fca5a5',
+              fontSize: '0.78rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = '#ffffff'; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'; e.currentTarget.style.color = '#fca5a5'; }}
+          >
+            <LogOut size={13} />
+            <span>Sign Out Session</span>
+          </button>
         </div>
       </div>
     </aside>
