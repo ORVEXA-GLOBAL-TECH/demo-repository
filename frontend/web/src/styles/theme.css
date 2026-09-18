@@ -59,8 +59,9 @@ body { font-family: var(--font-sans); background-color: var(--bg-main); color: v
 .logout-btn-nav:hover { background: #ef4444; color: #fff; }
 
 /* Reusable Cards & Grids */
-.stats-grid, .kpi-banner-grid, .metrics-grid-4, .metrics-grid-5, .metrics-grid-3, .roles-kpi-grid { display: grid; gap: 14px; margin-bottom: 20px; }
-.stats-grid, .metrics-grid-4 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.stats-grid, .kpi-banner-grid, .metrics-grid-4, .metrics-grid-5, .metrics-grid-3, .metrics-grid-6, .roles-kpi-grid { display: grid; gap: 14px; margin-bottom: 20px; }
+.stats-grid, .metrics-grid-4, .kpi-banner-grid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.metrics-grid-6 { grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); }
 .metrics-grid-5 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 .metrics-grid-3, .roles-kpi-grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .card-section, .stat-card, .metric-card, .saas-kpi-card, .role-summary-card, .country-card, .tenant-card, .plan-card, .service-health-card { background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); transition: transform 0.15s, box-shadow 0.15s; }
@@ -177,32 +178,34 @@ body { font-family: var(--font-sans); background-color: var(--bg-main); color: v
    SUPER ADMIN SAAS GOVERNANCE SUITE
    ========================================================================== */
 .superadmin-suite-container { display: flex; flex-direction: column; gap: 18px; padding-bottom: 30px; }
-.saas-header-strip { background: linear-gradient(135deg, #090d16 0%, #0f172a 60%, #1e1b4b 100%); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-lg); padding: 22px 26px; color: #fff; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
-.saas-global-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 20px; font-size: 0.7rem; font-weight: 800; color: #fbbf24; margin-bottom: 6px; }
-.saas-header-title { font-size: 1.5rem; font-weight: 800; color: #fff; }
-.saas-header-desc { font-size: 0.8rem; color: #94a3b8; max-width: 600px; margin-top: 3px; }
-.saas-quick-stats-pills { display: flex; gap: 10px; flex-wrap: wrap; }
-.header-stat-pill { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; padding: 8px 14px; display: flex; flex-direction: column; }
-.header-stat-pill .pill-label { font-size: 0.68rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
-.header-stat-pill .pill-value { font-size: 1.15rem; font-weight: 800; color: #fff; }
+.saas-header-strip { background: linear-gradient(135deg, #090d16 0%, #0f172a 60%, #1e1b4b 100%); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: var(--radius-md); padding: 16px 20px; color: #fff; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; box-shadow: 0 4px 18px rgba(0,0,0,0.25); }
+.saas-global-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 20px; font-size: 0.68rem; font-weight: 800; color: #fbbf24; margin-bottom: 4px; }
+.saas-header-title { font-size: 1.32rem; font-weight: 800; color: #fff; letter-spacing: -0.01em; }
+.saas-header-desc { font-size: 0.78rem; color: #94a3b8; max-width: 600px; margin-top: 2px; }
+.saas-quick-stats-pills { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.header-stat-pill { background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; padding: 6px 12px; display: flex; flex-direction: column; }
+.header-stat-pill .pill-label { font-size: 0.64rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
+.header-stat-pill .pill-value { font-size: 1.05rem; font-weight: 800; color: #fff; }
 
-
-.arch-reminder-card { display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 10px; margin-bottom: 16px; }
-.arch-card-title { font-size: 0.86rem; font-weight: 800; color: #92400e; }
-.arch-card-desc { font-size: 0.78rem; color: #b45309; margin-top: 2px; }
+.arch-reminder-card { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #2563eb; border-radius: 8px; margin-bottom: 16px; }
+.arch-card-title { font-size: 0.8rem; font-weight: 800; color: #0f172a; }
+.arch-card-desc { font-size: 0.74rem; color: #64748b; margin-top: 1px; }
 
 .kpi-top { display: flex; justify-content: space-between; align-items: center; }
-.kpi-label { font-size: 0.78rem; font-weight: 700; color: #64748b; }
-.kpi-number { font-size: 1.85rem; font-weight: 800; color: #0f172a; margin: 4px 0; }
-.kpi-status-breakdown { display: flex; gap: 6px; font-size: 0.68rem; font-weight: 700; margin-top: 4px; flex-wrap: wrap; }
-.kpi-status-breakdown span { padding: 1px 5px; border-radius: 4px; background: #f8fafc; border: 1px solid #e2e8f0; }
-.kpi-sub { font-size: 0.72rem; color: #64748b; }
+.kpi-label { font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.02em; }
+.kpi-number { font-size: 1.65rem; font-weight: 800; color: #0f172a; margin: 3px 0; }
+.kpi-status-breakdown { display: flex; gap: 5px; font-size: 0.68rem; font-weight: 700; margin-top: 4px; flex-wrap: wrap; }
+.kpi-status-breakdown span { padding: 2px 6px; border-radius: 4px; background: #f8fafc; border: 1px solid #e2e8f0; }
+.kpi-sub { font-size: 0.72rem; color: #64748b; margin-top: 3px; }
 
 .section-title-sm { font-size: 0.84rem; font-weight: 800; color: #334155; margin-bottom: 10px; }
 .role-card-header { display: flex; align-items: center; gap: 6px; }
 .role-title { font-size: 0.8rem; font-weight: 700; color: #475569; }
-.role-count { font-size: 1.5rem; font-weight: 800; color: #0f172a; margin: 2px 0; }
+.role-count { font-size: 1.4rem; font-weight: 800; color: #0f172a; margin: 2px 0; }
 .role-desc { font-size: 0.7rem; color: #94a3b8; }
+
+.saas-overview-layout { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(320px, 1.2fr); gap: 16px; margin-top: 6px; }
+@media (max-width: 1100px) { .saas-overview-layout { grid-template-columns: 1fr; } }
 
 .overview-split-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .card-header-title { font-size: 0.88rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }

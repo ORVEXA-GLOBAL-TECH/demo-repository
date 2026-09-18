@@ -538,12 +538,12 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
       <div className="saas-header-strip">
         <div className="saas-header-left">
           <div className="saas-global-chip">
-            <Globe2 size={15} />
+            <Globe2 size={14} />
             <span>ORVEXA GLOBAL TECH // MULTI-TENANT SAAS GOVERNANCE</span>
           </div>
           <h1 className="saas-header-title">Super Admin Platform Command Center</h1>
           <p className="saas-header-desc">
-            Global SaaS Control Layer &bull; Tenant Isolation &bull; Country Configurations &bull; Company Administration
+            Global SaaS Control Layer &bull; Tenant Isolation &bull; Country Configurations &bull; Multi-Tenant Subscriptions
           </p>
         </div>
 
@@ -560,6 +560,15 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
             <span className="pill-label">Tenants</span>
             <span className="pill-value">{GLOBAL_SAAS_KPIS.totalCompanies} Active</span>
           </div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setIsCreateCompanyOpen(true)}
+            style={{ padding: '8px 14px', fontSize: '0.8rem', marginLeft: '6px' }}
+          >
+            <Plus size={15} />
+            <span>Provision Tenant</span>
+          </button>
         </div>
       </div>
 
@@ -571,24 +580,22 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
         <div className="tab-pane-content">
           {/* Architecture Reminder Card */}
           <div className="arch-reminder-card">
-            <div className="arch-card-icon">
-              <ShieldCheck size={26} color="#fbbf24" />
-            </div>
+            <ShieldCheck size={20} color="#2563eb" style={{ flexShrink: 0 }} />
             <div>
-              <div className="arch-card-title">Tenant Separation Principle Active</div>
-              <div className="arch-card-desc">
-                Super Admin governs the SaaS platform, subscription quotas, and tenant isolation. 
-                Individual MRs, daily doctor visits, chemist bookings, and company-specific payroll records are managed exclusively by each Company Admin.
-              </div>
+              <span className="arch-card-title">Tenant Separation Principle Active: </span>
+              <span className="arch-card-desc">
+                Super Admin governs platform quotas, sovereign compliance, and tenant database isolation. 
+                Individual MR daily visits, chemist orders, and payroll records are managed exclusively by each isolated Company Admin.
+              </span>
             </div>
           </div>
 
-          {/* KPI Row 1: High Level Totals */}
+          {/* 6 Executive Platform Metric Cards */}
           <div className="kpi-banner-grid">
             <div className="saas-kpi-card">
               <div className="kpi-top">
                 <span className="kpi-label">Total Companies</span>
-                <Building2 size={20} className="kpi-icon blue" />
+                <Building2 size={18} className="kpi-icon blue" />
               </div>
               <div className="kpi-number">{GLOBAL_SAAS_KPIS.totalCompanies}</div>
               <div className="kpi-status-breakdown">
@@ -600,130 +607,212 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
 
             <div className="saas-kpi-card">
               <div className="kpi-top">
-                <span className="kpi-label">Countries Supported</span>
-                <Globe2 size={20} className="kpi-icon cyan" />
+                <span className="kpi-label">Monthly Revenue (MRR)</span>
+                <CreditCard size={18} className="kpi-icon green" />
               </div>
-              <div className="kpi-number">{GLOBAL_SAAS_KPIS.totalCountries}</div>
+              <div className="kpi-number text-green">${GLOBAL_SAAS_KPIS.mrr.toLocaleString()}</div>
               <div className="kpi-sub">
-                🇮🇳 India &bull; 🇰🇭 Cambodia &bull; 🇧🇩 Bangladesh &bull; 🇳🇵 Nepal &bull; +8
+                <strong className="text-green">+12.4%</strong> MoM &bull; ARR: ${GLOBAL_SAAS_KPIS.arr.toLocaleString()}
               </div>
             </div>
 
             <div className="saas-kpi-card">
               <div className="kpi-top">
-                <span className="kpi-label">Total Global Users</span>
-                <Users size={20} className="kpi-icon indigo" />
+                <span className="kpi-label">Active Subscriptions</span>
+                <CheckCircle2 size={18} className="kpi-icon purple" />
+              </div>
+              <div className="kpi-number">{GLOBAL_SAAS_KPIS.activeSubscriptions} <span style={{ fontSize: '0.9rem', color: '#64748b' }}>/ {GLOBAL_SAAS_KPIS.totalCompanies}</span></div>
+              <div className="kpi-sub">
+                <span className="text-amber"><strong>{GLOBAL_SAAS_KPIS.expiringSubscriptions}</strong> expiring &le; 30 days</span> &bull; 0 overdue
+              </div>
+            </div>
+
+            <div className="saas-kpi-card">
+              <div className="kpi-top">
+                <span className="kpi-label">Total Platform Users</span>
+                <Users size={18} className="kpi-icon indigo" />
               </div>
               <div className="kpi-number">{GLOBAL_SAAS_KPIS.totalUsers.toLocaleString()}</div>
               <div className="kpi-sub">
-                <strong className="text-green">{GLOBAL_SAAS_KPIS.activeUsers.toLocaleString()}</strong> Active This Month
+                <strong className="text-green">{GLOBAL_SAAS_KPIS.activeUsers.toLocaleString()}</strong> active across all tenants
               </div>
             </div>
 
             <div className="saas-kpi-card">
               <div className="kpi-top">
-                <span className="kpi-label">Global Catalog Products</span>
-                <Sparkles size={20} className="kpi-icon purple" />
+                <span className="kpi-label">Sovereign Countries</span>
+                <Globe2 size={18} className="kpi-icon cyan" />
               </div>
-              <div className="kpi-number">{GLOBAL_SAAS_KPIS.totalProducts.toLocaleString()}</div>
-              <div className="kpi-sub">Pharma SKUs across all tenants</div>
+              <div className="kpi-number">{GLOBAL_SAAS_KPIS.totalCountries}</div>
+              <div className="kpi-sub">
+                🇮🇳 IN &bull; 🇰🇭 KH &bull; 🇧🇩 BD &bull; 🇳🇵 NP &bull; +8 More
+              </div>
+            </div>
+
+            <div className="saas-kpi-card">
+              <div className="kpi-top">
+                <span className="kpi-label">Cluster SLA Health</span>
+                <Server size={18} className="kpi-icon blue" />
+              </div>
+              <div className="kpi-number" style={{ color: '#059669' }}>99.98%</div>
+              <div className="kpi-sub">
+                🟢 8/8 Microservices &bull; 12ms DB Latency
+              </div>
             </div>
           </div>
 
-          {/* KPI Row 2: Roles Hierarchy Distribution across Tenants */}
-          <div className="section-title-sm">
-            <span>Global Role Distribution Across All Companies</span>
-          </div>
-
-          <div className="roles-kpi-grid">
-            <div className="role-summary-card">
-              <div className="role-card-header">
-                <UserCog size={18} color="#2563eb" />
-                <span className="role-title">Company Admins</span>
-              </div>
-              <div className="role-count">{GLOBAL_SAAS_KPIS.totalCompanyAdmins}</div>
-              <div className="role-desc">Assigned administrative managers for tenants</div>
-            </div>
-
-            <div className="role-summary-card">
-              <div className="role-card-header">
-                <ShieldCheck size={18} color="#7c3aed" />
-                <span className="role-title">General Managers (GMs)</span>
-              </div>
-              <div className="role-count">{GLOBAL_SAAS_KPIS.totalGMs}</div>
-              <div className="role-desc">Country / Regional enterprise directors</div>
-            </div>
-
-            <div className="role-summary-card">
-              <div className="role-card-header">
-                <Users size={18} color="#0d9488" />
-                <span className="role-title">Sales Managers</span>
-              </div>
-              <div className="role-count">{GLOBAL_SAAS_KPIS.totalManagers.toLocaleString()}</div>
-              <div className="role-desc">Area and regional territory managers</div>
-            </div>
-
-            <div className="role-summary-card">
-              <div className="role-card-header">
-                <Smartphone size={18} color="#059669" />
-                <span className="role-title">Field Reps (MRs)</span>
-              </div>
-              <div className="role-count">{GLOBAL_SAAS_KPIS.totalMRs.toLocaleString()}</div>
-              <div className="role-desc">Mobile app field sales representatives</div>
-            </div>
-          </div>
-
-          {/* KPI Row 3: Subscriptions & System Alerts */}
-          <div className="overview-split-row">
-            <div className="sub-health-card">
-              <h3 className="card-header-title">
-                <CreditCard size={18} /> Subscriptions &amp; Financial Velocity
-              </h3>
-              <div className="sub-stats-inner">
-                <div className="sub-stat-item">
-                  <span className="sub-stat-lbl">Active Subscriptions</span>
-                  <span className="sub-stat-val text-green">{GLOBAL_SAAS_KPIS.activeSubscriptions}</span>
+          {/* 2-Column Operational Grid */}
+          <div className="saas-overview-layout">
+            {/* Left Column: Active Tenant Directory Table */}
+            <div className="card-section">
+              <div className="section-header">
+                <div>
+                  <h2 className="section-title">Isolated Tenant Companies</h2>
+                  <p className="section-desc">Active pharmaceutical enterprise tenants provisioned on multi-tenant cluster</p>
                 </div>
-                <div className="sub-stat-item">
-                  <span className="sub-stat-lbl">Expiring &le; 30 Days</span>
-                  <span className="sub-stat-val text-amber">{GLOBAL_SAAS_KPIS.expiringSubscriptions}</span>
-                </div>
-                <div className="sub-stat-item">
-                  <span className="sub-stat-lbl">MRR</span>
-                  <span className="sub-stat-val text-blue">${GLOBAL_SAAS_KPIS.mrr.toLocaleString()}</span>
-                </div>
-                <div className="sub-stat-item">
-                  <span className="sub-stat-lbl">ARR</span>
-                  <span className="sub-stat-val text-purple">${GLOBAL_SAAS_KPIS.arr.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="alerts-summary-card">
-              <div className="card-header-flex">
-                <h3 className="card-header-title">
-                  <AlertTriangle size={18} color="#ef4444" /> System Alerts (18 Active)
-                </h3>
                 <button
                   type="button"
-                  className="link-btn-xs"
-                  onClick={() => handleTabChange('saas-system-health')}
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => handleTabChange('saas-companies')}
                 >
-                  View All &rarr;
+                  View All 42 Companies <ArrowUpRight size={14} />
                 </button>
               </div>
-              <div className="alerts-mini-list">
-                <div className="alert-mini-item critical">
-                  <span className="alert-badge-red">CRITICAL</span>
-                  <span>Mapbox Geocoding latency degraded in South Asia zone</span>
+
+              <div className="saas-table-container">
+                <table className="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Company &amp; Jurisdiction</th>
+                      <th>Tenant Schema</th>
+                      <th>Plan</th>
+                      <th>Users Quota</th>
+                      <th>MRR</th>
+                      <th>Status</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {companies.slice(0, 5).map((comp) => (
+                      <tr key={comp.id}>
+                        <td>
+                          <div className="comp-name-group">
+                            <span className="comp-flag">{comp.flag}</span>
+                            <div>
+                              <div className="comp-name-text">{comp.name}</div>
+                              <div className="comp-code-sub">{comp.country} &bull; {comp.currency}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <span className="tenant-id-pill">{comp.tenantId}</span>
+                        </td>
+                        <td>
+                          <span className={`plan-pill plan-${comp.plan.toLowerCase()}`}>
+                            {comp.plan}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="users-breakdown-cell">
+                            <strong>{comp.usersCount} Users</strong>
+                            <span>{comp.mrsCount} MRs &bull; {comp.managersCount} MGRs</span>
+                          </div>
+                        </td>
+                        <td>
+                          <strong>{comp.mrr}</strong>
+                        </td>
+                        <td>
+                          <span className={`status-tag status-${comp.status.toLowerCase()}`}>
+                            {comp.status === 'ACTIVE' ? '🟢 Active' : comp.status === 'TRIAL' ? '🟣 Trial' : '🟡 Suspended'}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button
+                            type="button"
+                            className="action-pill-btn primary"
+                            onClick={() => handleTabChange('saas-features')}
+                            title="Configure features & modules for this company"
+                          >
+                            Modules
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Right Column: Architecture & Real-Time Alerts */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Architecture Isolation Principle Card */}
+              <div className="card-section">
+                <h3 className="card-header-title">
+                  <ShieldCheck size={18} color="#2563eb" /> Multi-Tenant Isolation SLA
+                </h3>
+                <div style={{ fontSize: '0.78rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <span>Data Schema Isolation:</span>
+                    <strong style={{ color: '#059669' }}>PostgreSQL Schemas Active</strong>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <span>Tenant Encryption:</span>
+                    <strong style={{ color: '#059669' }}>AES-256 At Rest &amp; Transit</strong>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <span>Automated DB Snapshots:</span>
+                    <strong style={{ color: '#2563eb' }}>Every 2 Hours (RPO 15m)</strong>
+                  </div>
                 </div>
-                <div className="alert-mini-item warning">
-                  <span className="alert-badge-amber">EXPIRING</span>
-                  <span>ABC Pharma Cambodia enterprise license renewal in 12 days</span>
+              </div>
+
+              {/* Real-time System Alerts Card */}
+              <div className="card-section">
+                <div className="card-header-flex">
+                  <h3 className="card-header-title">
+                    <AlertTriangle size={18} color="#ef4444" /> Platform Alerts (18 Active)
+                  </h3>
+                  <button
+                    type="button"
+                    className="link-btn-xs"
+                    onClick={() => handleTabChange('saas-system-health')}
+                  >
+                    View All &rarr;
+                  </button>
                 </div>
-                <div className="alert-mini-item info">
-                  <span className="alert-badge-blue">SECURITY</span>
-                  <span>Automated tenant backup completed for 42 companies</span>
+                <div className="alerts-mini-list">
+                  <div className="alert-mini-item critical">
+                    <span className="alert-badge-red">CRITICAL</span>
+                    <span>Mapbox Geocoding latency degraded in South Asia zone</span>
+                  </div>
+                  <div className="alert-mini-item warning">
+                    <span className="alert-badge-amber">EXPIRING</span>
+                    <span>ABC Pharma Cambodia enterprise license renewal in 12 days</span>
+                  </div>
+                  <div className="alert-mini-item info">
+                    <span className="alert-badge-blue">SECURITY</span>
+                    <span>Automated tenant backup completed for 42 companies</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Microservices Latency Bar */}
+              <div className="card-section">
+                <h3 className="card-header-title">
+                  <Activity size={18} color="#059669" /> Microservices Telemetry
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  {SYSTEM_HEALTH_METRICS.slice(0, 4).map((svc) => (
+                    <div key={svc.service} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '0.68rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {svc.service.split(' ')[0]}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#0f172a' }}>{svc.latency}</span>
+                        <span style={{ fontSize: '0.68rem', color: '#059669', fontWeight: '700' }}>{svc.uptime}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
