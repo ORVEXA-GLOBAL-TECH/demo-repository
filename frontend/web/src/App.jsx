@@ -16,15 +16,24 @@ import AnalyticsPage from './pages/AnalyticsPage';
 import AiToolsPage from './pages/AiToolsPage';
 import SuperAdminLoginPage from './pages/SuperAdminLoginPage';
 import StaffLoginPage from './pages/StaffLoginPage';
+import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import { getNotifications, SOCKET_URL } from './services/api';
 import './styles/theme.css';
 
 function MainApp() {
-  const { currentUser, activePortal } = useAuth();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const { currentUser, role, activePortal } = useAuth();
+  const [activeTab, setActiveTab] = useState(() => {
+    return role === 'SUPER_ADMIN' ? 'superadmin-dashboard' : 'dashboard';
+  });
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    if (role === 'SUPER_ADMIN' && activeTab === 'dashboard') {
+      setActiveTab('superadmin-dashboard');
+    }
+  }, [role]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -75,6 +84,7 @@ function MainApp() {
 
   const getPageTitle = () => {
     switch (activeTab) {
+      case 'superadmin-dashboard': return 'Tier-0 Super Admin Command // Multi-Tenant Enterprise Metrics';
       case 'dashboard': return 'Executive Pharma SFA Dashboard';
       case 'dcr': return 'Daily Call Reporting (DCR 360°)';
       case 'orders': return 'POB Chemist Order Bookings & Stockists';
@@ -91,6 +101,7 @@ function MainApp() {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'superadmin-dashboard': return <SuperAdminDashboard />;
       case 'dashboard': return <Dashboard setActiveTab={setActiveTab} />;
       case 'dcr': return <DcrPage />;
       case 'orders': return <OrdersPage />;
@@ -101,7 +112,7 @@ function MainApp() {
       case 'attendance': return <AttendancePage />;
       case 'analytics': return <AnalyticsPage />;
       case 'ai-tools': return <AiToolsPage />;
-      default: return <Dashboard setActiveTab={setActiveTab} />;
+      default: return role === 'SUPER_ADMIN' ? <SuperAdminDashboard /> : <Dashboard setActiveTab={setActiveTab} />;
     }
   };
 

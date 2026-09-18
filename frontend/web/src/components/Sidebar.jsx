@@ -13,7 +13,8 @@ import {
   FileCode2,
   Monitor,
   Smartphone,
-  LogOut
+  LogOut,
+  Building2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -49,6 +50,26 @@ export default function Sidebar({ activeTab, setActiveTab }) {
       </div>
 
       <nav className="sidebar-nav">
+        {role === 'SUPER_ADMIN' && (
+          <div style={{ marginBottom: '10px' }}>
+            <div className="nav-section-label" style={{ color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span>👑 Super Admin Global HQ</span>
+            </div>
+            <button
+              className={`nav-link ${activeTab === 'superadmin-dashboard' ? 'active' : ''}`}
+              onClick={() => setActiveTab('superadmin-dashboard')}
+              style={{
+                background: activeTab === 'superadmin-dashboard' ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.12))' : '',
+                border: activeTab === 'superadmin-dashboard' ? '1px solid rgba(245, 158, 11, 0.5)' : '',
+                color: activeTab === 'superadmin-dashboard' ? '#fbbf24' : '#fef3c7'
+              }}
+            >
+              <Building2 size={18} color="#fbbf24" />
+              <span>Multi-Tenant HQ (13 Metrics)</span>
+            </button>
+          </div>
+        )}
+
         <div className="nav-section-label">Core Field Operations</div>
         {coreNav.map((item) => {
           const Icon = item.icon;
