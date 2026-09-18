@@ -438,7 +438,12 @@ const SYSTEM_HEALTH_METRICS = [
 ];
 
 export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', setActiveSubTab }) {
-  const [currentTab, setCurrentTab] = useState(activeSubTab || 'saas-overview');
+  const currentTab = activeSubTab || 'saas-overview';
+  const handleTabChange = (tabId) => {
+    if (setActiveSubTab) {
+      setActiveSubTab(tabId);
+    }
+  };
   const [companies, setCompanies] = useState(INITIAL_COMPANIES);
   const [countries] = useState(INITIAL_COUNTRIES);
   const [admins, setAdmins] = useState(INITIAL_COMPANY_ADMINS);
@@ -558,65 +563,6 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
         </div>
       </div>
 
-      {/* Governance Secondary Tabs */}
-      <div className="saas-nav-tabs">
-        <button
-          className={`saas-tab-btn ${currentTab === 'saas-overview' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('saas-overview')}
-        >
-          <Activity size={16} />
-          <span>1. Global KPIs &amp; Overview</span>
-        </button>
-        <button
-          className={`saas-tab-btn ${currentTab === 'saas-companies' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('saas-companies')}
-        >
-          <Building2 size={16} />
-          <span>2. Company Management</span>
-        </button>
-        <button
-          className={`saas-tab-btn ${currentTab === 'saas-countries' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('saas-countries')}
-        >
-          <Globe2 size={16} />
-          <span>3. Country Management</span>
-        </button>
-        <button
-          className={`saas-tab-btn ${currentTab === 'saas-admins' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('saas-admins')}
-        >
-          <UserCog size={16} />
-          <span>4. Company Admins</span>
-        </button>
-        <button
-          className={`saas-tab-btn ${currentTab === 'saas-subscriptions' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('saas-subscriptions')}
-        >
-          <CreditCard size={16} />
-          <span>5. Subscriptions &amp; Billing</span>
-        </button>
-        <button
-          className={`saas-tab-btn ${currentTab === 'saas-features' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('saas-features')}
-        >
-          <Layers size={16} />
-          <span>6. Feature / Module Toggles</span>
-        </button>
-        <button
-          className={`saas-tab-btn ${currentTab === 'saas-tenants' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('saas-tenants')}
-        >
-          <Database size={16} />
-          <span>7. Tenant Isolation</span>
-        </button>
-        <button
-          className={`saas-tab-btn ${currentTab === 'saas-system-health' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('saas-system-health')}
-        >
-          <Server size={16} />
-          <span>8. System Health &amp; Security</span>
-        </button>
-      </div>
 
       {/* =====================================================================
           TAB 1: GLOBAL SAAS KPIS & OVERVIEW
@@ -761,7 +707,7 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                 <button
                   type="button"
                   className="link-btn-xs"
-                  onClick={() => setCurrentTab('saas-system-health')}
+                  onClick={() => handleTabChange('saas-system-health')}
                 >
                   View All &rarr;
                 </button>
@@ -891,7 +837,7 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                             type="button"
                             className="action-pill-btn primary"
                             onClick={() => {
-                              setCurrentTab('saas-features');
+                              handleTabChange('saas-features');
                             }}
                           >
                             Modules
