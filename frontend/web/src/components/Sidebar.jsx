@@ -14,13 +14,34 @@ import {
   Monitor,
   Smartphone,
   LogOut,
-  Building2
+  Building2,
+  Globe2,
+  UserCog,
+  CreditCard,
+  Layers,
+  Database,
+  Server,
+  Activity,
+  ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Sidebar({ activeTab, setActiveTab }) {
   const { currentUser, role, switchRole, logout } = useAuth();
 
+  // Super Admin SaaS Platform Governance Navigation
+  const saasNav = [
+    { id: 'saas-overview', label: '1. Global SaaS Overview', icon: Activity },
+    { id: 'saas-companies', label: '2. Company Management', icon: Building2 },
+    { id: 'saas-countries', label: '3. Country Management', icon: Globe2 },
+    { id: 'saas-admins', label: '4. Company Admins', icon: UserCog },
+    { id: 'saas-subscriptions', label: '5. Subscriptions & Billing', icon: CreditCard },
+    { id: 'saas-features', label: '6. Feature / Module Toggles', icon: Layers },
+    { id: 'saas-tenants', label: '7. Tenant Isolation', icon: Database },
+    { id: 'saas-system-health', label: '8. System Health & Security', icon: Server }
+  ];
+
+  // Company Admin & Operational Staff Navigation
   const coreNav = [
     { id: 'dashboard', label: 'Executive Dashboard', icon: LayoutDashboard },
     { id: 'dcr', label: 'DCR & Detailing 360°', icon: ClipboardList },
@@ -37,72 +58,97 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     { id: 'ai-tools', label: 'AI Studio & Route TSP', icon: Sparkles }
   ];
 
+  const isSuperAdmin = role === 'SUPER_ADMIN';
   const isWebOnly = role === 'SUPER_ADMIN' || role === 'ADMIN';
 
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <div className="brand-badge">A</div>
+        <div className="brand-badge" style={{ background: isSuperAdmin ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
+          {isSuperAdmin ? '👑' : 'A'}
+        </div>
         <div>
-          <h1 className="brand-title">Alleviare SFA</h1>
-          <p className="brand-subtitle">MNC Pharma Suite</p>
+          <h1 className="brand-title">{isSuperAdmin ? 'Orvexa Global' : 'Alleviare SFA'}</h1>
+          <p className="brand-subtitle">{isSuperAdmin ? 'Multi-Tenant SaaS HQ' : 'Company Operations'}</p>
         </div>
       </div>
 
       <nav className="sidebar-nav">
-        {role === 'SUPER_ADMIN' && (
-          <div style={{ marginBottom: '10px' }}>
+        {isSuperAdmin ? (
+          <>
             <div className="nav-section-label" style={{ color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span>👑 Super Admin Global HQ</span>
+              <ShieldCheck size={13} />
+              <span>SaaS Platform Governance</span>
+            </div>
+            {saasNav.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  className={`nav-link ${isActive ? 'active' : ''}`}
+                  onClick={() => setActiveTab(item.id)}
+                  style={isActive ? {
+                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.08))',
+                    borderColor: '#f59e0b',
+                    color: '#fbbf24'
+                  } : {}}
+                >
+                  <Icon size={18} color={isActive ? '#fbbf24' : '#94a3b8'} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+
+            <div className="nav-section-label" style={{ marginTop: '12px', color: '#64748b' }}>
+              <span>Tenant View Shortcut</span>
             </div>
             <button
-              className={`nav-link ${activeTab === 'superadmin-dashboard' ? 'active' : ''}`}
-              onClick={() => setActiveTab('superadmin-dashboard')}
-              style={{
-                background: activeTab === 'superadmin-dashboard' ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.12))' : '',
-                border: activeTab === 'superadmin-dashboard' ? '1px solid rgba(245, 158, 11, 0.5)' : '',
-                color: activeTab === 'superadmin-dashboard' ? '#fbbf24' : '#fef3c7'
-              }}
+              className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}
+              onClick={() => setActiveTab('dashboard')}
+              style={{ fontSize: '0.78rem', color: '#94a3b8' }}
             >
-              <Building2 size={18} color="#fbbf24" />
-              <span>Multi-Tenant HQ (13 Metrics)</span>
+              <LayoutDashboard size={16} />
+              <span>Inspect Company SFA Portal &rarr;</span>
             </button>
-          </div>
+          </>
+        ) : (
+          <>
+            <div className="nav-section-label">Core Field Operations</div>
+            {coreNav.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  className={`nav-link ${isActive ? 'active' : ''}`}
+                  onClick={() => setActiveTab(item.id)}
+                >
+                  <Icon size={18} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+
+            <div className="nav-section-label" style={{ marginTop: '6px' }}>Enterprise Intelligence</div>
+            {opsNav.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  className={`nav-link ${isActive ? 'active' : ''}`}
+                  onClick={() => setActiveTab(item.id)}
+                >
+                  <Icon size={18} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </>
         )}
 
-        <div className="nav-section-label">Core Field Operations</div>
-        {coreNav.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              className={`nav-link ${isActive ? 'active' : ''}`}
-              onClick={() => setActiveTab(item.id)}
-            >
-              <Icon size={18} />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-
-        <div className="nav-section-label" style={{ marginTop: '6px' }}>Enterprise Intelligence</div>
-        {opsNav.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              className={`nav-link ${isActive ? 'active' : ''}`}
-              onClick={() => setActiveTab(item.id)}
-            >
-              <Icon size={18} />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-
-        <div className="nav-section-label" style={{ marginTop: '6px' }}>API & Developer</div>
+        <div className="nav-section-label" style={{ marginTop: '8px' }}>API &amp; Platform Docs</div>
         <a
           href="http://localhost:5000/api/docs"
           target="_blank"
@@ -121,16 +167,24 @@ export default function Sidebar({ activeTab, setActiveTab }) {
           <select
             className="role-select"
             value={role}
-            onChange={(e) => switchRole(e.target.value)}
+            onChange={(e) => {
+              const nextRole = e.target.value;
+              switchRole(nextRole);
+              if (nextRole === 'SUPER_ADMIN') {
+                setActiveTab('saas-overview');
+              } else {
+                setActiveTab('dashboard');
+              }
+            }}
           >
-            <option value="SUPER_ADMIN">👑 Super Admin (Web Only)</option>
-            <option value="ADMIN">🛡️ Admin (Web Only)</option>
-            <option value="DIRECTOR">🏛️ Director (Web + App)</option>
-            <option value="MANAGER">💼 Manager (Web + App)</option>
-            <option value="SALES_MANAGER">👔 Sales Manager (Web + App)</option>
-            <option value="SALES_SUPERVISOR">📋 Sales Supervisor (Web + App)</option>
-            <option value="ACCOUNTANT">💰 Accountant (Web + App)</option>
-            <option value="MR">🚗 MR (App Only - Restricted on Web)</option>
+            <option value="SUPER_ADMIN">👑 Super Admin (SaaS Platform Owner)</option>
+            <option value="ADMIN">🛡️ Company Admin (Tenant Operator)</option>
+            <option value="DIRECTOR">🏛️ General Manager / Director</option>
+            <option value="MANAGER">💼 Operations Manager</option>
+            <option value="SALES_MANAGER">👔 Sales Manager</option>
+            <option value="SALES_SUPERVISOR">📋 Sales Supervisor</option>
+            <option value="ACCOUNTANT">💰 Accountant / Finance</option>
+            <option value="MR">🚗 MR (Mobile App Only)</option>
           </select>
           <div style={{ marginTop: '8px', fontSize: '0.72rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span>Access:</span>

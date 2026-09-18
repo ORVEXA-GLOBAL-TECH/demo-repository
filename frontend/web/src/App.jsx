@@ -84,7 +84,15 @@ function MainApp() {
 
   const getPageTitle = () => {
     switch (activeTab) {
-      case 'superadmin-dashboard': return 'Tier-0 Super Admin Command // Multi-Tenant Enterprise Metrics';
+      case 'saas-overview': return 'Global SaaS Multi-Tenant Overview // Orvexa Global Tech';
+      case 'saas-companies': return 'Multi-Tenant Company Lifecycle & Management';
+      case 'saas-countries': return 'Sovereign Country Compliance, Tax & Statutory Registry';
+      case 'saas-admins': return 'Company Administrators & Tenant Security Monitoring';
+      case 'saas-subscriptions': return 'Global SaaS Subscription Economics & Invoicing';
+      case 'saas-features': return 'Per-Company Feature & Module Licensing Matrix';
+      case 'saas-tenants': return 'Multi-Tenant Database & Storage Isolation';
+      case 'saas-system-health': return 'Infrastructure Health, Security Center & Global Audit Trail';
+      case 'superadmin-dashboard': return 'Global SaaS Multi-Tenant Command Center';
       case 'dashboard': return 'Executive Pharma SFA Dashboard';
       case 'dcr': return 'Daily Call Reporting (DCR 360°)';
       case 'orders': return 'POB Chemist Order Bookings & Stockists';
@@ -100,8 +108,16 @@ function MainApp() {
   };
 
   const renderContent = () => {
+    if (activeTab.startsWith('saas-') || activeTab === 'superadmin-dashboard') {
+      return (
+        <SuperAdminDashboard
+          activeSubTab={activeTab.startsWith('saas-') ? activeTab : 'saas-overview'}
+          setActiveSubTab={setActiveTab}
+        />
+      );
+    }
+
     switch (activeTab) {
-      case 'superadmin-dashboard': return <SuperAdminDashboard />;
       case 'dashboard': return <Dashboard setActiveTab={setActiveTab} />;
       case 'dcr': return <DcrPage />;
       case 'orders': return <OrdersPage />;
@@ -112,7 +128,11 @@ function MainApp() {
       case 'attendance': return <AttendancePage />;
       case 'analytics': return <AnalyticsPage />;
       case 'ai-tools': return <AiToolsPage />;
-      default: return role === 'SUPER_ADMIN' ? <SuperAdminDashboard /> : <Dashboard setActiveTab={setActiveTab} />;
+      default: return role === 'SUPER_ADMIN' ? (
+        <SuperAdminDashboard activeSubTab="saas-overview" setActiveSubTab={setActiveTab} />
+      ) : (
+        <Dashboard setActiveTab={setActiveTab} />
+      );
     }
   };
 
