@@ -8,7 +8,6 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  MapPin,
   Target,
   ArrowUpRight
 } from 'lucide-react';
@@ -78,30 +77,14 @@ export default function Dashboard({ setActiveTab }) {
     <div>
       {/* Top Banner with Officer Quick Status */}
       <div className="card-section" style={{ background: 'linear-gradient(135deg, #1e3a8a, #0f172a)', color: '#ffffff', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <div style={{ fontSize: '0.8rem', color: '#60a5fa', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.05em' }}>
-              MNC Field Sales Force Automation Suite • Real-time Operations
-            </div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginTop: '4px' }}>
-              Welcome back, {currentUser.name}
-            </h2>
-            <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '4px' }}>
-              Role: <strong style={{ color: '#38bdf8' }}>{currentUser.designation}</strong> • Territory: <strong>{currentUser.territory}</strong>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button className="btn btn-primary" onClick={() => setActiveTab('dcr')}>
-              + Log DCR Call
-            </button>
-            <button className="btn btn-success" onClick={() => setActiveTab('orders')}>
-              + Book POB Order
-            </button>
-            <button className="btn btn-secondary" onClick={() => setActiveTab('tracking')}>
-              <MapPin size={16} /> Live GPS Tracking
-            </button>
-          </div>
+        <div style={{ fontSize: '0.8rem', color: '#60a5fa', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.05em' }}>
+          MNC Field Sales Force Automation Suite • Real-time Operations
+        </div>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginTop: '4px' }}>
+          Welcome back, {currentUser.name}
+        </h2>
+        <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '4px' }}>
+          Role: <strong style={{ color: '#38bdf8' }}>{currentUser.designation}</strong> • Territory: <strong>{currentUser.territory}</strong>
         </div>
       </div>
 
