@@ -25,38 +25,38 @@ export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
     {
       label: 'Core Governance',
       items: [
-        { id: 'dashboard', label: '1. Platform Dashboard', icon: Activity },
-        { id: 'companies', label: '2. Company / Tenants', icon: Building2 },
-        { id: 'jurisdictions', label: '3. Countries, Timezones & FX', icon: Globe2 },
-        { id: 'platform-users', label: '4. Platform Users', icon: Users },
-        { id: 'subscriptions', label: '5. Subscriptions & Billing', icon: CreditCard }
+        { id: 'dashboard', label: 'Platform Dashboard', icon: Activity },
+        { id: 'companies', label: 'Company / Tenants', icon: Building2 },
+        { id: 'jurisdictions', label: 'Countries, Timezones & FX', icon: Globe2 },
+        { id: 'platform-users', label: 'Platform Users', icon: Users },
+        { id: 'subscriptions', label: 'Subscriptions & Billing', icon: CreditCard }
       ]
     },
     {
       label: 'Configuration & Control',
       items: [
-        { id: 'features', label: '6. Features & Rollouts', icon: Layers },
-        { id: 'settings', label: '7. Global Settings', icon: Settings },
-        { id: 'roles', label: '8. Role Templates', icon: ShieldCheck },
-        { id: 'integrations', label: '9. Integrations & APIs', icon: Radio },
-        { id: 'app-management', label: '10. App Version Control', icon: Smartphone }
+        { id: 'features', label: 'Features & Rollouts', icon: Layers },
+        { id: 'settings', label: 'Global Settings', icon: Settings },
+        { id: 'roles', label: 'Role Templates', icon: ShieldCheck },
+        { id: 'integrations', label: 'Integrations & APIs', icon: Radio },
+        { id: 'app-management', label: 'App Version Control', icon: Smartphone }
       ]
     },
     {
       label: 'Intelligence & Operations',
       items: [
-        { id: 'analytics', label: '11. Platform Analytics', icon: BarChart3 },
-        { id: 'security', label: '12. Security & Audit Logs', icon: Lock },
-        { id: 'system-health', label: '13. System Health & Maintenance', icon: Server },
-        { id: 'support', label: '14. Support Desk', icon: LifeBuoy },
-        { id: 'communications', label: '15. Announcements', icon: Megaphone }
+        { id: 'analytics', label: 'Platform Analytics', icon: BarChart3 },
+        { id: 'security', label: 'Security & Audit Logs', icon: Lock },
+        { id: 'system-health', label: 'System Health & Maintenance', icon: Server },
+        { id: 'support', label: 'Support Desk', icon: LifeBuoy },
+        { id: 'communications', label: 'Announcements', icon: Megaphone }
       ]
     },
     {
       label: 'Master Admin',
       items: [
-        { id: 'emergency', label: '16. Emergency Kill-Switch', icon: AlertOctagon, isDanger: true },
-        { id: 'my-account', label: '17. My Account & Security', icon: UserCircle }
+        { id: 'emergency', label: 'Emergency Kill-Switch', icon: AlertOctagon, isDanger: true },
+        { id: 'my-account', label: 'My Account & Security', icon: UserCircle }
       ]
     }
   ];

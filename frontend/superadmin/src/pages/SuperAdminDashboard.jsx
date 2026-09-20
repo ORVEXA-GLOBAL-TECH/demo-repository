@@ -950,12 +950,12 @@ export default function SuperAdminDashboard({
       <div className="saas-header-strip">
         <div className="saas-header-left">
           <div className="saas-global-chip">
-            <Globe2 size={14} />
-            <span>ORVEXA GLOBAL TECH // MULTI-COUNTRY &bull; MULTI-TIMEZONE &bull; MULTI-CURRENCY</span>
+            <Globe2 size={13} />
+            <span>Multi-Country Sovereign Platform</span>
           </div>
           <h1 className="saas-header-title">Super Admin Platform Command Center</h1>
           <p className="saas-header-desc">
-            Global SaaS Sovereign Governance &bull; 8+ Active Jurisdictions &bull; Automatic Local Time &amp; Tax Compliance &bull; Multi-Currency FX Engine
+            Global SaaS Sovereign Governance &bull; 24 Market Jurisdictions &bull; Automated FX &amp; Statutory Compliance
           </p>
         </div>
 
@@ -985,19 +985,10 @@ export default function SuperAdminDashboard({
       </div>
 
       {/* =====================================================================
-          1. PLATFORM DASHBOARD (19 PLATFORM METRICS)
+          PLATFORM DASHBOARD (19 PLATFORM METRICS)
           ===================================================================== */}
       {activeTab === 'dashboard' && (
         <div className="tab-pane-content">
-          <div className="arch-reminder-card" style={{ borderLeftColor: '#f59e0b', background: 'linear-gradient(90deg, #fffbeb 0%, #f8fafc 100%)' }}>
-            <ShieldCheck size={22} color="#d97706" style={{ flexShrink: 0 }} />
-            <div>
-              <span className="arch-card-title" style={{ color: '#92400e', fontSize: '0.86rem' }}>Multi-Country Global Platform Active: </span>
-              <span className="arch-card-desc" style={{ color: '#78350f' }}>
-                Complete visibility across {totalCompanies} tenants, {totalUsers.toLocaleString()} users, {totalAdmins} admins, {totalDoctors.toLocaleString()} doctors, {totalVisits.toLocaleString()} visits, and sovereign currency engines.
-              </span>
-            </div>
-          </div>
 
           {/* 6 Executive KPI Metric Cards */}
           <div className="kpi-banner-grid">

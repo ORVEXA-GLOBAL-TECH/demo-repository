@@ -62,24 +62,24 @@ function MainSuperAdminApp() {
 
   const getPageTitle = () => {
     switch (activeTab) {
-      case 'dashboard': return '1. Platform Dashboard // Master Multi-Tenant Overview';
-      case 'companies': return '2. Company / Tenant Governance & Lifecycle';
-      case 'jurisdictions': return '3. Multi-Country, Multi-Timezone & Multi-Currency FX Engine';
-      case 'platform-users': return '4. Platform Users & Cross-Tenant Directory';
-      case 'subscriptions': return '5. Subscriptions, Invoicing & Monetization';
-      case 'features': return '6. Feature Governance & Canary Feature Flags';
-      case 'settings': return '7. Global Platform Configuration & Defaults';
-      case 'roles': return '8. Global Role Templates & Access Matrices';
-      case 'integrations': return '9. Enterprise Integrations & API Management';
-      case 'app-management': return '10. Mobile App Version Control & Force Updates';
-      case 'analytics': return '11. Cross-Company Telemetry & Usage Analytics';
-      case 'security': return '12. Security Governance & Immutable Audit Logs';
-      case 'system-health': return '13. System Health, Microservices & Maintenance Mode';
-      case 'support': return '14. Cross-Company Support Desk & Tickets';
-      case 'communications': return '15. Global Announcements & Notifications';
-      case 'emergency': return '16. Disaster & Emergency Platform Kill-Switch';
-      case 'my-account': return '17. My Master Administrator Account';
-      default: return 'Orvexa Super Admin Governance Suite';
+      case 'dashboard': return 'Platform Dashboard';
+      case 'companies': return 'Company & Tenant Governance';
+      case 'jurisdictions': return 'Multi-Country, Timezones & Currencies';
+      case 'platform-users': return 'Platform Users & Directories';
+      case 'subscriptions': return 'Subscriptions & Monetization';
+      case 'features': return 'Feature Flags & Rollouts';
+      case 'settings': return 'Global Platform Configuration';
+      case 'roles': return 'Role Templates & Access Matrices';
+      case 'integrations': return 'Enterprise Integrations & APIs';
+      case 'app-management': return 'Mobile App Version Control';
+      case 'analytics': return 'Usage Analytics & Telemetry';
+      case 'security': return 'Security Governance & Audit Logs';
+      case 'system-health': return 'System Health & Maintenance';
+      case 'support': return 'Support Desk & Tickets';
+      case 'communications': return 'Global Announcements';
+      case 'emergency': return 'Emergency Platform Controls';
+      case 'my-account': return 'Administrator Account';
+      default: return 'Super Admin Governance Suite';
     }
   };
 

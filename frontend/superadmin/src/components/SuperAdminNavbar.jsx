@@ -48,12 +48,12 @@ export default function SuperAdminNavbar({
         )}
 
         <div className="saas-scope-tag">
-          <Globe size={15} color="#f59e0b" />
-          <span>Global Multi-Tenant HQ</span>
+          <Globe size={14} color="#f59e0b" />
+          <span>Global HQ</span>
         </div>
 
-        <span className="status-badge badge-approved" style={{ backgroundColor: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
-          <Shield size={13} /> TIER-0 SUPER ADMIN
+        <span className="status-badge" style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+          <Shield size={13} /> Super Admin
         </span>
 
         {/* Notification Bell Button */}
