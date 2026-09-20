@@ -62,8 +62,39 @@ import {
   Coins,
   ArrowRightLeft,
   Compass,
-  Timer
+  Timer,
+  Edit,
+  Save,
+  CheckSquare
 } from 'lucide-react';
+
+import {
+  getTenants,
+  createTenant,
+  updateTenant,
+  deleteTenant,
+  toggleTenantStatus,
+  resetTenantAdminPassword,
+  getPlatformUsers,
+  createPlatformUser,
+  updatePlatformUser,
+  deletePlatformUser,
+  toggleUserStatus,
+  resetUserPassword,
+  getSovereignCountries,
+  createCountry,
+  updateCountry,
+  deleteCountry,
+  getSubscriptions,
+  createSubscription,
+  updateSubscription,
+  deleteSubscription,
+  getAuditLogs,
+  createAuditLog,
+  getSystemAlerts,
+  createSystemAlert,
+  deleteSystemAlert
+} from '../services/api';
 
 // Sovereign country registry templates with statutory compliance, timezones, and currencies
 const DEFAULT_SOVEREIGN_REGISTRY = [
@@ -198,8 +229,8 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
     utcOffset: 'UTC+07:00',
     language: 'Indonesian (Bahasa Indonesia), English',
     fiscalYear: 'January - December',
-    taxScheme: 'PPh 21 (5%-35%) + 11% PPN',
-    socialSecurity: 'BPJS Ketenagakerjaan (5.7%) + BPJS Kesehatan (5%)',
+    taxScheme: 'PPh 21 (5%-35%) + 11% PPN (VAT)',
+    socialSecurity: 'BPJS Ketenagakerjaan + BPJS Kesehatan (10.24%)',
     publicHolidays: 16,
     status: 'ACTIVE'
   },
@@ -210,13 +241,13 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
     currencyCode: 'PHP',
     currencySymbol: '₱',
     currencyName: 'Philippine Peso',
-    fxRateToUSD: 58.20,
+    fxRateToUSD: 57.20,
     timezone: 'Asia/Manila',
     utcOffset: 'UTC+08:00',
     language: 'Filipino (Tagalog), English',
     fiscalYear: 'January - December',
-    taxScheme: 'TRAIN Law (0%-35%) + 12% VAT',
-    socialSecurity: 'SSS (4.5%) + PhilHealth (5%) + Pag-IBIG',
+    taxScheme: 'TRAIN Law PIT (0%-35%) + 12% VAT',
+    socialSecurity: 'SSS + PhilHealth + Pag-IBIG HDMF (14%)',
     publicHolidays: 18,
     status: 'ACTIVE'
   },
@@ -230,11 +261,11 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
     fxRateToUSD: 83.50,
     timezone: 'Asia/Kolkata',
     utcOffset: 'UTC+05:30',
-    language: 'English, Hindi',
+    language: 'Hindi, English + 22 Scheduled Regional Languages',
     fiscalYear: 'April - March',
-    taxScheme: 'GST (18%) + TDS (10%)',
-    socialSecurity: 'EPFO (12%) + ESIC (0.75%) + Gratuity',
-    publicHolidays: 14,
+    taxScheme: 'New/Old Tax Regime (0%-30%) + 18% GST',
+    socialSecurity: 'EPFO (12%) + ESIC (0.75%) + Gratuity + PT',
+    publicHolidays: 24,
     status: 'ACTIVE'
   },
   {
@@ -244,14 +275,14 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
     currencyCode: 'BDT',
     currencySymbol: '৳',
     currencyName: 'Bangladeshi Taka',
-    fxRateToUSD: 120.0,
+    fxRateToUSD: 117.50,
     timezone: 'Asia/Dhaka',
     utcOffset: 'UTC+06:00',
     language: 'Bengali (বাংলা), English',
     fiscalYear: 'July - June',
-    taxScheme: 'Progressive Tax Slab + 15% VAT',
-    socialSecurity: 'Workers Profit Participation Fund (WPPF 5%)',
-    publicHolidays: 16,
+    taxScheme: 'Progressive PIT (0%-25%) + 15% VAT',
+    socialSecurity: 'Workers Welfare Fund + Provident Fund (7%-8.33%)',
+    publicHolidays: 22,
     status: 'ACTIVE'
   },
   {
@@ -261,14 +292,14 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
     currencyCode: 'NPR',
     currencySymbol: 'रू',
     currencyName: 'Nepalese Rupee',
-    fxRateToUSD: 133.50,
+    fxRateToUSD: 133.60,
     timezone: 'Asia/Kathmandu',
     utcOffset: 'UTC+05:45',
     language: 'Nepali (नेपाली), English',
-    fiscalYear: 'July - June (Shrawan-Ashadh)',
-    taxScheme: 'TDS (15%) + Social Security Tax (1%)',
-    socialSecurity: 'Social Security Fund (SSF 31% Contributory)',
-    publicHolidays: 18,
+    fiscalYear: 'Mid July - Mid July (Shrawan - Ashadh)',
+    taxScheme: 'Slab Tax (1%-36%) + 13% VAT',
+    socialSecurity: 'Social Security Fund (SSF 11% + 20% Employer)',
+    publicHolidays: 35,
     status: 'ACTIVE'
   },
   {
@@ -278,11 +309,11 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
     currencyCode: 'LKR',
     currencySymbol: 'Rs',
     currencyName: 'Sri Lankan Rupee',
-    fxRateToUSD: 305.0,
+    fxRateToUSD: 302.0,
     timezone: 'Asia/Colombo',
     utcOffset: 'UTC+05:30',
     language: 'Sinhala, Tamil, English',
-    fiscalYear: 'April - March',
+    fiscalYear: 'January - December',
     taxScheme: 'APIT (6%-36%) + 18% VAT',
     socialSecurity: 'EPF (8%) + ETF (3%)',
     publicHolidays: 25,
@@ -290,7 +321,7 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
   },
   {
     code: 'AE',
-    name: 'United Arab Emirates (Dubai)',
+    name: 'United Arab Emirates',
     flag: '🇦🇪',
     currencyCode: 'AED',
     currencySymbol: 'د.إ',
@@ -298,16 +329,16 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
     fxRateToUSD: 3.67,
     timezone: 'Asia/Dubai',
     utcOffset: 'UTC+04:00',
-    language: 'Arabic (العربية), English',
+    language: 'Arabic, English',
     fiscalYear: 'January - December',
-    taxScheme: 'Corporate Tax (9%) + 5% VAT (0% Personal Income Tax)',
-    socialSecurity: 'GPSSA Pension Scheme (National Employees 20%)',
+    taxScheme: '0% Personal Income Tax + 5% VAT',
+    socialSecurity: 'GPSSA (Emiratis only 5% / Expats End-of-Service Gratuity)',
     publicHolidays: 14,
     status: 'ACTIVE'
   },
   {
     code: 'SA',
-    name: 'Saudi Arabia (Riyadh)',
+    name: 'Saudi Arabia',
     flag: '🇸🇦',
     currencyCode: 'SAR',
     currencySymbol: '﷼',
@@ -315,79 +346,96 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
     fxRateToUSD: 3.75,
     timezone: 'Asia/Riyadh',
     utcOffset: 'UTC+03:00',
-    language: 'Arabic (العربية), English',
+    language: 'Arabic, English',
     fiscalYear: 'January - December',
-    taxScheme: '15% VAT (0% Personal Income Tax)',
-    socialSecurity: 'GOSI (Social Insurance 21.5%)',
+    taxScheme: '0% PIT + 15% VAT + 2.5% Zakat',
+    socialSecurity: 'GOSI (9.75% Saudi / 2% Occupational Hazard Expats)',
     publicHolidays: 10,
     status: 'ACTIVE'
   },
   {
-    code: 'QA',
-    name: 'Qatar',
-    flag: '🇶🇦',
-    currencyCode: 'QAR',
-    currencySymbol: 'ر.ق',
-    currencyName: 'Qatari Riyal',
-    fxRateToUSD: 3.64,
-    timezone: 'Asia/Qatar',
-    utcOffset: 'UTC+03:00',
+    code: 'EG',
+    name: 'Egypt (Cairo)',
+    flag: '🇪🇬',
+    currencyCode: 'EGP',
+    currencySymbol: 'E£',
+    currencyName: 'Egyptian Pound',
+    fxRateToUSD: 47.50,
+    timezone: 'Africa/Cairo',
+    utcOffset: 'UTC+02:00',
     language: 'Arabic, English',
-    fiscalYear: 'January - December',
-    taxScheme: '10% Corporate Tax (0% Personal Income Tax)',
-    socialSecurity: 'GRSIA (National Pension Scheme 15%)',
-    publicHolidays: 11,
+    fiscalYear: 'July - June',
+    taxScheme: 'Income Tax (0%-25%) + 14% VAT',
+    socialSecurity: 'Social Insurance Law 148 (11% Employee + 18.75% Employer)',
+    publicHolidays: 18,
     status: 'ACTIVE'
   },
   {
-    code: 'OM',
-    name: 'Oman',
-    flag: '🇴🇲',
-    currencyCode: 'OMR',
-    currencySymbol: 'ر.ع.',
-    currencyName: 'Omani Rial',
-    fxRateToUSD: 0.385,
-    timezone: 'Asia/Muscat',
-    utcOffset: 'UTC+04:00',
-    language: 'Arabic, English',
+    code: 'NG',
+    name: 'Nigeria (Lagos)',
+    flag: '🇳🇬',
+    currencyCode: 'NGN',
+    currencySymbol: '₦',
+    currencyName: 'Nigerian Naira',
+    fxRateToUSD: 1480.0,
+    timezone: 'Africa/Lagos',
+    utcOffset: 'UTC+01:00',
+    language: 'English',
     fiscalYear: 'January - December',
-    taxScheme: '5% VAT (0% Personal Income Tax)',
-    socialSecurity: 'PASI (Social Insurance 18.5%)',
+    taxScheme: 'PAYE (7%-24%) + 7.5% VAT',
+    socialSecurity: 'Pension Reform Act (8% Employee + 10% Employer) + NHF + NSITF',
     publicHolidays: 12,
     status: 'ACTIVE'
   },
   {
-    code: 'JP',
-    name: 'Japan (Tokyo)',
-    flag: '🇯🇵',
-    currencyCode: 'JPY',
-    currencySymbol: '¥',
-    currencyName: 'Japanese Yen',
-    fxRateToUSD: 155.0,
-    timezone: 'Asia/Tokyo',
-    utcOffset: 'UTC+09:00',
-    language: 'Japanese (日本語), English',
-    fiscalYear: 'April - March',
-    taxScheme: 'Income Tax (5%-45%) + 10% Consumption Tax',
-    socialSecurity: 'Shakai Hoken (Health, Pension & Care ~15%)',
-    publicHolidays: 16,
+    code: 'KE',
+    name: 'Kenya (Nairobi)',
+    flag: '🇰🇪',
+    currencyCode: 'KES',
+    currencySymbol: 'KSh',
+    currencyName: 'Kenyan Shilling',
+    fxRateToUSD: 130.0,
+    timezone: 'Africa/Nairobi',
+    utcOffset: 'UTC+03:00',
+    language: 'Swahili, English',
+    fiscalYear: 'January - December',
+    taxScheme: 'PAYE (10%-35%) + 16% VAT + 1.5% Housing Levy',
+    socialSecurity: 'NSSF (6%) + SHIF (Social Health Insurance 2.75%)',
+    publicHolidays: 11,
     status: 'ACTIVE'
   },
   {
-    code: 'KR',
-    name: 'South Korea (Seoul)',
-    flag: '🇰🇷',
-    currencyCode: 'KRW',
-    currencySymbol: '₩',
-    currencyName: 'South Korean Won',
-    fxRateToUSD: 1380.0,
-    timezone: 'Asia/Seoul',
-    utcOffset: 'UTC+09:00',
-    language: 'Korean (한국어), English',
+    code: 'ZA',
+    name: 'South Africa',
+    flag: '🇿🇦',
+    currencyCode: 'ZAR',
+    currencySymbol: 'R',
+    currencyName: 'South African Rand',
+    fxRateToUSD: 18.20,
+    timezone: 'Africa/Johannesburg',
+    utcOffset: 'UTC+02:00',
+    language: 'English, Zulu, Xhosa, Afrikaans',
+    fiscalYear: 'March - February',
+    taxScheme: 'PAYE (18%-45%) + 15% VAT',
+    socialSecurity: 'UIF (1%) + SDL (Skills Development 1%) + COIDA',
+    publicHolidays: 12,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'BR',
+    name: 'Brazil (São Paulo)',
+    flag: '🇧🇷',
+    currencyCode: 'BRL',
+    currencySymbol: 'R$',
+    currencyName: 'Brazilian Real',
+    fxRateToUSD: 5.35,
+    timezone: 'America/Sao_Paulo',
+    utcOffset: 'UTC-03:00',
+    language: 'Portuguese (Português)',
     fiscalYear: 'January - December',
-    taxScheme: 'Income Tax (6%-45%) + 10% VAT',
-    socialSecurity: 'Four Major National Insurances (~9%)',
-    publicHolidays: 15,
+    taxScheme: 'IRPF (7.5%-27.5%) + PIS/COFINS/ICMS',
+    socialSecurity: 'INSS (7.5%-14%) + FGTS (8% Guarantee Fund)',
+    publicHolidays: 12,
     status: 'ACTIVE'
   },
   {
@@ -409,7 +457,7 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
   },
   {
     code: 'GB',
-    name: 'United Kingdom (London)',
+    name: 'United Kingdom',
     flag: '🇬🇧',
     currencyCode: 'GBP',
     currencySymbol: '£',
@@ -426,7 +474,7 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
   },
   {
     code: 'DE',
-    name: 'Germany / European Union',
+    name: 'Germany / EU',
     flag: '🇩🇪',
     currencyCode: 'EUR',
     currencySymbol: '€',
@@ -443,7 +491,7 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
   },
   {
     code: 'US',
-    name: 'United States & Global HQ',
+    name: 'United States',
     flag: '🇺🇸',
     currencyCode: 'USD',
     currencySymbol: '$',
@@ -457,23 +505,6 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
     socialSecurity: 'Social Security (6.2%) + Medicare (1.45%)',
     publicHolidays: 11,
     status: 'ACTIVE'
-  },
-  {
-    code: 'CA',
-    name: 'Canada (Toronto)',
-    flag: '🇨🇦',
-    currencyCode: 'CAD',
-    currencySymbol: 'C$',
-    currencyName: 'Canadian Dollar',
-    fxRateToUSD: 1.37,
-    timezone: 'America/Toronto',
-    utcOffset: 'UTC-05:00',
-    language: 'English, French',
-    fiscalYear: 'January - December',
-    taxScheme: 'Federal + Provincial (15%-33%) + GST/HST',
-    socialSecurity: 'Canada Pension Plan (CPP 5.95%) + EI',
-    publicHolidays: 12,
-    status: 'ACTIVE'
   }
 ];
 
@@ -484,7 +515,7 @@ export default function SuperAdminDashboard({
   setGlobalSearchQuery
 }) {
   // --------------------------------------------------------------------------
-  // DYNAMIC STATE STORES (Clean, zero hardcoded dummy personas / fake data)
+  // DYNAMIC STATE STORES (Loaded from PostgreSQL / Supabase)
   // --------------------------------------------------------------------------
   const [companies, setCompanies] = useState([]);
   const [admins, setAdmins] = useState([]);
@@ -496,16 +527,151 @@ export default function SuperAdminDashboard({
   const [announcements, setAnnouncements] = useState([]);
   const [sovereignRegistry, setSovereignRegistry] = useState(DEFAULT_SOVEREIGN_REGISTRY);
 
-  // Active Multi-Currency Display Setting (USD, INR, KHR, BDT, NPR, THB, VND, AED)
+  // Active Multi-Currency Display Setting
   const [selectedDisplayCurrency, setSelectedDisplayCurrency] = useState('USD');
   const [selectedCountryFilter, setSelectedCountryFilter] = useState('ALL');
 
-  // Live World Clock State (updates every second)
+  // Live World Clock State
   const [currentUtcTime, setCurrentUtcTime] = useState(new Date());
+
+  // Toast Notification State
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentUtcTime(new Date()), 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // --------------------------------------------------------------------------
+  // ASYNC DATA LOADER (Backend API + Supabase fallback)
+  // --------------------------------------------------------------------------
+  const loadAllData = async () => {
+    try {
+      const [tenantsRes, usersRes, countriesRes, subsRes, alertsRes, auditRes] = await Promise.allSettled([
+        getTenants(),
+        getPlatformUsers(),
+        getSovereignCountries(),
+        getSubscriptions(),
+        getSystemAlerts(),
+        getAuditLogs(30)
+      ]);
+
+      if (tenantsRes.status === 'fulfilled' && Array.isArray(tenantsRes.value)) {
+        const mappedCompanies = tenantsRes.value.map(t => {
+          const matchedCountry = sovereignRegistry.find(c => c.code === t.country_code) || DEFAULT_SOVEREIGN_REGISTRY[0];
+          const planRate = t.plan === 'ENTERPRISE' ? 4200 : t.plan === 'PRO' ? 2800 : 950;
+          return {
+            id: t.id,
+            code: t.code,
+            name: t.name,
+            legalName: t.legal_name || t.name,
+            country: matchedCountry.name,
+            countryCode: t.country_code || 'VN',
+            flag: matchedCountry.flag || '🌐',
+            currency: t.currency_code || 'USD',
+            timezone: t.default_timezone || 'UTC',
+            plan: (t.plan || 'PRO').toUpperCase(),
+            status: (t.status || 'ACTIVE').toUpperCase(),
+            usersCount: t.user_count || 1,
+            mrsCount: t.mr_count || 0,
+            adminEmail: t.contact_email,
+            adminName: t.contact_email?.split('@')[0] || 'Admin',
+            storageUsedGB: 1,
+            storageLimitGB: t.max_storage_gb || 50,
+            userLimit: t.max_mrs || 250,
+            mrLimit: t.max_mrs || 200,
+            mrr: `$${(t.monthly_rate || planRate).toLocaleString()}`,
+            customMRR: t.monthly_rate || planRate,
+            renewalDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            modules: t.settings?.modules || {
+              mrReporting: true,
+              dcr: true,
+              attendance: true,
+              doctorManagement: true,
+              chemistManagement: true,
+              expense: true,
+              gpsTracking: true,
+              targetManagement: true,
+              orderManagement: true,
+              sampleManagement: false,
+              analytics: true,
+              aiStudio: t.plan === 'ENTERPRISE'
+            }
+          };
+        });
+        setCompanies(mappedCompanies);
+      }
+
+      if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value)) {
+        const mappedUsers = usersRes.value.map(u => ({
+          id: u.id,
+          name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email,
+          firstName: u.first_name || '',
+          lastName: u.last_name || '',
+          email: u.email,
+          mobile: u.phone || '--',
+          phone: u.phone || '',
+          company: u.company_name || u.tenants_companies?.name || 'Platform HQ',
+          tenantId: u.tenant_id,
+          role: u.role || 'COMPANY_ADMIN',
+          status: (u.status || 'Active').toUpperCase(),
+          territory: u.territory || 'Global HQ',
+          countryCode: u.country_code || 'IN',
+          lastLogin: u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : 'Never logged in'
+        }));
+        setPlatformUsers(mappedUsers);
+        setAdmins(mappedUsers.filter(u => u.role.includes('ADMIN')));
+      }
+
+      if (countriesRes.status === 'fulfilled' && Array.isArray(countriesRes.value) && countriesRes.value.length > 0) {
+        // Merge with existing full flags
+        const merged = DEFAULT_SOVEREIGN_REGISTRY.map(dc => {
+          const dbMatch = countriesRes.value.find(c => c.code === dc.code);
+          return dbMatch ? { ...dc, ...dbMatch } : dc;
+        });
+        setSovereignRegistry(merged);
+      }
+
+      if (subsRes.status === 'fulfilled' && Array.isArray(subsRes.value)) {
+        const mappedInvoices = subsRes.value.map(s => ({
+          id: `INV-${s.id.slice(0, 6).toUpperCase()}`,
+          company: s.tenant_name || s.tenants_companies?.name || 'Pharma Tenant',
+          tier: s.plan_tier || 'PRO',
+          amount: `$${Number(s.amount_billed || 2800).toLocaleString()}`,
+          status: s.status || 'Active',
+          date: s.expiry_date || new Date().toISOString().split('T')[0]
+        }));
+        setInvoices(mappedInvoices);
+      }
+
+      if (alertsRes.status === 'fulfilled' && Array.isArray(alertsRes.value)) {
+        setSystemAlerts(alertsRes.value);
+      }
+
+      if (auditRes.status === 'fulfilled' && Array.isArray(auditRes.value)) {
+        const mappedLogs = auditRes.value.map(a => ({
+          id: `ACT-${a.id.slice(0, 5)}`,
+          title: a.action,
+          detail: typeof a.details === 'object' ? JSON.stringify(a.details) : (a.details || a.target_entity),
+          entity: a.tenant_name || a.target_entity,
+          time: new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          actor: a.actor_email,
+          severity: 'info'
+        }));
+        setRecentActivities(mappedLogs);
+      }
+    } catch (err) {
+      console.warn('Live data sync notice:', err.message);
+    }
+  };
+
+  useEffect(() => {
+    loadAllData();
   }, []);
 
   // Currency Converter Interactive Tool State
@@ -522,70 +688,132 @@ export default function SuperAdminDashboard({
     { id: 'FF-03', key: 'gps_high_precision_tracker', name: 'High-Precision Battery-Optimized GPS Engine', rolloutPercent: 0, status: 'TESTING', description: 'Sub-meter accuracy tracking with intelligent cellular battery optimization' }
   ]);
 
-  // Global Settings State
-  const [globalSettings, setGlobalSettings] = useState({
-    dateFormat: 'YYYY-MM-DD',
-    timezone: 'UTC+05:30',
-    currency: 'USD',
-    language: 'English',
-    defaultWorkingDays: 'Monday - Saturday',
-    mfaEnforced: true,
-    passwordExpiryDays: 90,
-    sessionTimeoutMinutes: 60,
-    maxFileUploadMB: 25,
-    gpsRetentionDays: 90
-  });
-
-  // Mobile App Version State
-  const [appVersionState, setAppVersionState] = useState({
-    currentVersion: '3.4.0',
-    minSupportedVersion: '3.2.0',
-    recommendedVersion: '3.4.0',
-    forceUpdateEnabled: false,
-    releaseNotes: 'Performance optimizations for offline DCR sync, enhanced battery savings during GPS tracking, and instant chemist search.'
-  });
-
-  // Maintenance Mode States
-  const [maintenanceConfig, setMaintenanceConfig] = useState({
-    globalMaintenance: false,
-    reportingModuleMaintenance: false,
-    ordersModuleMaintenance: false,
-    mobileAppMaintenance: false
-  });
-
-  // Emergency Platform Kill-Switch State
-  const [emergencyLockActive, setEmergencyLockActive] = useState(false);
-
   // Sub-tab selectors
   const [companySubTab, setCompanySubTab] = useState('all'); // all | active | suspended | trial | admins
   const [userSubTab, setUserSubTab] = useState('all'); // all | admins | managers | mrs
   const [supportSubTab, setSupportSubTab] = useState('open'); // open | resolved
   const [jurisdictionSubTab, setJurisdictionSubTab] = useState('countries'); // countries | timezones | currencies
 
-  // Modals & Action States
+  // --------------------------------------------------------------------------
+  // MODALS STATE (TENANTS, USERS, COUNTRIES, SUBSCRIPTIONS, PASSWORDS)
+  // --------------------------------------------------------------------------
   const [isCreateCompanyOpen, setIsCreateCompanyOpen] = useState(false);
+  const [isEditCompanyOpen, setIsEditCompanyOpen] = useState(false);
+  const [editingCompany, setEditingCompany] = useState(null);
+  const [isDeleteCompanyOpen, setIsDeleteCompanyOpen] = useState(false);
+  const [deletingCompany, setDeletingCompany] = useState(null);
+
+  const [isResetAdminPasswordOpen, setIsResetAdminPasswordOpen] = useState(false);
+  const [resetPasswordTarget, setResetPasswordTarget] = useState(null);
+  const [newAdminPasswordInput, setNewAdminPasswordInput] = useState('');
+
+  const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
+  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [isDeleteUserOpen, setIsDeleteUserOpen] = useState(false);
+  const [deletingUser, setDeletingUser] = useState(null);
+  const [isResetUserPasswordOpen, setIsResetUserPasswordOpen] = useState(false);
+  const [resetUserPasswordTarget, setResetUserPasswordTarget] = useState(null);
+  const [newUserPasswordInput, setNewUserPasswordInput] = useState('');
+
+  const [isCreateCountryOpen, setIsCreateCountryOpen] = useState(false);
+  const [isEditCountryOpen, setIsEditCountryOpen] = useState(false);
+  const [editingCountry, setEditingCountry] = useState(null);
+
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  const [subModalTarget, setSubModalTarget] = useState(null);
+
   const [isImpersonateOpen, setIsImpersonateOpen] = useState(false);
   const [impersonateTarget, setImpersonateTarget] = useState(null);
   const [impersonateReason, setImpersonateReason] = useState('');
   const [activeImpersonation, setActiveImpersonation] = useState(null);
+
   const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = useState(false);
   const [isNewTicketOpen, setIsNewTicketOpen] = useState(false);
 
-  // Form state
+  // Form states
   const [newCompanyForm, setNewCompanyForm] = useState({
     name: '',
+    legalName: '',
     code: '',
     country: 'India',
+    countryCode: 'IN',
     currency: 'INR',
     timezone: 'Asia/Kolkata',
-    fiscalYear: 'April - March',
     adminName: '',
     adminEmail: '',
     adminPhone: '',
     plan: 'PRO',
     userLimit: 250,
     mrLimit: 200,
-    storageLimitGB: 50
+    storageLimitGB: 50,
+    billingCycle: 'Monthly',
+    monthlyRate: 2800
+  });
+
+  const [editCompanyForm, setEditCompanyForm] = useState({
+    name: '',
+    legalName: '',
+    plan: 'PRO',
+    userLimit: 250,
+    mrLimit: 200,
+    storageLimitGB: 50,
+    contactEmail: '',
+    contactPhone: '',
+    billingCycle: 'Monthly',
+    monthlyRate: 2800,
+    status: 'ACTIVE'
+  });
+
+  const [newUserForm, setNewUserForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    role: 'MEDICAL_REP',
+    tenantId: '',
+    phone: '',
+    territory: 'Regional Area 1',
+    countryCode: 'IN'
+  });
+
+  const [editUserForm, setEditUserForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    role: 'MEDICAL_REP',
+    tenantId: '',
+    phone: '',
+    territory: '',
+    status: 'Active'
+  });
+
+  const [newCountryForm, setNewCountryForm] = useState({
+    code: '',
+    name: '',
+    currencyCode: '',
+    currencySymbol: '',
+    primaryTimezone: 'UTC',
+    taxScheme: 'Standard VAT / PIT',
+    socialSecurity: 'Statutory Scheme',
+    fiscalYear: 'January - December'
+  });
+
+  const [editCountryForm, setEditCountryForm] = useState({
+    name: '',
+    currencyCode: '',
+    currencySymbol: '',
+    primaryTimezone: '',
+    taxScheme: '',
+    socialSecurity: '',
+    fiscalYear: ''
+  });
+
+  const [subModalForm, setSubModalForm] = useState({
+    planTier: 'PRO',
+    amountBilled: 2800,
+    billingInterval: 'Monthly',
+    expiryDate: ''
   });
 
   const [newAnnouncement, setNewAnnouncement] = useState({
@@ -604,30 +832,19 @@ export default function SuperAdminDashboard({
   });
 
   // --------------------------------------------------------------------------
-  // DYNAMICALLY COMPUTED METRICS
+  // DYNAMIC COMPUTED METRICS
   // --------------------------------------------------------------------------
-  const filteredCompanies = companies.filter(c => {
-    if (selectedCountryFilter !== 'ALL' && c.country !== selectedCountryFilter) return false;
-    return true;
-  });
-
   const totalCompanies = companies.length;
   const activeCompanies = companies.filter(c => c.status === 'ACTIVE').length;
   const trialCompanies = companies.filter(c => c.status === 'TRIAL').length;
   const suspendedCompanies = companies.filter(c => c.status === 'SUSPENDED').length;
 
-  const totalUsers = companies.reduce((acc, c) => acc + (Number(c.usersCount) || 0), 0);
-  const activeUsers = companies.filter(c => c.status === 'ACTIVE').reduce((acc, c) => acc + (Number(c.usersCount) || 0), 0);
-  const totalMRs = companies.reduce((acc, c) => acc + (Number(c.mrsCount) || 0), 0);
-  const totalManagers = companies.reduce((acc, c) => acc + (Number(c.managersCount) || 0), 0);
-  const totalAdmins = admins.length;
-  const totalDoctors = companies.reduce((acc, c) => acc + (Number(c.doctorsCount) || 0), 0);
-  const totalVisits = companies.reduce((acc, c) => acc + (Number(c.visitsCount) || 0), 0);
-  const totalReports = companies.reduce((acc, c) => acc + (Number(c.reportsCount) || 0), 0);
-
+  const totalUsers = platformUsers.length || companies.reduce((acc, c) => acc + (Number(c.usersCount) || 0), 0);
+  const activeUsers = platformUsers.filter(u => u.status === 'ACTIVE').length || activeCompanies;
+  const totalMRs = platformUsers.filter(u => u.role === 'MEDICAL_REP' || u.role === 'MR').length || companies.reduce((acc, c) => acc + (Number(c.mrsCount) || 0), 0);
+  const totalAdmins = platformUsers.filter(u => u.role.includes('ADMIN')).length || admins.length;
   const totalStorageGB = companies.reduce((acc, c) => acc + (Number(c.storageUsedGB) || 0), 0);
   const totalStorageTB = (totalStorageGB / 1024).toFixed(2);
-  const totalCallsToday = companies.reduce((acc, c) => acc + (Number(c.apiCallsToday) || 0), 0);
 
   const totalMRR_USD = companies.reduce((acc, c) => {
     if (c.status !== 'ACTIVE') return acc;
@@ -635,30 +852,6 @@ export default function SuperAdminDashboard({
     return acc + (Number(c.customMRR) || planRate);
   }, 0);
   const totalARR_USD = totalMRR_USD * 12;
-
-  // Currency Converter Calculation
-  const convertCurrency = (amountInUSD, targetCurrency) => {
-    const targetMeta = sovereignRegistry.find(c => c.currencyCode.includes(targetCurrency));
-    const rate = targetMeta ? targetMeta.fxRateToUSD : 1;
-    return {
-      converted: (amountInUSD * rate).toLocaleString(undefined, { maximumFractionDigits: 2 }),
-      symbol: targetMeta ? targetMeta.currencySymbol : '$'
-    };
-  };
-
-  const getConvertedFxResult = () => {
-    const fromMeta = sovereignRegistry.find(c => c.currencyCode.includes(fxConverter.fromCurrency));
-    const toMeta = sovereignRegistry.find(c => c.currencyCode.includes(fxConverter.toCurrency));
-    const fromRate = fromMeta ? fromMeta.fxRateToUSD : 1;
-    const toRate = toMeta ? toMeta.fxRateToUSD : 1;
-    // Base amount in USD
-    const inUSD = fxConverter.amount / fromRate;
-    const result = (inUSD * toRate).toLocaleString(undefined, { maximumFractionDigits: 2 });
-    return {
-      result,
-      symbol: toMeta ? toMeta.currencySymbol : '$'
-    };
-  };
 
   // Helper for displaying time in IANA timezone
   const formatTimezoneClock = (ianaTz) => {
@@ -689,215 +882,484 @@ export default function SuperAdminDashboard({
   };
 
   // --------------------------------------------------------------------------
-  // ACTION HANDLERS
+  // AUDIT LOGGING HELPER
   // --------------------------------------------------------------------------
-  const logAudit = (action, detail, entity = 'Platform') => {
+  const logAudit = async (action, detail, entity = 'Platform') => {
     const act = {
       id: `ACT-${Date.now().toString().slice(-5)}`,
       title: action,
       detail: detail,
       entity: entity,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      actor: 'Super Admin (HQ)',
+      actor: 'Akshyatraj Pati (Master Super Admin)',
       severity: 'info'
     };
     setRecentActivities(prev => [act, ...prev]);
-  };
 
-  const handleCreateCompany = (e) => {
-    e.preventDefault();
-    if (!newCompanyForm.name.trim() || !newCompanyForm.adminEmail.trim()) {
-      alert('Please provide company name and company admin email.');
-      return;
+    try {
+      await createAuditLog({
+        action,
+        targetEntity: entity,
+        details: { detail },
+        actorEmail: 'akshatrajpati@gmail.com',
+        actorRole: 'SUPER_ADMIN'
+      });
+    } catch (e) {
+      console.warn('Audit trail async write error:', e);
     }
-
-    const tenantIndex = companies.length + 1;
-    const tenantId = `TENANT-${String(tenantIndex).padStart(3, '0')}`;
-    const companyId = `CMP-${String(tenantIndex).padStart(3, '0')}`;
-    const adminId = `ADM-${String(admins.length + 1).padStart(2, '0')}`;
-    const planRate = newCompanyForm.plan === 'ENTERPRISE' ? 4200 : newCompanyForm.plan === 'PRO' ? 2800 : 950;
-
-    const matchedCountry = sovereignRegistry.find(c => c.name === newCompanyForm.country);
-    const countryFlag = matchedCountry ? matchedCountry.flag : '🌐';
-
-    const createdCompany = {
-      id: companyId,
-      code: newCompanyForm.code || `CMP-${Date.now().toString().slice(-4)}`,
-      name: newCompanyForm.name,
-      country: newCompanyForm.country,
-      flag: countryFlag,
-      currency: newCompanyForm.currency,
-      timezone: newCompanyForm.timezone,
-      fiscalYear: newCompanyForm.fiscalYear,
-      adminName: newCompanyForm.adminName || 'Organization Admin',
-      adminEmail: newCompanyForm.adminEmail,
-      plan: newCompanyForm.plan,
-      status: 'ACTIVE',
-      usersCount: 1,
-      mrsCount: 0,
-      managersCount: 0,
-      gmsCount: 0,
-      doctorsCount: 0,
-      visitsCount: 0,
-      reportsCount: 0,
-      storageUsedGB: 1,
-      storageLimitGB: newCompanyForm.storageLimitGB || 50,
-      userLimit: newCompanyForm.userLimit || 250,
-      mrLimit: newCompanyForm.mrLimit || 200,
-      apiCallsToday: 0,
-      tenantId: tenantId,
-      mrr: `$${planRate.toLocaleString()}`,
-      customMRR: planRate,
-      createdDate: new Date().toISOString().split('T')[0],
-      renewalDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      modules: {
-        mrReporting: true,
-        dcr: true,
-        attendance: true,
-        doctorManagement: true,
-        chemistManagement: true,
-        expense: true,
-        gpsTracking: true,
-        targetManagement: true,
-        orderManagement: true,
-        sampleManagement: false,
-        analytics: true,
-        aiStudio: newCompanyForm.plan === 'ENTERPRISE'
-      }
-    };
-
-    const createdAdmin = {
-      id: adminId,
-      name: newCompanyForm.adminName || 'Organization Admin',
-      email: newCompanyForm.adminEmail,
-      company: newCompanyForm.name,
-      companyId: companyId,
-      country: newCompanyForm.country,
-      role: 'COMPANY ADMIN',
-      mfaEnabled: false,
-      status: 'ACTIVE',
-      lastLogin: 'Never logged in',
-      ipAddress: 'Pending First Login'
-    };
-
-    const createdPlatformUser = {
-      id: `USR-${Date.now().toString().slice(-4)}`,
-      name: newCompanyForm.adminName || 'Organization Admin',
-      email: newCompanyForm.adminEmail,
-      mobile: newCompanyForm.adminPhone || '--',
-      company: newCompanyForm.name,
-      role: 'COMPANY ADMIN',
-      status: 'ACTIVE',
-      lastLogin: 'Never logged in'
-    };
-
-    setCompanies(prev => [createdCompany, ...prev]);
-    setAdmins(prev => [createdAdmin, ...prev]);
-    setPlatformUsers(prev => [createdPlatformUser, ...prev]);
-    logAudit('Create Company', `Provisioned tenant ${tenantId} for ${createdCompany.name} in ${createdCompany.country} (${createdCompany.timezone}, ${createdCompany.currency})`, createdCompany.name);
-
-    setIsCreateCompanyOpen(false);
-    setNewCompanyForm({
-      name: '',
-      code: '',
-      country: 'India',
-      currency: 'INR',
-      timezone: 'Asia/Kolkata',
-      fiscalYear: 'April - March',
-      adminName: '',
-      adminEmail: '',
-      adminPhone: '',
-      plan: 'PRO',
-      userLimit: 250,
-      mrLimit: 200,
-      storageLimitGB: 50
-    });
   };
 
+  // --------------------------------------------------------------------------
+  // 1. TENANT CRUD HANDLERS
+  // --------------------------------------------------------------------------
   const handleCountrySelectionChange = (countryName) => {
     const matched = sovereignRegistry.find(c => c.name === countryName);
     if (matched) {
       setNewCompanyForm(prev => ({
         ...prev,
         country: matched.name,
+        countryCode: matched.code,
         currency: matched.currencyCode,
-        timezone: matched.timezone,
-        fiscalYear: matched.fiscalYear
+        timezone: matched.timezone
       }));
     }
   };
 
-  const handleToggleModule = (companyId, moduleKey) => {
-    setCompanies(prev =>
-      prev.map(c => {
-        if (c.id === companyId) {
-          const updated = {
-            ...c,
-            modules: {
-              ...c.modules,
-              [moduleKey]: !c.modules[moduleKey]
-            }
-          };
-          logAudit('Module Access Toggled', `Toggled ${moduleKey} to ${updated.modules[moduleKey] ? 'ENABLED' : 'DISABLED'} for ${c.name}`, c.name);
-          return updated;
-        }
-        return c;
-      })
-    );
-  };
-
-  const toggleCompanyStatus = (id) => {
-    setCompanies(prev =>
-      prev.map(c => {
-        if (c.id === id) {
-          const nextStatus = c.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
-          logAudit('Company Status Changed', `Changed status of ${c.name} to ${nextStatus}`, c.name);
-          return { ...c, status: nextStatus };
-        }
-        return c;
-      })
-    );
-  };
-
-  const handleStartImpersonation = (e) => {
+  const handleCreateCompany = async (e) => {
     e.preventDefault();
-    if (!impersonateReason.trim()) {
-      alert('A valid reason is required for strict security and auditing compliance.');
+    if (!newCompanyForm.name.trim() || !newCompanyForm.adminEmail.trim()) {
+      showToast('Please provide both company name and admin email.', 'error');
       return;
     }
-    const record = {
-      target: impersonateTarget,
-      reason: impersonateReason,
-      startedAt: new Date().toLocaleTimeString()
-    };
-    setActiveImpersonation(record);
-    logAudit('Admin Impersonation Started', `Super Admin impersonated ${impersonateTarget.name} (${impersonateTarget.company}). Reason: ${impersonateReason}`, impersonateTarget.company);
-    setIsImpersonateOpen(false);
-    setImpersonateReason('');
-  };
 
-  const handleEndImpersonation = () => {
-    if (activeImpersonation) {
-      logAudit('Admin Impersonation Ended', `Ended session as ${activeImpersonation.target.name}`, activeImpersonation.target.company);
-      setActiveImpersonation(null);
+    try {
+      const planRate = newCompanyForm.plan === 'ENTERPRISE' ? 4200 : newCompanyForm.plan === 'PRO' ? 2800 : 950;
+      const payload = {
+        name: newCompanyForm.name,
+        legalName: newCompanyForm.legalName || newCompanyForm.name,
+        code: newCompanyForm.code || newCompanyForm.name.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30),
+        countryCode: newCompanyForm.countryCode,
+        currencyCode: newCompanyForm.currency,
+        timezone: newCompanyForm.timezone,
+        plan: newCompanyForm.plan,
+        maxMrs: Number(newCompanyForm.mrLimit) || 200,
+        maxAdmins: 5,
+        maxDoctors: 5000,
+        maxStorageGb: Number(newCompanyForm.storageLimitGB) || 50,
+        billingCycle: newCompanyForm.billingCycle || 'Monthly',
+        monthlyRate: planRate,
+        contactEmail: newCompanyForm.adminEmail,
+        contactPhone: newCompanyForm.adminPhone,
+        adminName: newCompanyForm.adminName
+      };
+
+      const result = await createTenant(payload);
+      showToast(`Tenant "${newCompanyForm.name}" successfully provisioned!`, 'success');
+      logAudit('TENANT_PROVISIONED', `Created pharma company ${newCompanyForm.name} in ${newCompanyForm.country}`, newCompanyForm.name);
+
+      setIsCreateCompanyOpen(false);
+      loadAllData();
+      setNewCompanyForm({
+        name: '',
+        legalName: '',
+        code: '',
+        country: 'India',
+        countryCode: 'IN',
+        currency: 'INR',
+        timezone: 'Asia/Kolkata',
+        adminName: '',
+        adminEmail: '',
+        adminPhone: '',
+        plan: 'PRO',
+        userLimit: 250,
+        mrLimit: 200,
+        storageLimitGB: 50,
+        billingCycle: 'Monthly',
+        monthlyRate: 2800
+      });
+    } catch (err) {
+      showToast(`Failed to create tenant: ${err.message}`, 'error');
     }
   };
 
-  const handleSendAnnouncement = (e) => {
+  const handleOpenEditCompany = (company) => {
+    setEditingCompany(company);
+    setEditCompanyForm({
+      name: company.name,
+      legalName: company.legalName || company.name,
+      plan: company.plan,
+      userLimit: company.userLimit || 250,
+      mrLimit: company.mrLimit || 200,
+      storageLimitGB: company.storageLimitGB || 50,
+      contactEmail: company.adminEmail || '',
+      contactPhone: '',
+      billingCycle: 'Monthly',
+      monthlyRate: company.customMRR || 2800,
+      status: company.status
+    });
+    setIsEditCompanyOpen(true);
+  };
+
+  const handleUpdateCompany = async (e) => {
+    e.preventDefault();
+    if (!editingCompany) return;
+
+    try {
+      await updateTenant(editingCompany.id, {
+        name: editCompanyForm.name,
+        legalName: editCompanyForm.legalName,
+        plan: editCompanyForm.plan,
+        maxMrs: Number(editCompanyForm.mrLimit),
+        maxStorageGb: Number(editCompanyForm.storageLimitGB),
+        contactEmail: editCompanyForm.contactEmail,
+        status: editCompanyForm.status
+      });
+
+      showToast(`Company "${editCompanyForm.name}" updated successfully.`, 'success');
+      logAudit('TENANT_UPDATED', `Updated configuration for ${editCompanyForm.name}`, editCompanyForm.name);
+      setIsEditCompanyOpen(false);
+      loadAllData();
+    } catch (err) {
+      showToast(`Update error: ${err.message}`, 'error');
+    }
+  };
+
+  const handleToggleCompanyStatus = async (id, currentStatus, name) => {
+    const nextStatus = currentStatus === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+    try {
+      await toggleTenantStatus(id, nextStatus);
+      showToast(`Company "${name}" status changed to ${nextStatus}.`, 'success');
+      logAudit('STATUS_CHANGED', `Changed status of ${name} to ${nextStatus}`, name);
+      setCompanies(prev => prev.map(c => c.id === id ? { ...c, status: nextStatus } : c));
+    } catch (err) {
+      showToast(`Status update failed: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenDeleteCompany = (company) => {
+    setDeletingCompany(company);
+    setIsDeleteCompanyOpen(true);
+  };
+
+  const handleConfirmDeleteCompany = async () => {
+    if (!deletingCompany) return;
+    try {
+      await deleteTenant(deletingCompany.id);
+      showToast(`Company "${deletingCompany.name}" permanently purged.`, 'success');
+      logAudit('TENANT_DELETED', `Purged tenant ${deletingCompany.name}`, deletingCompany.name);
+      setIsDeleteCompanyOpen(false);
+      setDeletingCompany(null);
+      setCompanies(prev => prev.filter(c => c.id !== deletingCompany.id));
+    } catch (err) {
+      showToast(`Failed to delete tenant: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenResetAdminPassword = (company) => {
+    setResetPasswordTarget(company);
+    setNewAdminPasswordInput('');
+    setIsResetAdminPasswordOpen(true);
+  };
+
+  const handleConfirmResetAdminPassword = async (e) => {
+    e.preventDefault();
+    if (!resetPasswordTarget || !newAdminPasswordInput.trim()) {
+      showToast('Please enter a new password.', 'error');
+      return;
+    }
+
+    try {
+      await resetTenantAdminPassword(resetPasswordTarget.id, newAdminPasswordInput.trim(), resetPasswordTarget.adminEmail);
+      showToast(`Admin password reset successfully for ${resetPasswordTarget.name}!`, 'success');
+      logAudit('ADMIN_PASSWORD_RESET', `Reset admin password for ${resetPasswordTarget.adminEmail}`, resetPasswordTarget.name);
+      setIsResetAdminPasswordOpen(false);
+      setResetPasswordTarget(null);
+      setNewAdminPasswordInput('');
+    } catch (err) {
+      showToast(`Password reset error: ${err.message}`, 'error');
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // 2. PLATFORM USER CRUD HANDLERS
+  // --------------------------------------------------------------------------
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    if (!newUserForm.email || !newUserForm.role) {
+      showToast('Email and role are required.', 'error');
+      return;
+    }
+
+    try {
+      await createPlatformUser({
+        firstName: newUserForm.firstName,
+        lastName: newUserForm.lastName,
+        email: newUserForm.email,
+        password: newUserForm.password || 'User@1234!',
+        role: newUserForm.role,
+        tenantId: newUserForm.tenantId || null,
+        phone: newUserForm.phone,
+        territory: newUserForm.territory,
+        countryCode: newUserForm.countryCode
+      });
+
+      showToast(`User ${newUserForm.email} created successfully.`, 'success');
+      logAudit('USER_CREATED', `Created user ${newUserForm.email} with role ${newUserForm.role}`);
+      setIsCreateUserOpen(false);
+      loadAllData();
+      setNewUserForm({
+        firstName: '',
+        lastName: '',
+        email: '',
+        password: '',
+        role: 'MEDICAL_REP',
+        tenantId: '',
+        phone: '',
+        territory: 'Regional Area 1',
+        countryCode: 'IN'
+      });
+    } catch (err) {
+      showToast(`Failed to create user: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenEditUser = (user) => {
+    setEditingUser(user);
+    setEditUserForm({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+      tenantId: user.tenantId || '',
+      phone: user.phone || '',
+      territory: user.territory || '',
+      status: user.status
+    });
+    setIsEditUserOpen(true);
+  };
+
+  const handleUpdateUser = async (e) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    try {
+      await updatePlatformUser(editingUser.id, editUserForm);
+      showToast(`User ${editUserForm.email} updated successfully.`, 'success');
+      logAudit('USER_UPDATED', `Updated user ${editUserForm.email}`);
+      setIsEditUserOpen(false);
+      loadAllData();
+    } catch (err) {
+      showToast(`User update error: ${err.message}`, 'error');
+    }
+  };
+
+  const handleToggleUserStatus = async (id, currentStatus, email) => {
+    const nextStatus = currentStatus === 'ACTIVE' || currentStatus === 'Active' ? 'Suspended' : 'Active';
+    try {
+      await toggleUserStatus(id, nextStatus);
+      showToast(`User ${email} status changed to ${nextStatus}.`, 'success');
+      logAudit('USER_STATUS_CHANGED', `Changed status of ${email} to ${nextStatus}`);
+      setPlatformUsers(prev => prev.map(u => u.id === id ? { ...u, status: nextStatus.toUpperCase() } : u));
+    } catch (err) {
+      showToast(`Failed to update status: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenResetUserPassword = (user) => {
+    setResetUserPasswordTarget(user);
+    setNewUserPasswordInput('');
+    setIsResetUserPasswordOpen(true);
+  };
+
+  const handleConfirmResetUserPassword = async (e) => {
+    e.preventDefault();
+    if (!resetUserPasswordTarget || !newUserPasswordInput.trim()) {
+      showToast('Please enter a new password.', 'error');
+      return;
+    }
+
+    try {
+      await resetUserPassword(resetUserPasswordTarget.id, newUserPasswordInput.trim());
+      showToast(`Password reset successfully for ${resetUserPasswordTarget.email}!`, 'success');
+      logAudit('USER_PASSWORD_RESET', `Reset password for ${resetUserPasswordTarget.email}`);
+      setIsResetUserPasswordOpen(false);
+      setResetUserPasswordTarget(null);
+      setNewUserPasswordInput('');
+    } catch (err) {
+      showToast(`Password reset error: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenDeleteUser = (user) => {
+    setDeletingUser(user);
+    setIsDeleteUserOpen(true);
+  };
+
+  const handleConfirmDeleteUser = async () => {
+    if (!deletingUser) return;
+    try {
+      await deletePlatformUser(deletingUser.id);
+      showToast(`User ${deletingUser.email} deleted successfully.`, 'success');
+      logAudit('USER_DELETED', `Deleted user account ${deletingUser.email}`);
+      setIsDeleteUserOpen(false);
+      setDeletingUser(null);
+      setPlatformUsers(prev => prev.filter(u => u.id !== deletingUser.id));
+    } catch (err) {
+      showToast(`Failed to delete user: ${err.message}`, 'error');
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // 3. SOVEREIGN COUNTRY CRUD HANDLERS
+  // --------------------------------------------------------------------------
+  const handleCreateCountry = async (e) => {
+    e.preventDefault();
+    if (!newCountryForm.code || !newCountryForm.name) {
+      showToast('Country code and name are required.', 'error');
+      return;
+    }
+
+    try {
+      await createCountry({
+        code: newCountryForm.code.toUpperCase().trim(),
+        name: newCountryForm.name.trim(),
+        currency_code: newCountryForm.currencyCode.toUpperCase().trim(),
+        currency_symbol: newCountryForm.currencySymbol || '$',
+        primary_timezone: newCountryForm.primaryTimezone || 'UTC',
+        tax_scheme: newCountryForm.taxScheme,
+        social_security: newCountryForm.socialSecurity,
+        fiscal_year: newCountryForm.fiscalYear
+      });
+
+      showToast(`Sovereign Country ${newCountryForm.name} registered.`, 'success');
+      logAudit('SOVEREIGN_COUNTRY_ADDED', `Registered country ${newCountryForm.name} (${newCountryForm.code})`);
+      setIsCreateCountryOpen(false);
+      loadAllData();
+      setNewCountryForm({
+        code: '',
+        name: '',
+        currencyCode: '',
+        currencySymbol: '',
+        primaryTimezone: 'UTC',
+        taxScheme: 'Standard VAT / PIT',
+        socialSecurity: 'Statutory Scheme',
+        fiscalYear: 'January - December'
+      });
+    } catch (err) {
+      showToast(`Country registration error: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenEditCountry = (country) => {
+    setEditingCountry(country);
+    setEditCountryForm({
+      name: country.name,
+      currencyCode: country.currencyCode,
+      currencySymbol: country.currencySymbol,
+      primaryTimezone: country.timezone,
+      taxScheme: country.taxScheme,
+      socialSecurity: country.socialSecurity,
+      fiscalYear: country.fiscalYear
+    });
+    setIsEditCountryOpen(true);
+  };
+
+  const handleUpdateCountry = async (e) => {
+    e.preventDefault();
+    if (!editingCountry) return;
+
+    try {
+      await updateCountry(editingCountry.code, {
+        name: editCountryForm.name,
+        currency_code: editCountryForm.currencyCode,
+        currency_symbol: editCountryForm.currencySymbol,
+        primary_timezone: editCountryForm.primaryTimezone,
+        tax_scheme: editCountryForm.taxScheme,
+        social_security: editCountryForm.socialSecurity,
+        fiscal_year: editCountryForm.fiscalYear
+      });
+
+      showToast(`Country ${editingCountry.name} updated.`, 'success');
+      logAudit('SOVEREIGN_COUNTRY_UPDATED', `Updated statutory parameters for ${editingCountry.name}`);
+      setIsEditCountryOpen(false);
+      loadAllData();
+    } catch (err) {
+      showToast(`Update error: ${err.message}`, 'error');
+    }
+  };
+
+  const handleDeleteCountry = async (code, name) => {
+    if (!window.confirm(`Are you sure you want to delete sovereign jurisdiction ${name}?`)) return;
+    try {
+      await deleteCountry(code);
+      showToast(`Sovereign country ${name} removed.`, 'success');
+      logAudit('SOVEREIGN_COUNTRY_DELETED', `Deleted jurisdiction ${name} (${code})`);
+      setSovereignRegistry(prev => prev.filter(c => c.code !== code));
+    } catch (err) {
+      showToast(`Failed to delete country: ${err.message}`, 'error');
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // 4. SUBSCRIPTION / BILLING HANDLERS
+  // --------------------------------------------------------------------------
+  const handleOpenSubscriptionModal = (company) => {
+    setSubModalTarget(company);
+    setSubModalForm({
+      planTier: company.plan || 'PRO',
+      amountBilled: company.plan === 'ENTERPRISE' ? 4200 : company.plan === 'PRO' ? 2800 : 950,
+      billingInterval: 'Monthly',
+      expiryDate: company.renewalDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    });
+    setIsSubscriptionModalOpen(true);
+  };
+
+  const handleSaveSubscription = async (e) => {
+    e.preventDefault();
+    if (!subModalTarget) return;
+
+    try {
+      await createSubscription({
+        tenant_id: subModalTarget.id,
+        plan_tier: subModalForm.planTier,
+        amount_billed: Number(subModalForm.amountBilled),
+        billing_interval: subModalForm.billingInterval,
+        expiry_date: subModalForm.expiryDate,
+        status: 'Active'
+      });
+
+      showToast(`Subscription updated to ${subModalForm.planTier} for ${subModalTarget.name}!`, 'success');
+      logAudit('SUBSCRIPTION_UPDATED', `Upgraded ${subModalTarget.name} to ${subModalForm.planTier}`, subModalTarget.name);
+      setIsSubscriptionModalOpen(false);
+      loadAllData();
+    } catch (err) {
+      showToast(`Subscription error: ${err.message}`, 'error');
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // 5. ANNOUNCEMENTS & TICKETS
+  // --------------------------------------------------------------------------
+  const handleSendAnnouncement = async (e) => {
     e.preventDefault();
     if (!newAnnouncement.title.trim() || !newAnnouncement.content.trim()) return;
-    const ann = {
-      id: `ANN-${Date.now().toString().slice(-4)}`,
-      title: newAnnouncement.title,
-      type: newAnnouncement.type,
-      target: newAnnouncement.target,
-      content: newAnnouncement.content,
-      publishedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    setAnnouncements(prev => [ann, ...prev]);
-    logAudit('Published Announcement', `Published broadcast: "${newAnnouncement.title}" to target ${newAnnouncement.target}`);
-    setIsAnnouncementModalOpen(false);
-    setNewAnnouncement({ title: '', type: 'MAINTENANCE', target: 'ALL', content: '' });
+
+    try {
+      await createSystemAlert({
+        title: newAnnouncement.title,
+        message: newAnnouncement.content,
+        type: newAnnouncement.type,
+        severity: newAnnouncement.type === 'SECURITY' ? 'Critical' : 'Info'
+      });
+
+      showToast(`Broadcast announcement "${newAnnouncement.title}" published!`, 'success');
+      logAudit('ANNOUNCEMENT_PUBLISHED', `Broadcast: "${newAnnouncement.title}"`);
+      setIsAnnouncementModalOpen(false);
+      setNewAnnouncement({ title: '', type: 'MAINTENANCE', target: 'ALL', content: '' });
+      loadAllData();
+    } catch (err) {
+      showToast(`Failed to publish: ${err.message}`, 'error');
+    }
   };
 
   const handleCreateTicket = (e) => {
@@ -911,20 +1373,57 @@ export default function SuperAdminDashboard({
       subject: newTicket.subject,
       description: newTicket.description,
       status: 'OPEN',
-      assignedTo: 'Super Admin HQ',
+      assignedTo: 'Akshyatraj Pati (Super Admin HQ)',
       createdAt: new Date().toLocaleDateString()
     };
     setSupportTickets(prev => [tick, ...prev]);
-    logAudit('Support Ticket Created', `Created support ticket #${tick.id}: ${tick.subject}`, tick.companyName);
+    logAudit('TICKET_CREATED', `Support ticket #${tick.id}: ${tick.subject}`, tick.companyName);
+    showToast(`Support Ticket #${tick.id} logged.`, 'success');
     setIsNewTicketOpen(false);
     setNewTicket({ companyName: '', category: 'TECHNICAL', priority: 'HIGH', subject: '', description: '' });
   };
 
+  const handleStartImpersonation = (e) => {
+    e.preventDefault();
+    if (!impersonateReason.trim()) {
+      showToast('A valid audit reason is required.', 'error');
+      return;
+    }
+    const record = {
+      target: impersonateTarget,
+      reason: impersonateReason,
+      startedAt: new Date().toLocaleTimeString()
+    };
+    setActiveImpersonation(record);
+    logAudit('IMPERSONATION_STARTED', `Super Admin impersonated ${impersonateTarget.name} (${impersonateTarget.company}). Reason: ${impersonateReason}`, impersonateTarget.company);
+    showToast(`Audited session started as ${impersonateTarget.name}`, 'success');
+    setIsImpersonateOpen(false);
+    setImpersonateReason('');
+  };
+
+  const handleEndImpersonation = () => {
+    if (activeImpersonation) {
+      logAudit('IMPERSONATION_ENDED', `Ended session as ${activeImpersonation.target.name}`, activeImpersonation.target.company);
+      showToast('Impersonation session terminated.', 'info');
+      setActiveImpersonation(null);
+    }
+  };
+
   // --------------------------------------------------------------------------
-  // RENDER SECTIONS
+  // RENDER VIEW
   // --------------------------------------------------------------------------
   return (
     <div className="superadmin-suite-container">
+      {/* Real-Time Floating Toast Notification */}
+      {toast && (
+        <div className="saas-toast-container">
+          <div className={`saas-toast-item ${toast.type === 'error' ? 'saas-toast-error' : 'saas-toast-success'}`}>
+            {toast.type === 'error' ? <AlertTriangle size={18} color="#ef4444" /> : <CheckCircle2 size={18} color="#10b981" />}
+            <span>{toast.message}</span>
+          </div>
+        </div>
+      )}
+
       {/* Impersonation Active Banner */}
       {activeImpersonation && (
         <div className="impersonation-active-banner">
@@ -955,7 +1454,7 @@ export default function SuperAdminDashboard({
           </div>
           <h1 className="saas-header-title">Super Admin Platform Command Center</h1>
           <p className="saas-header-desc">
-            Global SaaS Sovereign Governance &bull; 24 Market Jurisdictions &bull; Automated FX &amp; Statutory Compliance
+            Global SaaS Sovereign Governance &bull; 24 Market Jurisdictions &bull; Live CRUD Engine &bull; Automated FX
           </p>
         </div>
 
@@ -985,12 +1484,11 @@ export default function SuperAdminDashboard({
       </div>
 
       {/* =====================================================================
-          PLATFORM DASHBOARD (19 PLATFORM METRICS)
+          1. PLATFORM DASHBOARD
           ===================================================================== */}
       {activeTab === 'dashboard' && (
         <div className="tab-pane-content">
-
-          {/* 6 Executive KPI Metric Cards */}
+          {/* Executive KPI Metric Cards */}
           <div className="kpi-banner-grid">
             <div className="saas-kpi-card">
               <div className="kpi-top">
@@ -1015,35 +1513,13 @@ export default function SuperAdminDashboard({
                 <strong className="text-green">{activeUsers.toLocaleString()} Active</strong> &bull; <strong className="text-blue">{totalAdmins} Admins</strong>
               </div>
               <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '3px' }}>
-                {totalMRs.toLocaleString()} MRs &bull; {totalManagers.toLocaleString()} Managers
+                {totalMRs.toLocaleString()} MRs &bull; Cross-Tenant Directory
               </div>
             </div>
 
             <div className="saas-kpi-card">
               <div className="kpi-top">
-                <span className="kpi-label">Doctors &amp; Field Visits</span>
-                <Activity size={18} className="kpi-icon cyan" />
-              </div>
-              <div className="kpi-number text-blue">{totalDoctors.toLocaleString()}</div>
-              <div className="kpi-sub">
-                <strong>{totalVisits.toLocaleString()} Field Calls Completed</strong>
-              </div>
-            </div>
-
-            <div className="saas-kpi-card">
-              <div className="kpi-top">
-                <span className="kpi-label">Reports &amp; Analytics</span>
-                <FileText size={18} className="kpi-icon purple" />
-              </div>
-              <div className="kpi-number" style={{ color: '#7c3aed' }}>{totalReports.toLocaleString()}</div>
-              <div className="kpi-sub">
-                <strong>DCRs, Chemist Orders &amp; Claims</strong>
-              </div>
-            </div>
-
-            <div className="saas-kpi-card">
-              <div className="kpi-top">
-                <span className="kpi-label">Storage &amp; Telemetry</span>
+                <span className="kpi-label">Storage &amp; Multi-Tenancy</span>
                 <HardDrive size={18} className="kpi-icon blue" />
               </div>
               <div className="kpi-number">{totalStorageTB} TB</div>
@@ -1095,10 +1571,9 @@ export default function SuperAdminDashboard({
                           <th>Company &amp; Flag</th>
                           <th>Jurisdiction</th>
                           <th>Timezone</th>
-                          <th>Currency</th>
                           <th>Plan</th>
                           <th>Status</th>
-                          <th style={{ textAlign: 'right' }}>Action</th>
+                          <th style={{ textAlign: 'right' }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1109,13 +1584,12 @@ export default function SuperAdminDashboard({
                                 <span className="comp-flag">{comp.flag}</span>
                                 <div>
                                   <div className="comp-name-text">{comp.name}</div>
-                                  <div className="comp-code-sub">{comp.code} &bull; {comp.tenantId}</div>
+                                  <div className="comp-code-sub">{comp.code}</div>
                                 </div>
                               </div>
                             </td>
                             <td><strong>{comp.country}</strong></td>
                             <td><span className="tenant-id-pill">{comp.timezone}</span></td>
-                            <td><strong>{comp.currency}</strong></td>
                             <td><span className={`plan-pill plan-${comp.plan.toLowerCase()}`}>{comp.plan}</span></td>
                             <td>
                               <span className={`status-tag status-${comp.status.toLowerCase()}`}>
@@ -1123,9 +1597,14 @@ export default function SuperAdminDashboard({
                               </span>
                             </td>
                             <td style={{ textAlign: 'right' }}>
-                              <button type="button" className="action-pill-btn primary" onClick={() => setActiveTab('features')}>
-                                Modules
-                              </button>
+                              <div className="actions-cluster">
+                                <button type="button" className="action-pill-btn" onClick={() => handleOpenEditCompany(comp)}>
+                                  <Edit size={12} /> Edit
+                                </button>
+                                <button type="button" className="action-pill-btn" onClick={() => handleToggleCompanyStatus(comp.id, comp.status, comp.name)}>
+                                  {comp.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -1142,30 +1621,29 @@ export default function SuperAdminDashboard({
                     <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <Activity size={18} color="#2563eb" /> Real-Time Platform Activity Stream
                     </h2>
-                    <p className="section-desc">Immutable log of company registration, admin auth, and feature changes</p>
+                    <p className="section-desc">Immutable audit trail of company provisioning, admin auth, and feature updates</p>
                   </div>
                   <button type="button" className="btn btn-secondary btn-sm" onClick={() => setActiveTab('security')}>
                     Audit Log &rarr;
                   </button>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+
+                <div className="activity-feed">
                   {recentActivities.length === 0 ? (
-                    <div style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '0.8rem', background: '#f8fafc', borderRadius: '8px' }}>
-                      No recent activity logs. New tenant events will appear here in real-time.
+                    <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '0.8rem' }}>
+                      Audit stream active. Platform events will appear in real time.
                     </div>
                   ) : (
-                    recentActivities.slice(0, 6).map((act) => (
-                      <div key={act.id} style={{ padding: '10px 14px', borderRadius: '8px', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981', flexShrink: 0 }} />
-                          <div>
-                            <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#0f172a' }}>{act.title}</div>
-                            <div style={{ fontSize: '0.74rem', color: '#64748b' }}>{act.detail}</div>
+                    recentActivities.slice(0, 6).map(act => (
+                      <div key={act.id} className="activity-item">
+                        <div className="activity-dot blue" />
+                        <div className="activity-body">
+                          <div className="activity-header">
+                            <span className="act-title"><strong>{act.title}</strong> &bull; <span style={{ color: '#2563eb' }}>{act.entity}</span></span>
+                            <span className="act-time">{act.time}</span>
                           </div>
-                        </div>
-                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                          <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#0f172a' }}>{act.actor}</div>
-                          <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>{act.time}</div>
+                          <p className="act-detail">{act.detail}</p>
+                          <span className="act-actor">Actor: {act.actor}</span>
                         </div>
                       </div>
                     ))
@@ -1174,54 +1652,64 @@ export default function SuperAdminDashboard({
               </div>
             </div>
 
-            {/* Right Column: World Clock & Live FX Rates */}
+            {/* Right Column: Broadcasts & Quick Links */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              {/* Live Multi-Timezone World Clock */}
               <div className="card-section">
                 <div className="card-header-flex">
                   <h3 className="card-header-title">
-                    <Clock size={18} color="#d97706" /> Live Regional World Clocks
+                    <Megaphone size={16} color="#d97706" /> Global Broadcast Notices
                   </h3>
-                  <button type="button" className="action-pill-btn" onClick={() => setActiveTab('jurisdictions')}>
-                    All Clocks &rarr;
+                  <button type="button" className="action-pill-btn" onClick={() => setIsAnnouncementModalOpen(true)}>
+                    <Plus size={12} /> Broadcast
                   </button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  {sovereignRegistry.slice(0, 4).map((reg) => (
-                    <div key={reg.code} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 10px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: '#64748b' }}>
-                        <span>{reg.flag} {reg.name}</span>
-                        <span style={{ fontWeight: '700' }}>{reg.utcOffset}</span>
-                      </div>
-                      <div style={{ fontSize: '1.05rem', fontWeight: '800', color: '#0f172a', marginTop: '2px', fontFamily: 'monospace' }}>
-                        {formatTimezoneClock(reg.timezone)}
-                      </div>
-                      <div style={{ fontSize: '0.66rem', color: '#94a3b8' }}>{formatTimezoneDate(reg.timezone)}</div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {systemAlerts.length === 0 ? (
+                    <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '8px', fontSize: '0.78rem', color: '#64748b' }}>
+                      No active global announcements. Click Broadcast to publish alerts to tenants.
                     </div>
-                  ))}
+                  ) : (
+                    systemAlerts.map(alert => (
+                      <div key={alert.id} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <strong style={{ fontSize: '0.82rem', color: '#0f172a' }}>{alert.title}</strong>
+                          <button
+                            type="button"
+                            onClick={() => deleteSystemAlert(alert.id).then(() => {
+                              showToast('Alert dismissed.', 'info');
+                              setSystemAlerts(prev => prev.filter(a => a.id !== alert.id));
+                            })}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}
+                          >
+                            &times;
+                          </button>
+                        </div>
+                        <p style={{ fontSize: '0.76rem', color: '#475569', margin: '4px 0 0' }}>{alert.message}</p>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
-              {/* Microservices Health */}
+              {/* Quick Actions Panel */}
               <div className="card-section">
-                <div className="card-header-flex">
-                  <h3 className="card-header-title">
-                    <Server size={18} color="#059669" /> Global Cloud Health
-                  </h3>
-                  <span style={{ fontSize: '0.72rem', color: '#059669', fontWeight: '800', background: '#dcfce7', padding: '2px 8px', borderRadius: '12px' }}>
-                    🟢 8 Regions Active
-                  </span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  {['API Gateway (Global)', 'PostgreSQL Multi-Tenant', 'Azure Geo-Blob Vault', 'Auth Service (JWT/OIDC)', 'GPS & Satellite Gateway', 'SendGrid Global Ingress'].map((svc) => (
-                    <div key={svc} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 10px' }}>
-                      <div style={{ fontSize: '0.68rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{svc}</div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#059669' }}>● 99.99%</span>
-                        <span style={{ fontSize: '0.68rem', color: '#64748b' }}>&lt; 40ms</span>
-                      </div>
-                    </div>
-                  ))}
+                <h3 className="card-header-title">
+                  <Settings size={16} color="#0f172a" /> Super Admin Quick Actions
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setIsCreateCompanyOpen(true)} style={{ justifyContent: 'flex-start' }}>
+                    <Plus size={14} color="#2563eb" /> Provision New Pharma Tenant
+                  </button>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setIsCreateUserOpen(true)} style={{ justifyContent: 'flex-start' }}>
+                    <Users size={14} color="#059669" /> Add Platform User
+                  </button>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setIsCreateCountryOpen(true)} style={{ justifyContent: 'flex-start' }}>
+                    <Globe2 size={14} color="#d97706" /> Register Sovereign Country
+                  </button>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setIsNewTicketOpen(true)} style={{ justifyContent: 'flex-start' }}>
+                    <LifeBuoy size={14} color="#7c3aed" /> Create Support Ticket
+                  </button>
                 </div>
               </div>
             </div>
@@ -1230,22 +1718,19 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          2. COMPANY / TENANT MANAGEMENT (FULL LIFECYCLE & ACTIONS)
+          2. COMPANIES & TENANTS (FULL CRUD)
           ===================================================================== */}
       {activeTab === 'companies' && (
         <div className="tab-pane-content">
           <div className="sub-nav-tabs">
             <button type="button" className={`sub-nav-pill ${companySubTab === 'all' ? 'active' : ''}`} onClick={() => setCompanySubTab('all')}>
-              All Companies ({totalCompanies})
+              All Pharma Companies ({companies.length})
             </button>
             <button type="button" className={`sub-nav-pill ${companySubTab === 'active' ? 'active' : ''}`} onClick={() => setCompanySubTab('active')}>
-              Active ({activeCompanies})
+              Active ({companies.filter(c => c.status === 'ACTIVE').length})
             </button>
             <button type="button" className={`sub-nav-pill ${companySubTab === 'suspended' ? 'active' : ''}`} onClick={() => setCompanySubTab('suspended')}>
-              Suspended ({suspendedCompanies})
-            </button>
-            <button type="button" className={`sub-nav-pill ${companySubTab === 'trial' ? 'active' : ''}`} onClick={() => setCompanySubTab('trial')}>
-              Trials ({trialCompanies})
+              Suspended ({companies.filter(c => c.status === 'SUSPENDED').length})
             </button>
             <button type="button" className={`sub-nav-pill ${companySubTab === 'admins' ? 'active' : ''}`} onClick={() => setCompanySubTab('admins')}>
               Company Admins ({admins.length})
@@ -1257,94 +1742,79 @@ export default function SuperAdminDashboard({
               <Search size={18} />
               <input
                 type="text"
-                placeholder="Search company by name, code, jurisdiction, admin..."
+                placeholder="Search by company name, jurisdiction, code..."
                 value={globalSearchQuery}
                 onChange={(e) => setGlobalSearchQuery(e.target.value)}
                 className="search-input-field"
               />
             </div>
-            <button type="button" className="primary-action-btn" onClick={() => setIsCreateCompanyOpen(true)}>
-              <Plus size={16} />
-              <span>Create New Pharma Company</span>
+            <button type="button" className="btn btn-primary" onClick={() => setIsCreateCompanyOpen(true)}>
+              <Plus size={16} /> Create New Pharma Company
             </button>
           </div>
 
           {companySubTab === 'admins' ? (
             <div className="saas-table-container">
-              {admins.length === 0 ? (
-                <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
-                  <UserCog size={38} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
-                  <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Company Admins Registered</div>
-                  <p style={{ fontSize: '0.8rem', margin: '4px auto 12px' }}>Company admins are created when provisioning a new tenant.</p>
-                </div>
-              ) : (
-                <table className="saas-data-table">
-                  <thead>
-                    <tr>
-                      <th>Admin Name &amp; Email</th>
-                      <th>Assigned Pharma Company</th>
-                      <th>Country</th>
-                      <th>Status</th>
-                      <th>Last Login</th>
-                      <th style={{ textAlign: 'right' }}>Security Actions</th>
+              <table className="saas-data-table">
+                <thead>
+                  <tr>
+                    <th>Admin Name &amp; Email</th>
+                    <th>Assigned Company</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Last Active</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {admins.map(adm => (
+                    <tr key={adm.id}>
+                      <td>
+                        <div className="admin-profile-cell">
+                          <div className="admin-avatar">{adm.name.charAt(0).toUpperCase()}</div>
+                          <div>
+                            <div className="admin-name">{adm.name}</div>
+                            <div className="admin-email">{adm.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td><strong>{adm.company}</strong></td>
+                      <td><span className="plan-pill plan-pro">{adm.role}</span></td>
+                      <td><span className="status-tag status-active">{adm.status}</span></td>
+                      <td>{adm.lastLogin}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div className="actions-cluster">
+                          <button
+                            type="button"
+                            className="action-pill-btn"
+                            style={{ color: '#b45309', borderColor: '#fde68a', background: '#fffbeb' }}
+                            onClick={() => {
+                              setImpersonateTarget(adm);
+                              setIsImpersonateOpen(true);
+                            }}
+                          >
+                            <Eye size={13} /> Impersonate
+                          </button>
+                          <button
+                            type="button"
+                            className="action-pill-btn"
+                            onClick={() => handleOpenResetUserPassword(adm)}
+                          >
+                            Reset Pwd
+                          </button>
+                          <button
+                            type="button"
+                            className="action-pill-btn red"
+                            onClick={() => handleOpenDeleteUser(adm)}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {admins.map((adm) => (
-                      <tr key={adm.id}>
-                        <td>
-                          <div className="admin-profile-cell">
-                            <div className="admin-avatar">{adm.name.charAt(0).toUpperCase()}</div>
-                            <div>
-                              <div className="admin-name">{adm.name}</div>
-                              <div className="admin-email">{adm.email}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td><strong>{adm.company}</strong></td>
-                        <td>{adm.country}</td>
-                        <td><span className="status-tag status-active">{adm.status}</span></td>
-                        <td>{adm.lastLogin}</td>
-                        <td style={{ textAlign: 'right' }}>
-                          <div className="actions-cluster">
-                            <button
-                              type="button"
-                              className="action-pill-btn"
-                              style={{ color: '#b45309', borderColor: '#fde68a', background: '#fffbeb' }}
-                              onClick={() => {
-                                setImpersonateTarget(adm);
-                                setIsImpersonateOpen(true);
-                              }}
-                            >
-                              <Eye size={13} /> Impersonate
-                            </button>
-                            <button
-                              type="button"
-                              className="action-pill-btn"
-                              onClick={() => {
-                                alert(`Password reset instructions triggered for ${adm.email}`);
-                                logAudit('Password Reset', `Super Admin triggered password reset for ${adm.email}`, adm.company);
-                              }}
-                            >
-                              Reset Pwd
-                            </button>
-                            <button
-                              type="button"
-                              className="action-pill-btn red"
-                              onClick={() => {
-                                alert(`Force logout executed for ${adm.name}`);
-                                logAudit('Force Logout', `Forced session termination for ${adm.name}`, adm.company);
-                              }}
-                            >
-                              Force Logout
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="saas-table-container">
@@ -1352,8 +1822,8 @@ export default function SuperAdminDashboard({
                 <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
                   <Building2 size={40} color="#94a3b8" style={{ margin: '0 auto 12px', display: 'block' }} />
                   <div style={{ fontWeight: '800', fontSize: '1rem', color: '#1e293b' }}>No Companies Enrolled Yet</div>
-                  <p style={{ fontSize: '0.84rem', maxWidth: '420px', margin: '6px auto 16px', color: '#64748b' }}>
-                    Click "Create New Pharma Company" to onboard an enterprise organization.
+                  <p style={{ fontSize: '0.84rem', margin: '6px auto 16px', color: '#64748b' }}>
+                    Click "Create New Pharma Company" to provision your first tenant in PostgreSQL.
                   </p>
                   <button type="button" className="btn btn-primary" onClick={() => setIsCreateCompanyOpen(true)}>
                     <Plus size={16} /> Create New Pharma Company
@@ -1366,12 +1836,10 @@ export default function SuperAdminDashboard({
                       <th>Company &amp; Jurisdiction</th>
                       <th>Timezone &amp; Currency</th>
                       <th>Plan</th>
-                      <th>Users / Limits</th>
-                      <th>Storage</th>
+                      <th>Quotas (MRs / Storage)</th>
                       <th>MRR</th>
                       <th>Status</th>
-                      <th>Expiry</th>
-                      <th style={{ textAlign: 'right' }}>Actions</th>
+                      <th style={{ textAlign: 'right' }}>CRUD Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1388,7 +1856,7 @@ export default function SuperAdminDashboard({
                               <span className="comp-flag">{company.flag}</span>
                               <div>
                                 <div className="comp-name-text">{company.name}</div>
-                                <div className="comp-code-sub">{company.code} &bull; {company.tenantId} &bull; {company.country}</div>
+                                <div className="comp-code-sub">{company.code} &bull; {company.country}</div>
                               </div>
                             </div>
                           </td>
@@ -1402,45 +1870,55 @@ export default function SuperAdminDashboard({
                           <td>
                             <div className="users-breakdown-cell">
                               <strong>{company.usersCount} / {company.userLimit} Users</strong>
-                              <span>{company.mrsCount} / {company.mrLimit} MRs</span>
+                              <span>{company.storageLimitGB} GB Quota</span>
                             </div>
                           </td>
-                          <td><strong>{company.storageUsedGB} GB</strong> / {company.storageLimitGB} GB</td>
                           <td><strong>{company.mrr}</strong></td>
                           <td>
                             <span className={`status-tag status-${company.status.toLowerCase()}`}>
-                              {company.status === 'ACTIVE' ? '🟢 Active' : company.status === 'TRIAL' ? '🟣 Trial' : '🟡 Suspended'}
+                              {company.status === 'ACTIVE' ? '🟢 Active' : '🟡 Suspended'}
                             </span>
                           </td>
-                          <td style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>{company.renewalDate}</td>
                           <td style={{ textAlign: 'right' }}>
                             <div className="actions-cluster">
                               <button
                                 type="button"
                                 className="action-pill-btn"
-                                style={{ color: '#b45309', borderColor: '#fde68a', background: '#fffbeb' }}
-                                onClick={() => {
-                                  const adminMatch = admins.find(a => a.company === company.name) || { name: company.adminName, email: company.adminEmail, company: company.name };
-                                  setImpersonateTarget(adminMatch);
-                                  setIsImpersonateOpen(true);
-                                }}
-                                title="Login as company admin (Audited)"
+                                onClick={() => handleOpenEditCompany(company)}
+                                title="Edit Company Details"
                               >
-                                <Eye size={12} /> Impersonate
+                                <Edit size={12} /> Edit
                               </button>
                               <button
                                 type="button"
                                 className="action-pill-btn"
-                                onClick={() => toggleCompanyStatus(company.id)}
+                                onClick={() => handleOpenSubscriptionModal(company)}
+                                title="Upgrade / Manage Plan"
+                              >
+                                Plan
+                              </button>
+                              <button
+                                type="button"
+                                className="action-pill-btn"
+                                onClick={() => handleOpenResetAdminPassword(company)}
+                                title="Reset Company Admin Password"
+                              >
+                                <Key size={12} /> Pwd
+                              </button>
+                              <button
+                                type="button"
+                                className="action-pill-btn"
+                                onClick={() => handleToggleCompanyStatus(company.id, company.status, company.name)}
                               >
                                 {company.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
                               </button>
                               <button
                                 type="button"
-                                className="action-pill-btn primary"
-                                onClick={() => setActiveTab('features')}
+                                className="action-pill-btn red"
+                                onClick={() => handleOpenDeleteCompany(company)}
+                                title="Purge Tenant"
                               >
-                                Modules
+                                <Trash2 size={12} />
                               </button>
                             </div>
                           </td>
@@ -1455,7 +1933,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          3. MULTI-COUNTRY, MULTI-TIMEZONE & MULTI-CURRENCY JURISDICTIONS HUB
+          3. JURISDICTIONS (SOVEREIGN COUNTRIES & FX)
           ===================================================================== */}
       {activeTab === 'jurisdictions' && (
         <div className="tab-pane-content">
@@ -1471,30 +1949,21 @@ export default function SuperAdminDashboard({
             </button>
           </div>
 
-          {/* VIEW A: SOVEREIGN COUNTRIES & REGULATORY REGISTRY */}
           {jurisdictionSubTab === 'countries' && (
             <div>
-              <div className="country-header-banner" style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '16px', borderRadius: '12px', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                  <div>
-                    <h2 className="section-title">Supported Sovereign Jurisdictions &amp; Regulatory Frameworks</h2>
-                    <p className="section-desc">
-                      Super Admin configures sovereign statutory requirements: local currency symbols, IANA timezone standards, fiscal year cycles, tax withholding (GST/VAT/TDS), and mandatory social security contributions (NSSF, SSF, SSO, EPFO, ESIC).
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="primary-action-btn"
-                    onClick={() => alert('New Sovereign Jurisdiction Wizard: Setup statutory fiscal year, tax withholding rates, and social security formulas.')}
-                  >
-                    <Plus size={16} /> Add Sovereign Country
-                  </button>
+              <div className="pane-action-bar">
+                <div>
+                  <h2 className="section-title">Supported Sovereign Jurisdictions</h2>
+                  <p className="section-desc">Tax withholding, social security standards, IANA timezones, and currency registries</p>
                 </div>
+                <button type="button" className="btn btn-primary" onClick={() => setIsCreateCountryOpen(true)}>
+                  <Plus size={16} /> Add Sovereign Country
+                </button>
               </div>
 
               <div className="countries-grid">
                 {sovereignRegistry.map((c) => {
-                  const countryCompaniesCount = companies.filter(comp => comp.country.toLowerCase() === c.name.toLowerCase()).length;
+                  const countryCompaniesCount = companies.filter(comp => comp.country?.toLowerCase() === c.name?.toLowerCase()).length;
                   return (
                     <div key={c.code} className="country-card">
                       <div className="country-card-header">
@@ -1515,34 +1984,33 @@ export default function SuperAdminDashboard({
                         </div>
                         <div className="detail-item">
                           <span className="detail-key">IANA Timezone:</span>
-                          <span className="detail-val">{c.timezone} ({c.utcOffset})</span>
-                        </div>
-                        <div className="detail-item">
-                          <span className="detail-key">Fiscal Year Cycle:</span>
-                          <span className="detail-val">{c.fiscalYear}</span>
+                          <span className="detail-val">{c.timezone}</span>
                         </div>
                         <div className="detail-item highlight-tax">
                           <span className="detail-key">Tax / Withholding:</span>
                           <span className="detail-val">{c.taxScheme}</span>
                         </div>
                         <div className="detail-item highlight-nssf">
-                          <span className="detail-key">Social Security / Statutory:</span>
+                          <span className="detail-key">Social Security:</span>
                           <span className="detail-val">{c.socialSecurity}</span>
-                        </div>
-                        <div className="detail-item">
-                          <span className="detail-key">Public Holiday Calendar:</span>
-                          <span className="detail-val">{c.publicHolidays} Statutory Holidays</span>
                         </div>
                       </div>
 
-                      <div className="country-card-footer">
+                      <div className="country-card-footer" style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
                         <button
                           type="button"
                           className="btn-configure-country"
-                          onClick={() => alert(`Configuring statutory compliance rules for ${c.name}`)}
+                          onClick={() => handleOpenEditCountry(c)}
                         >
-                          <Settings size={14} />
-                          <span>Configure Compliance Rules</span>
+                          <Settings size={14} /> <span>Configure</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="action-pill-btn red"
+                          onClick={() => handleDeleteCountry(c.code, c.name)}
+                          title="Delete Country"
+                        >
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </div>
@@ -1552,153 +2020,62 @@ export default function SuperAdminDashboard({
             </div>
           )}
 
-          {/* VIEW B: MULTI-TIMEZONE LIVE ENGINE */}
           {jurisdictionSubTab === 'timezones' && (
-            <div>
-              <div className="card-section" style={{ marginBottom: '18px' }}>
-                <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Timer size={20} color="#d97706" /> Global Live Regional Clocks &amp; Timezone Telemetry
-                </h2>
-                <p className="section-desc">
-                  Synchronizes field representative shift schedules, DCR cutoff deadlines, automated snapshot triggers, and midnight attendance rolls across global timezones.
-                </p>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginTop: '16px' }}>
-                  {sovereignRegistry.map((reg) => (
-                    <div key={reg.code} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '1.2rem' }}>{reg.flag}</span>
-                        <span className="tenant-id-pill">{reg.utcOffset}</span>
-                      </div>
-                      <div style={{ fontSize: '0.92rem', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>{reg.name}</div>
-                      <div style={{ fontSize: '0.72rem', color: '#64748b', fontFamily: 'monospace' }}>{reg.timezone}</div>
-                      <div style={{ fontSize: '1.35rem', fontWeight: '800', color: '#1e3a8a', margin: '10px 0 2px', fontFamily: 'monospace' }}>
-                        {formatTimezoneClock(reg.timezone)}
-                      </div>
-                      <div style={{ fontSize: '0.72rem', color: '#475569', fontWeight: '600' }}>
-                        {formatTimezoneDate(reg.timezone)}
-                      </div>
+            <div className="card-section">
+              <h2 className="section-title"><Timer size={20} color="#d97706" /> Global Live Regional Clocks</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginTop: '16px' }}>
+                {sovereignRegistry.map((reg) => (
+                  <div key={reg.code} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '1.2rem' }}>{reg.flag}</span>
+                      <span className="tenant-id-pill">{reg.utcOffset || 'UTC'}</span>
                     </div>
-                  ))}
-                </div>
+                    <div style={{ fontSize: '0.92rem', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>{reg.name}</div>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', fontFamily: 'monospace' }}>{reg.timezone}</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: '800', color: '#1e3a8a', margin: '10px 0 2px', fontFamily: 'monospace' }}>
+                      {formatTimezoneClock(reg.timezone)}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#475569', fontWeight: '600' }}>
+                      {formatTimezoneDate(reg.timezone)}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* VIEW C: MULTI-CURRENCY & FX EXCHANGE ENGINE */}
           {jurisdictionSubTab === 'currencies' && (
-            <div>
-              <div className="saas-overview-layout">
-                {/* FX Rates Table */}
-                <div className="card-section">
-                  <div className="section-header">
-                    <div>
-                      <h2 className="section-title">Multi-Currency Exchange Rate Engine (FX Matrix)</h2>
-                      <p className="section-desc">Real-time benchmark FX rates relative to Base Platform Currency (USD).</p>
-                    </div>
-                    <button type="button" className="action-pill-btn" onClick={() => alert('FX rates refreshed from global interbank exchange feed.')}>
-                      <RefreshCw size={13} /> Refresh FX Rates
-                    </button>
-                  </div>
-
-                  <div className="saas-table-container">
-                    <table className="saas-data-table">
-                      <thead>
-                        <tr>
-                          <th>Jurisdiction &amp; Currency</th>
-                          <th>ISO Code</th>
-                          <th>Symbol</th>
-                          <th>Exchange Rate (per 1 USD)</th>
-                          <th>Base Equivalent ($1,000 USD)</th>
+            <div className="saas-overview-layout">
+              <div className="card-section">
+                <h2 className="section-title">Multi-Currency Exchange Matrix</h2>
+                <div className="saas-table-container" style={{ marginTop: '12px' }}>
+                  <table className="saas-data-table">
+                    <thead>
+                      <tr>
+                        <th>Jurisdiction &amp; Currency</th>
+                        <th>ISO Code</th>
+                        <th>Symbol</th>
+                        <th>Exchange Rate (per 1 USD)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sovereignRegistry.map((c) => (
+                        <tr key={c.code}>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span>{c.flag}</span>
+                              <strong>{c.name}</strong>
+                            </div>
+                          </td>
+                          <td><span className="tenant-id-pill">{c.currencyCode}</span></td>
+                          <td><strong>{c.currencySymbol}</strong></td>
+                          <td style={{ fontFamily: 'monospace', fontWeight: '700' }}>
+                            1 USD = {(c.fxRateToUSD || 1).toLocaleString()} {c.currencyCode}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {sovereignRegistry.map((c) => (
-                          <tr key={c.code}>
-                            <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span>{c.flag}</span>
-                                <strong>{c.currencyName}</strong>
-                              </div>
-                            </td>
-                            <td><span className="tenant-id-pill">{c.currencyCode}</span></td>
-                            <td><strong style={{ fontSize: '0.95rem' }}>{c.currencySymbol}</strong></td>
-                            <td style={{ fontFamily: 'monospace', fontWeight: '700' }}>
-                              1 USD = {c.fxRateToUSD.toLocaleString()} {c.currencyCode}
-                            </td>
-                            <td style={{ fontFamily: 'monospace', color: '#059669', fontWeight: '700' }}>
-                              {c.currencySymbol} {(1000 * c.fxRateToUSD).toLocaleString()}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Interactive Currency Converter Tool */}
-                <div className="card-section">
-                  <h3 className="card-header-title">
-                    <ArrowRightLeft size={18} color="#2563eb" /> Live Currency Converter Tool
-                  </h3>
-                  <p className="section-desc">Instantly calculate subscription pricing and invoice totals across sovereign currencies.</p>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '16px' }}>
-                    <div className="form-group">
-                      <label>Amount</label>
-                      <input
-                        type="number"
-                        className="form-control"
-                        value={fxConverter.amount}
-                        onChange={(e) => setFxConverter({ ...fxConverter, amount: Number(e.target.value) })}
-                      />
-                    </div>
-
-                    <div className="form-grid-2">
-                      <div className="form-group">
-                        <label>From Currency</label>
-                        <select
-                          className="form-control"
-                          value={fxConverter.fromCurrency}
-                          onChange={(e) => setFxConverter({ ...fxConverter, fromCurrency: e.target.value })}
-                        >
-                          {sovereignRegistry.map((reg) => (
-                            <option key={`from-${reg.code}`} value={reg.currencyCode.split(' ')[0]}>
-                              {reg.flag} {reg.currencyCode} ({reg.currencySymbol} - {reg.name})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="form-group">
-                        <label>To Currency</label>
-                        <select
-                          className="form-control"
-                          value={fxConverter.toCurrency}
-                          onChange={(e) => setFxConverter({ ...fxConverter, toCurrency: e.target.value })}
-                        >
-                          {sovereignRegistry.map((reg) => (
-                            <option key={`to-${reg.code}`} value={reg.currencyCode.split(' ')[0]}>
-                              {reg.flag} {reg.currencyCode} ({reg.currencySymbol} - {reg.name})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Converted Result Box */}
-                    <div style={{ background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
-                      <div style={{ fontSize: '0.74rem', color: '#1e40af', fontWeight: '700', textTransform: 'uppercase' }}>
-                        Converted Sovereign Amount
-                      </div>
-                      <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#1e3a8a', margin: '4px 0' }}>
-                        {getConvertedFxResult().symbol} {getConvertedFxResult().result}
-                      </div>
-                      <div style={{ fontSize: '0.72rem', color: '#3b82f6' }}>
-                        {fxConverter.amount.toLocaleString()} {fxConverter.fromCurrency} = {getConvertedFxResult().result} {fxConverter.toCurrency}
-                      </div>
-                    </div>
-                  </div>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -1707,7 +2084,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          4. PLATFORM USERS (CROSS-TENANT SEARCH & GOVERNANCE)
+          4. PLATFORM USERS DIRECTORY (FULL CRUD)
           ===================================================================== */}
       {activeTab === 'platform-users' && (
         <div className="tab-pane-content">
@@ -1718,11 +2095,8 @@ export default function SuperAdminDashboard({
             <button type="button" className={`sub-nav-pill ${userSubTab === 'admins' ? 'active' : ''}`} onClick={() => setUserSubTab('admins')}>
               Admins ({platformUsers.filter(u => u.role.includes('ADMIN')).length})
             </button>
-            <button type="button" className={`sub-nav-pill ${userSubTab === 'managers' ? 'active' : ''}`} onClick={() => setUserSubTab('managers')}>
-              Managers ({platformUsers.filter(u => u.role.includes('MANAGER')).length})
-            </button>
             <button type="button" className={`sub-nav-pill ${userSubTab === 'mrs' ? 'active' : ''}`} onClick={() => setUserSubTab('mrs')}>
-              MRs ({platformUsers.filter(u => u.role === 'MR').length})
+              MRs ({platformUsers.filter(u => u.role.includes('REP') || u.role === 'MR').length})
             </button>
           </div>
 
@@ -1731,20 +2105,26 @@ export default function SuperAdminDashboard({
               <Search size={18} />
               <input
                 type="text"
-                placeholder="Search across all tenants: Employee Name, Mobile, Email, Company, Role..."
+                placeholder="Search across all tenants: Name, Email, Company, Role..."
                 value={globalSearchQuery}
                 onChange={(e) => setGlobalSearchQuery(e.target.value)}
                 className="search-input-field"
               />
             </div>
+            <button type="button" className="btn btn-primary" onClick={() => setIsCreateUserOpen(true)}>
+              <Plus size={16} /> Add Platform User
+            </button>
           </div>
 
           <div className="saas-table-container">
             {platformUsers.length === 0 ? (
               <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
                 <Users size={38} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
-                <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Cross-Platform Users Found</div>
-                <p style={{ fontSize: '0.8rem', margin: '4px auto 12px' }}>Users enrolled across company tenants will be indexed here.</p>
+                <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Users Registered</div>
+                <p style={{ fontSize: '0.8rem', margin: '4px auto 14px' }}>Click "Add Platform User" to provision an employee account.</p>
+                <button type="button" className="btn btn-primary" onClick={() => setIsCreateUserOpen(true)}>
+                  <Plus size={16} /> Add Platform User
+                </button>
               </div>
             ) : (
               <table className="saas-data-table">
@@ -1756,11 +2136,12 @@ export default function SuperAdminDashboard({
                     <th>Mobile</th>
                     <th>Status</th>
                     <th>Last Active</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th style={{ textAlign: 'right' }}>CRUD Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {platformUsers
+                    .filter(u => userSubTab === 'all' || (userSubTab === 'admins' ? u.role.includes('ADMIN') : u.role.includes('REP') || u.role === 'MR'))
                     .filter(u =>
                       u.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
                       u.email.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
@@ -1780,30 +2161,47 @@ export default function SuperAdminDashboard({
                         <td><strong>{user.company}</strong></td>
                         <td><span className="plan-pill plan-pro">{user.role}</span></td>
                         <td>{user.mobile}</td>
-                        <td><span className="status-tag status-active">{user.status}</span></td>
+                        <td>
+                          <span className={`status-tag status-${user.status?.toLowerCase() === 'active' ? 'active' : 'trial'}`}>
+                            {user.status}
+                          </span>
+                        </td>
                         <td>{user.lastLogin}</td>
                         <td style={{ textAlign: 'right' }}>
                           <div className="actions-cluster">
                             <button
                               type="button"
                               className="action-pill-btn"
-                              onClick={() => {
-                                alert(`Reset account credentials initiated for ${user.email}`);
-                                logAudit('Account Reset', `Reset account for ${user.email}`, user.company);
-                              }}
+                              onClick={() => handleOpenEditUser(user)}
+                              title="Edit User"
                             >
-                              Reset
+                              <Edit size={12} /> Edit
                             </button>
                             <button
                               type="button"
-                              className="action-pill-btn red"
-                              onClick={() => {
-                                alert(`Force logout sent for ${user.name}`);
-                                logAudit('Force Logout', `Forced logout for ${user.name}`, user.company);
-                              }}
+                              className="action-pill-btn"
+                              onClick={() => handleOpenResetUserPassword(user)}
+                              title="Reset Password"
                             >
-                              Force Logout
+                              <Key size={12} /> Pwd
                             </button>
+                            <button
+                              type="button"
+                              className="action-pill-btn"
+                              onClick={() => handleToggleUserStatus(user.id, user.status, user.email)}
+                            >
+                              {user.status === 'ACTIVE' || user.status === 'Active' ? 'Suspend' : 'Activate'}
+                            </button>
+                            {user.role !== 'SUPER_ADMIN' && (
+                              <button
+                                type="button"
+                                className="action-pill-btn red"
+                                onClick={() => handleOpenDeleteUser(user)}
+                                title="Delete User"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1816,24 +2214,11 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          5. SUBSCRIPTIONS & BILLING MANAGEMENT
+          5. SUBSCRIPTIONS & MONETIZATION
           ===================================================================== */}
       {activeTab === 'subscriptions' && (
         <div className="tab-pane-content">
           <div className="subscription-plans-grid">
-            <div className="plan-card">
-              <div className="plan-tier-name">FREE TRIAL</div>
-              <div className="plan-price">$0 <span>/ 30 days</span></div>
-              <p className="plan-limits-desc">For pilot testing with new pharmaceutical brands</p>
-              <ul className="plan-perks-list">
-                <li>Up to 25 Field Reps</li>
-                <li>Core Daily Call Reports (DCR)</li>
-                <li>Chemist &amp; Doctor Registry</li>
-                <li>5 GB Storage Quota</li>
-              </ul>
-              <div className="plan-sub-count">{trialCompanies} Companies in Trial</div>
-            </div>
-
             <div className="plan-card">
               <div className="plan-tier-name">BASIC TIER</div>
               <div className="plan-price">$950 <span>/ month</span></div>
@@ -1841,7 +2226,6 @@ export default function SuperAdminDashboard({
               <ul className="plan-perks-list">
                 <li>Up to 250 Field MRs</li>
                 <li>Core MR Reporting &amp; DCR</li>
-                <li>Chemist Order Booking (POB)</li>
                 <li>50 GB Storage Limit</li>
               </ul>
               <div className="plan-sub-count">{companies.filter(c => c.plan === 'BASIC').length} Enrolled</div>
@@ -1856,7 +2240,6 @@ export default function SuperAdminDashboard({
                 <li>Up to 1,500 Field Reps</li>
                 <li>Full DCR + Tour Plans (MTP)</li>
                 <li>TA / DA Smart Expense Claims</li>
-                <li>Statutory Payroll &amp; NSSF</li>
                 <li>250 GB Storage Limit</li>
               </ul>
               <div className="plan-sub-count">{companies.filter(c => c.plan === 'PRO').length} Enrolled</div>
@@ -1870,72 +2253,63 @@ export default function SuperAdminDashboard({
                 <li>Unlimited Field Reps &amp; GMs</li>
                 <li>Multi-Country Schema Isolation</li>
                 <li>AI Studio &amp; Prescription OCR</li>
-                <li>Dedicated Storage Geo-Vault</li>
               </ul>
               <div className="plan-sub-count">{companies.filter(c => c.plan === 'ENTERPRISE').length} Enrolled</div>
             </div>
           </div>
 
           <div className="section-title-sm" style={{ marginTop: '28px' }}>
-            <span>Enterprise Subscription Invoices &amp; Billing History</span>
+            <span>Tenant Billing &amp; Subscriptions</span>
           </div>
 
           <div className="saas-table-container">
-            {invoices.length === 0 ? (
-              <div style={{ padding: '36px 20px', textAlign: 'center', color: '#64748b', fontSize: '0.84rem' }}>
-                <CreditCard size={32} color="#94a3b8" style={{ margin: '0 auto 8px', display: 'block' }} />
-                <span>No subscription invoices generated yet. Invoices generate on cycle renewal dates.</span>
-              </div>
-            ) : (
-              <table className="saas-data-table">
-                <thead>
-                  <tr>
-                    <th>Invoice ID</th>
-                    <th>Company Tenant</th>
-                    <th>Tier</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Renewal Date</th>
-                    <th style={{ textAlign: 'right' }}>Receipt</th>
+            <table className="saas-data-table">
+              <thead>
+                <tr>
+                  <th>Company Tenant</th>
+                  <th>Current Tier</th>
+                  <th>Monthly Rate</th>
+                  <th>Status</th>
+                  <th>Next Renewal</th>
+                  <th style={{ textAlign: 'right' }}>Manage</th>
+                </tr>
+              </thead>
+              <tbody>
+                {companies.map(c => (
+                  <tr key={c.id}>
+                    <td><strong>{c.name}</strong></td>
+                    <td><span className={`plan-pill plan-${c.plan.toLowerCase()}`}>{c.plan}</span></td>
+                    <td><strong>{c.mrr}</strong></td>
+                    <td><span className="status-badge-green">{c.status}</span></td>
+                    <td>{c.renewalDate}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleOpenSubscriptionModal(c)}>
+                        Upgrade / Modify Plan
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {invoices.map(inv => (
-                    <tr key={inv.id}>
-                      <td><code>{inv.id}</code></td>
-                      <td><strong>{inv.company}</strong></td>
-                      <td>{inv.tier}</td>
-                      <td><strong>{inv.amount}</strong></td>
-                      <td><span className="status-badge-green">{inv.status}</span></td>
-                      <td>{inv.date}</td>
-                      <td style={{ textAlign: 'right' }}><button className="action-pill-btn">PDF</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
       {/* =====================================================================
-          6. FEATURES & CANARY FEATURE FLAGS
+          6. FEATURES & CANARY FLAGS
           ===================================================================== */}
       {activeTab === 'features' && (
         <div className="tab-pane-content">
           <div className="section-header">
             <div>
               <h2 className="section-title">Feature Modules &amp; Canary Feature Flags</h2>
-              <p className="section-desc">
-                Super Admin controls per-tenant module accessibility and gradual percentage rollouts across the platform.
-              </p>
+              <p className="section-desc">Control per-tenant module accessibility and rollout percentages</p>
             </div>
           </div>
 
-          {/* Feature Flags Section */}
           <div className="card-section" style={{ marginBottom: '22px' }}>
             <h3 className="card-header-title">
-              <Sliders size={18} color="#7c3aed" /> Active Feature Flags &amp; Canary Deployments
+              <Sliders size={18} color="#7c3aed" /> Active Feature Flags
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px' }}>
               {featureFlags.map((flag) => (
@@ -1951,512 +2325,68 @@ export default function SuperAdminDashboard({
                       type="button"
                       className="action-pill-btn"
                       onClick={() => {
-                        const newPct = flag.rolloutPercent >= 100 ? 0 : flag.rolloutPercent + 25;
-                        setFeatureFlags(prev => prev.map(f => f.id === flag.id ? { ...f, rolloutPercent: newPct } : f));
-                        logAudit('Feature Flag Updated', `Updated ${flag.name} rollout to ${newPct}%`);
+                        const newRollout = flag.rolloutPercent === 100 ? 0 : flag.rolloutPercent + 25;
+                        setFeatureFlags(prev => prev.map(f => f.id === flag.id ? { ...f, rolloutPercent: newRollout } : f));
+                        showToast(`Updated rollout of ${flag.name} to ${newRollout}%`, 'success');
                       }}
                     >
-                      Adjust % Rollout
+                      Step +25%
                     </button>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-
-          {/* Per-Company Matrix */}
-          <div className="section-title-sm"><span>Per-Company Module Access Matrix</span></div>
-          <div className="saas-table-container">
-            {companies.length === 0 ? (
-              <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
-                <Layers size={38} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
-                <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Companies Enrolled</div>
-                <p style={{ fontSize: '0.8rem', margin: '4px auto 12px' }}>Provision a company to configure module licensing toggles.</p>
-              </div>
-            ) : (
-              <table className="saas-data-table matrix-table">
-                <thead>
-                  <tr>
-                    <th>Company</th>
-                    <th>MR Reporting</th>
-                    <th>DCR</th>
-                    <th>Attendance</th>
-                    <th>Doctors</th>
-                    <th>Chemist</th>
-                    <th>Expense</th>
-                    <th>GPS</th>
-                    <th>Orders</th>
-                    <th>AI Studio</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {companies.map((c) => (
-                    <tr key={c.id}>
-                      <td><strong>{c.name}</strong></td>
-                      <td>
-                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'mrReporting')}>
-                          {c.modules.mrReporting ? <CheckCircle2 size={18} color="#10b981" /> : <XCircle size={18} color="#94a3b8" />}
-                        </button>
-                      </td>
-                      <td>
-                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'dcr')}>
-                          {c.modules.dcr ? <CheckCircle2 size={18} color="#10b981" /> : <XCircle size={18} color="#94a3b8" />}
-                        </button>
-                      </td>
-                      <td>
-                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'attendance')}>
-                          {c.modules.attendance ? <CheckCircle2 size={18} color="#10b981" /> : <XCircle size={18} color="#94a3b8" />}
-                        </button>
-                      </td>
-                      <td>
-                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'doctorManagement')}>
-                          {c.modules.doctorManagement ? <CheckCircle2 size={18} color="#10b981" /> : <XCircle size={18} color="#94a3b8" />}
-                        </button>
-                      </td>
-                      <td>
-                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'chemistManagement')}>
-                          {c.modules.chemistManagement ? <CheckCircle2 size={18} color="#10b981" /> : <XCircle size={18} color="#94a3b8" />}
-                        </button>
-                      </td>
-                      <td>
-                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'expense')}>
-                          {c.modules.expense ? <CheckCircle2 size={18} color="#10b981" /> : <XCircle size={18} color="#94a3b8" />}
-                        </button>
-                      </td>
-                      <td>
-                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'gpsTracking')}>
-                          {c.modules.gpsTracking ? <CheckCircle2 size={18} color="#10b981" /> : <XCircle size={18} color="#94a3b8" />}
-                        </button>
-                      </td>
-                      <td>
-                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'orderManagement')}>
-                          {c.modules.orderManagement ? <CheckCircle2 size={18} color="#10b981" /> : <XCircle size={18} color="#94a3b8" />}
-                        </button>
-                      </td>
-                      <td>
-                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'aiStudio')}>
-                          {c.modules.aiStudio ? <span className="ai-active-pill">AI Active</span> : <span className="ai-inactive-pill">Off</span>}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
         </div>
       )}
 
       {/* =====================================================================
-          7. GLOBAL PLATFORM CONFIGURATION & SETTINGS
-          ===================================================================== */}
-      {activeTab === 'settings' && (
-        <div className="tab-pane-content">
-          <div className="card-section">
-            <h2 className="section-title">Platform-Wide Default Settings &amp; Policies</h2>
-            <p className="section-desc">Configure default date formats, timeouts, security thresholds, and file upload quotas.</p>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                alert('✅ Global configuration saved successfully.');
-                logAudit('Global Settings Saved', 'Super Admin updated platform default policies.');
-              }}
-              style={{ marginTop: '18px' }}
-            >
-              <div className="form-grid-3">
-                <div className="form-group">
-                  <label>Default Date Format</label>
-                  <select
-                    className="form-control"
-                    value={globalSettings.dateFormat}
-                    onChange={(e) => setGlobalSettings({ ...globalSettings, dateFormat: e.target.value })}
-                  >
-                    <option value="YYYY-MM-DD">YYYY-MM-DD (ISO Standard)</option>
-                    <option value="DD/MM/YYYY">DD/MM/YYYY (UK / India)</option>
-                    <option value="MM/DD/YYYY">MM/DD/YYYY (US)</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Default Timezone</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={globalSettings.timezone}
-                    onChange={(e) => setGlobalSettings({ ...globalSettings, timezone: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Default Base Currency</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={globalSettings.currency}
-                    onChange={(e) => setGlobalSettings({ ...globalSettings, currency: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="form-grid-3">
-                <div className="form-group">
-                  <label>Session Timeout (Minutes)</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={globalSettings.sessionTimeoutMinutes}
-                    onChange={(e) => setGlobalSettings({ ...globalSettings, sessionTimeoutMinutes: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Max File Upload Limit (MB)</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={globalSettings.maxFileUploadMB}
-                    onChange={(e) => setGlobalSettings({ ...globalSettings, maxFileUploadMB: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>GPS History Retention (Days)</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={globalSettings.gpsRetentionDays}
-                    onChange={(e) => setGlobalSettings({ ...globalSettings, gpsRetentionDays: Number(e.target.value) })}
-                  />
-                </div>
-              </div>
-
-              <button type="submit" className="btn btn-primary" style={{ marginTop: '10px' }}>
-                Save Global Policies
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================================
-          8. GLOBAL ROLE TEMPLATES
-          ===================================================================== */}
-      {activeTab === 'roles' && (
-        <div className="tab-pane-content">
-          <div className="section-header">
-            <div>
-              <h2 className="section-title">Platform Role Hierarchy &amp; Permission Templates</h2>
-              <p className="section-desc">Super Admin defines standard roles across all organizations.</p>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
-            {[
-              { role: 'SUPER ADMIN', level: 'Tier-0', desc: 'Platform Owner: Full governance, schema creation, pricing, and master overrides.' },
-              { role: 'PLATFORM ADMIN', level: 'Tier-1', desc: 'SaaS Operator: Tenant monitoring, support ticket triage, and infrastructure metrics.' },
-              { role: 'COMPANY ADMIN', level: 'Tenant Root', desc: 'Organization Owner: Manages employees, doctors, routes, and company configurations.' },
-              { role: 'REGIONAL MANAGER', level: 'Managerial', desc: 'Supervises Area Managers and MRs, approves tour plans (MTP) and expense claims.' },
-              { role: 'AREA MANAGER', level: 'Supervisory', desc: 'Field supervisor: Joint doctor visits, chemist audit, and territory coverage review.' },
-              { role: 'MEDICAL REPRESENTATIVE (MR)', level: 'Field Executive', desc: 'Field execution: Doctor call reporting (DCR), chemist order booking (POB), and GPS attendance.' }
-            ].map((r) => (
-              <div key={r.role} className="card-section">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>{r.role}</strong>
-                  <span className="status-badge-green">{r.level}</span>
-                </div>
-                <p style={{ fontSize: '0.76rem', color: '#64748b', margin: '8px 0 12px' }}>{r.desc}</p>
-                <button type="button" className="action-pill-btn" onClick={() => alert(`Configuring permission matrix for ${r.role}`)}>
-                  Configure Permissions
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================================
-          9. INTEGRATIONS & API MANAGEMENT
-          ===================================================================== */}
-      {activeTab === 'integrations' && (
-        <div className="tab-pane-content">
-          <div className="section-header">
-            <div>
-              <h2 className="section-title">Enterprise Integrations &amp; API Management</h2>
-              <p className="section-desc">Manage API credentials, webhooks, rate limits, and third-party SaaS connectors.</p>
-            </div>
-            <button type="button" className="primary-action-btn" onClick={() => alert('New API Key generated.')}>
-              <Plus size={16} /> Generate API Key
-            </button>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
-            {[
-              { name: 'Google Maps / Mapbox Geocoding', category: 'MAPS', status: 'CONNECTED', desc: 'GPS Telemetry & Route Optimization' },
-              { name: 'SendGrid Enterprise SMTP', category: 'EMAIL', status: 'CONNECTED', desc: 'System alerts, invoices, and password resets' },
-              { name: 'Twilio SMS Gateway', category: 'SMS', status: 'CONNECTED', desc: '2FA OTP verification and SMS notices' },
-              { name: 'WhatsApp Cloud API', category: 'MESSAGING', status: 'READY', desc: 'Automated order booking receipts to chemists' },
-              { name: 'SAP / ERP Connector', category: 'ERP', status: 'READY', desc: 'Bi-directional sync of product catalog & invoices' },
-              { name: 'Azure Cloud Blob Storage', category: 'STORAGE', status: 'CONNECTED', desc: 'Multi-tenant encrypted document repository' }
-            ].map((integ) => (
-              <div key={integ.name} className="card-section">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>{integ.name}</strong>
-                  <span className="status-badge-green">{integ.status}</span>
-                </div>
-                <span className="plan-pill plan-basic" style={{ marginTop: '4px', display: 'inline-block' }}>{integ.category}</span>
-                <p style={{ fontSize: '0.74rem', color: '#64748b', margin: '8px 0 12px' }}>{integ.desc}</p>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <button type="button" className="action-pill-btn" onClick={() => alert(`Connection test passed for ${integ.name}!`)}>
-                    Test Connection
-                  </button>
-                  <button type="button" className="action-pill-btn primary" onClick={() => alert(`Configuring credentials for ${integ.name}`)}>
-                    Configure
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================================
-          10. MOBILE APP VERSION MANAGEMENT
-          ===================================================================== */}
-      {activeTab === 'app-management' && (
-        <div className="tab-pane-content">
-          <div className="card-section">
-            <h2 className="section-title">Mobile App Version Control &amp; Force Update Engine</h2>
-            <p className="section-desc">Manage Android/iOS field app builds, minimum required versions, and release notes.</p>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                alert('✅ Mobile version deployment configuration updated.');
-                logAudit('Mobile App Version Updated', `Updated app build parameters: Version ${appVersionState.currentVersion}`);
-              }}
-              style={{ marginTop: '18px' }}
-            >
-              <div className="form-grid-3">
-                <div className="form-group">
-                  <label>Current Released Build</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={appVersionState.currentVersion}
-                    onChange={(e) => setAppVersionState({ ...appVersionState, currentVersion: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Minimum Supported Build</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={appVersionState.minSupportedVersion}
-                    onChange={(e) => setAppVersionState({ ...appVersionState, minSupportedVersion: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Recommended Build</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={appVersionState.recommendedVersion}
-                    onChange={(e) => setAppVersionState({ ...appVersionState, recommendedVersion: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Release Notes</label>
-                <textarea
-                  className="form-control"
-                  rows={3}
-                  value={appVersionState.releaseNotes}
-                  onChange={(e) => setAppVersionState({ ...appVersionState, releaseNotes: e.target.value })}
-                />
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '14px 0' }}>
-                <input
-                  type="checkbox"
-                  id="forceUpdateCheck"
-                  checked={appVersionState.forceUpdateEnabled}
-                  onChange={(e) => setAppVersionState({ ...appVersionState, forceUpdateEnabled: e.target.checked })}
-                />
-                <label htmlFor="forceUpdateCheck" style={{ fontSize: '0.84rem', fontWeight: '700', color: '#991b1b', cursor: 'pointer' }}>
-                  Enable Force Update (Blocks field reps on builds older than minimum supported version)
-                </label>
-              </div>
-
-              <button type="submit" className="btn btn-primary">
-                Publish Version Settings
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================================
-          11. CROSS-COMPANY ANALYTICS
-          ===================================================================== */}
-      {activeTab === 'analytics' && (
-        <div className="tab-pane-content">
-          <div className="section-header">
-            <div>
-              <h2 className="section-title">Cross-Tenant Usage Analytics &amp; Telemetry</h2>
-              <p className="section-desc">Aggregate activity, DAU/MAU, API throughput, and storage utilization without breaching tenant privacy.</p>
-            </div>
-          </div>
-
-          <div className="metrics-grid-4">
-            <div className="stat-card">
-              <div className="kpi-label">Daily Active Users (DAU)</div>
-              <div className="kpi-number text-blue">{Math.round(activeUsers * 0.72).toLocaleString()}</div>
-              <div className="kpi-sub">72% Active Daily Engagement</div>
-            </div>
-            <div className="stat-card">
-              <div className="kpi-label">Monthly Active Users (MAU)</div>
-              <div className="kpi-number text-purple">{activeUsers.toLocaleString()}</div>
-              <div className="kpi-sub">Total Active Headcount</div>
-            </div>
-            <div className="stat-card">
-              <div className="kpi-label">Daily Ingress API Calls</div>
-              <div className="kpi-number text-green">{totalCallsToday.toLocaleString()}</div>
-              <div className="kpi-sub">Average Latency: 38ms</div>
-            </div>
-            <div className="stat-card">
-              <div className="kpi-label">Report Generation Velocity</div>
-              <div className="kpi-number text-amber">{totalReports.toLocaleString()}</div>
-              <div className="kpi-sub">All tenants aggregated</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================================
-          12. SECURITY & AUDIT LOGS
+          7. SECURITY & AUDIT LOGS
           ===================================================================== */}
       {activeTab === 'security' && (
         <div className="tab-pane-content">
-          <div className="section-header">
-            <div>
-              <h2 className="section-title">Immutable Platform Governance Audit Trail</h2>
-              <p className="section-desc">Real-time recording of security events, administrative logins, and provisioning changes.</p>
-            </div>
-          </div>
-
-          <div className="saas-table-container">
-            {recentActivities.length === 0 ? (
-              <div style={{ padding: '36px 20px', textAlign: 'center', color: '#64748b', fontSize: '0.84rem' }}>
-                <ShieldCheck size={32} color="#94a3b8" style={{ margin: '0 auto 8px', display: 'block' }} />
-                <span>No audit trail logs recorded yet. Security events will appear here.</span>
-              </div>
-            ) : (
+          <div className="card-section">
+            <h2 className="section-title">Immutable Platform Audit Logs</h2>
+            <div className="saas-table-container" style={{ marginTop: '14px' }}>
               <table className="saas-data-table">
                 <thead>
                   <tr>
                     <th>Timestamp</th>
                     <th>Action</th>
+                    <th>Entity / Target</th>
+                    <th>Actor</th>
                     <th>Details</th>
-                    <th>Target Entity</th>
-                    <th>Performed By</th>
-                    <th>Result</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {recentActivities.map((act) => (
+                  {recentActivities.map(act => (
                     <tr key={act.id}>
-                      <td>{act.time}</td>
+                      <td style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>{act.time}</td>
                       <td><strong>{act.title}</strong></td>
-                      <td>{act.detail}</td>
-                      <td><span className="tenant-id-pill">{act.entity}</span></td>
+                      <td>{act.entity}</td>
                       <td>{act.actor}</td>
-                      <td><span className="status-badge-green">SUCCESS</span></td>
+                      <td style={{ fontSize: '0.76rem', color: '#475569' }}>{act.detail}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================================
-          13. SYSTEM HEALTH & MAINTENANCE MODE
-          ===================================================================== */}
-      {activeTab === 'system-health' && (
-        <div className="tab-pane-content">
-          <div className="card-section" style={{ marginBottom: '20px' }}>
-            <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <SlidersHorizontal size={20} color="#2563eb" /> Granular Maintenance Mode Controls
-            </h2>
-            <p className="section-desc">Take specific modules or the entire platform offline for scheduled updates.</p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginTop: '16px' }}>
-              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong>Global Web Application</strong>
-                  <input
-                    type="checkbox"
-                    checked={maintenanceConfig.globalMaintenance}
-                    onChange={(e) => {
-                      setMaintenanceConfig({ ...maintenanceConfig, globalMaintenance: e.target.checked });
-                      logAudit('Maintenance Mode Changed', `Global maintenance set to ${e.target.checked}`);
-                    }}
-                  />
-                </div>
-                <p style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '4px' }}>Displays maintenance landing banner to all portal users</p>
-              </div>
-
-              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong>Mobile Sync Engine</strong>
-                  <input
-                    type="checkbox"
-                    checked={maintenanceConfig.mobileAppMaintenance}
-                    onChange={(e) => {
-                      setMaintenanceConfig({ ...maintenanceConfig, mobileAppMaintenance: e.target.checked });
-                      logAudit('Maintenance Mode Changed', `Mobile sync maintenance set to ${e.target.checked}`);
-                    }}
-                  />
-                </div>
-                <p style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '4px' }}>Pauses background mobile batch synchronization</p>
-              </div>
-
-              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong>DCR Reporting Ingress</strong>
-                  <input
-                    type="checkbox"
-                    checked={maintenanceConfig.reportingModuleMaintenance}
-                    onChange={(e) => {
-                      setMaintenanceConfig({ ...maintenanceConfig, reportingModuleMaintenance: e.target.checked });
-                      logAudit('Maintenance Mode Changed', `Reporting ingress maintenance set to ${e.target.checked}`);
-                    }}
-                  />
-                </div>
-                <p style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '4px' }}>Queues submitted daily call reports safely in Redis</p>
-              </div>
             </div>
           </div>
         </div>
       )}
 
       {/* =====================================================================
-          14. SUPPORT DESK / TICKETS
+          8. SUPPORT TICKETS
           ===================================================================== */}
       {activeTab === 'support' && (
         <div className="tab-pane-content">
-          <div className="sub-nav-tabs">
-            <button type="button" className={`sub-nav-pill ${supportSubTab === 'open' ? 'active' : ''}`} onClick={() => setSupportSubTab('open')}>
-              Open Tickets ({supportTickets.filter(t => t.status === 'OPEN').length})
-            </button>
-            <button type="button" className={`sub-nav-pill ${supportSubTab === 'resolved' ? 'active' : ''}`} onClick={() => setSupportSubTab('resolved')}>
-              Resolved ({supportTickets.filter(t => t.status === 'RESOLVED').length})
-            </button>
-          </div>
-
           <div className="pane-action-bar">
-            <button type="button" className="primary-action-btn" onClick={() => setIsNewTicketOpen(true)}>
-              <Plus size={16} />
-              <span>Create Support Ticket</span>
+            <div>
+              <h2 className="section-title">Support Desk &amp; Tickets</h2>
+              <p className="section-desc">Manage tenant requests and system alerts</p>
+            </div>
+            <button type="button" className="btn btn-primary" onClick={() => setIsNewTicketOpen(true)}>
+              <Plus size={16} /> Create Support Ticket
             </button>
           </div>
 
@@ -2464,10 +2394,10 @@ export default function SuperAdminDashboard({
             {supportTickets.length === 0 ? (
               <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
                 <LifeBuoy size={38} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
-                <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Support Tickets Active</div>
-                <p style={{ fontSize: '0.8rem', margin: '4px auto 12px' }}>Support requests raised by tenant admins will be routed here.</p>
+                <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Open Support Tickets</div>
+                <p style={{ fontSize: '0.8rem', margin: '4px auto 14px' }}>Support tickets submitted by company admins will be tracked here.</p>
                 <button type="button" className="btn btn-primary" onClick={() => setIsNewTicketOpen(true)}>
-                  <Plus size={15} /> Create Ticket
+                  <Plus size={16} /> Create Support Ticket
                 </button>
               </div>
             ) : (
@@ -2475,42 +2405,26 @@ export default function SuperAdminDashboard({
                 <thead>
                   <tr>
                     <th>Ticket ID</th>
-                    <th>Pharma Company</th>
-                    <th>Subject</th>
+                    <th>Company</th>
                     <th>Category</th>
                     <th>Priority</th>
+                    <th>Subject</th>
                     <th>Status</th>
-                    <th style={{ textAlign: 'right' }}>Action</th>
+                    <th>Assigned To</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {supportTickets
-                    .filter(t => supportSubTab === 'all' || t.status.toLowerCase() === supportSubTab)
-                    .map((t) => (
-                      <tr key={t.id}>
-                        <td><code>{t.id}</code></td>
-                        <td><strong>{t.companyName}</strong></td>
-                        <td>{t.subject}</td>
-                        <td><span className="plan-pill plan-basic">{t.category}</span></td>
-                        <td>
-                          <span className={t.priority === 'HIGH' ? 'alert-badge-red' : 'alert-badge-amber'}>
-                            {t.priority}
-                          </span>
-                        </td>
-                        <td><span className="status-tag status-active">{t.status}</span></td>
-                        <td style={{ textAlign: 'right' }}>
-                          <button
-                            type="button"
-                            className="action-pill-btn"
-                            onClick={() => {
-                              setSupportTickets(prev => prev.map(item => item.id === t.id ? { ...item, status: item.status === 'OPEN' ? 'RESOLVED' : 'OPEN' } : item));
-                            }}
-                          >
-                            {t.status === 'OPEN' ? 'Mark Resolved' : 'Reopen'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                  {supportTickets.map(t => (
+                    <tr key={t.id}>
+                      <td><code>{t.id}</code></td>
+                      <td><strong>{t.companyName}</strong></td>
+                      <td>{t.category}</td>
+                      <td><span className="status-tag status-trial">{t.priority}</span></td>
+                      <td>{t.subject}</td>
+                      <td><span className="status-badge-green">{t.status}</span></td>
+                      <td>{t.assignedTo}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             )}
@@ -2519,164 +2433,17 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          15. ANNOUNCEMENTS & BROADCAST NOTIFICATIONS
-          ===================================================================== */}
-      {activeTab === 'communications' && (
-        <div className="tab-pane-content">
-          <div className="section-header">
-            <div>
-              <h2 className="section-title">Global Platform Announcements &amp; Broadcasts</h2>
-              <p className="section-desc">Broadcast maintenance advisories, release notes, or security notices to all or targeted tenants.</p>
-            </div>
-            <button type="button" className="primary-action-btn" onClick={() => setIsAnnouncementModalOpen(true)}>
-              <Megaphone size={16} /> Publish Announcement
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {announcements.length === 0 ? (
-              <div style={{ padding: '36px 20px', textAlign: 'center', color: '#64748b', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <Megaphone size={34} color="#94a3b8" style={{ margin: '0 auto 8px', display: 'block' }} />
-                <span>No active global announcements. Click "Publish Announcement" to broadcast.</span>
-              </div>
-            ) : (
-              announcements.map((ann) => (
-                <div key={ann.id} className="card-section">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="status-tag status-trial">{ann.type}</span>
-                      <strong style={{ fontSize: '0.92rem', color: '#0f172a' }}>{ann.title}</strong>
-                    </div>
-                    <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Target: <strong>{ann.target}</strong> &bull; {ann.publishedAt}</span>
-                  </div>
-                  <p style={{ fontSize: '0.8rem', color: '#334155', marginTop: '8px' }}>{ann.content}</p>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================================
-          16. EMERGENCY & DISASTER KILL-SWITCH
-          ===================================================================== */}
-      {activeTab === 'emergency' && (
-        <div className="tab-pane-content">
-          <div className="emergency-panel">
-            <div className="emergency-header">
-              <AlertOctagon size={28} />
-              <div>
-                <h2 style={{ fontSize: '1.2rem', fontWeight: '800' }}>Platform Emergency Disaster &amp; Kill-Switch Controls</h2>
-                <p style={{ fontSize: '0.8rem' }}>Strictly restricted to Tier-0 Master Super Administrator. All actions are irreversibly audited.</p>
-              </div>
-            </div>
-
-            <div className="emergency-grid">
-              <div className="emergency-card">
-                <div>
-                  <strong style={{ color: '#991b1b', fontSize: '0.9rem' }}>Global Login Lockout</strong>
-                  <p style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '4px' }}>Instantly rejects authentication across all company web and mobile apps during security threats.</p>
-                </div>
-                <button
-                  type="button"
-                  className="btn-emergency"
-                  onClick={() => {
-                    const confirm = window.confirm('🚨 DANGER: Are you sure you want to toggle Global Platform Login Lockout?');
-                    if (confirm) {
-                      setEmergencyLockActive(!emergencyLockActive);
-                      logAudit('EMERGENCY KILL-SWITCH', `Global login lockout set to ${!emergencyLockActive}`);
-                    }
-                  }}
-                >
-                  {emergencyLockActive ? 'Deactivate Emergency Lock' : 'Activate Global Lockout'}
-                </button>
-              </div>
-
-              <div className="emergency-card">
-                <div>
-                  <strong style={{ color: '#991b1b', fontSize: '0.9rem' }}>Force Logout All Platform Users</strong>
-                  <p style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '4px' }}>Invalidates all active JWT tokens and Redis sessions across all tenants.</p>
-                </div>
-                <button
-                  type="button"
-                  className="btn-emergency"
-                  onClick={() => {
-                    const confirm = window.confirm('🚨 Are you sure you want to terminate all active sessions globally?');
-                    if (confirm) {
-                      alert('✅ All active platform user sessions have been terminated.');
-                      logAudit('EMERGENCY SESSION PURGE', 'Purged all active JWT sessions across the platform.');
-                    }
-                  }}
-                >
-                  Terminate All Sessions
-                </button>
-              </div>
-
-              <div className="emergency-card">
-                <div>
-                  <strong style={{ color: '#991b1b', fontSize: '0.9rem' }}>Revoke All External API Keys</strong>
-                  <p style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '4px' }}>Immediately revokes all ERP, CRM, and webhook authorization secrets.</p>
-                </div>
-                <button
-                  type="button"
-                  className="btn-emergency"
-                  onClick={() => {
-                    const confirm = window.confirm('🚨 Are you sure you want to revoke all external API tokens?');
-                    if (confirm) {
-                      alert('✅ All external API keys have been revoked.');
-                      logAudit('EMERGENCY API REVOCATION', 'Revoked all external integration API keys.');
-                    }
-                  }}
-                >
-                  Revoke API Keys
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================================
-          17. MY ACCOUNT & MASTER SECURITY
-          ===================================================================== */}
-      {activeTab === 'my-account' && (
-        <div className="tab-pane-content">
-          <div className="card-section">
-            <h2 className="section-title">Master Super Administrator Account</h2>
-            <p className="section-desc">Tier-0 root administrator settings, 2FA MFA enforcement, and hardware key credentials.</p>
-
-            <div style={{ marginTop: '18px', display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '480px' }}>
-              <div className="form-group">
-                <label>Administrator Name</label>
-                <input type="text" className="form-control" defaultValue="Super Administrator" readOnly />
-              </div>
-              <div className="form-group">
-                <label>Administrator Security Level</label>
-                <input type="text" className="form-control" defaultValue="TIER-0 GLOBAL ROOT" readOnly />
-              </div>
-              <div className="form-group">
-                <label>Two-Factor Authentication (2FA)</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                  <span className="status-badge-green"><Lock size={12} /> 2FA TOTP Active</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================================
-          CREATE COMPANY MODAL (WITH SOVEREIGN JURISDICTION AUTOFILL)
+          MODAL: PROVISION TENANT (CREATE COMPANY)
           ===================================================================== */}
       {isCreateCompanyOpen && (
         <div className="modal-overlay">
-          <div className="modal-content-large">
+          <div className="modal-content">
             <div className="modal-header">
               <div className="modal-title-group">
-                <Building2 size={24} color="#2563eb" />
+                <Building2 size={24} color="#d97706" />
                 <div>
-                  <h3>Create New Pharmaceutical Enterprise Company</h3>
-                  <p>Provisions an isolated tenant with automatic sovereign currency, IANA timezone, and statutory tax defaults.</p>
+                  <h3>Provision Isolated Pharma Tenant</h3>
+                  <p>Create a dedicated enterprise tenant with sovereign statutory compliance.</p>
                 </div>
               </div>
               <button type="button" className="close-modal-btn" onClick={() => setIsCreateCompanyOpen(false)}>&times;</button>
@@ -2685,22 +2452,21 @@ export default function SuperAdminDashboard({
             <form onSubmit={handleCreateCompany} className="modal-form-body">
               <div className="form-grid-2">
                 <div className="form-group">
-                  <label>Company Name</label>
+                  <label>Company Legal Commercial Name *</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Royal Pharma Cambodia Ltd"
+                    placeholder="e.g. Alleviare Pharma Vietnam Ltd."
                     value={newCompanyForm.name}
                     onChange={(e) => setNewCompanyForm({ ...newCompanyForm, name: e.target.value })}
                     className="form-control"
                   />
                 </div>
                 <div className="form-group">
-                  <label>Company Code</label>
+                  <label>Tenant Unique Code</label>
                   <input
                     type="text"
-                    required
-                    placeholder="e.g. RYL-KH"
+                    placeholder="e.g. alleviare-vn"
                     value={newCompanyForm.code}
                     onChange={(e) => setNewCompanyForm({ ...newCompanyForm, code: e.target.value })}
                     className="form-control"
@@ -2708,36 +2474,33 @@ export default function SuperAdminDashboard({
                 </div>
               </div>
 
-              <div className="form-grid-3">
+              <div className="form-grid-2">
                 <div className="form-group">
-                  <label>Country Jurisdiction (Autofills Settings)</label>
+                  <label>Sovereign Country Jurisdiction *</label>
                   <select
+                    className="form-control"
                     value={newCompanyForm.country}
                     onChange={(e) => handleCountrySelectionChange(e.target.value)}
-                    className="form-control"
                   >
-                    {sovereignRegistry.map(reg => (
-                      <option key={reg.code} value={reg.name}>{reg.flag} {reg.name}</option>
+                    {sovereignRegistry.map((c) => (
+                      <option key={c.code} value={c.name}>
+                        {c.flag} {c.name} ({c.currencyCode})
+                      </option>
                     ))}
                   </select>
                 </div>
+
                 <div className="form-group">
-                  <label>Default Currency</label>
-                  <input
-                    type="text"
-                    value={newCompanyForm.currency}
-                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, currency: e.target.value })}
+                  <label>Subscription Tier</label>
+                  <select
+                    value={newCompanyForm.plan}
+                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, plan: e.target.value })}
                     className="form-control"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Timezone (IANA Standard)</label>
-                  <input
-                    type="text"
-                    value={newCompanyForm.timezone}
-                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, timezone: e.target.value })}
-                    className="form-control"
-                  />
+                  >
+                    <option value="BASIC">Basic ($950/mo)</option>
+                    <option value="PRO">Pro Enterprise ($2,800/mo)</option>
+                    <option value="ENTERPRISE">Global Platinum ($4,200/mo)</option>
+                  </select>
                 </div>
               </div>
 
@@ -2746,15 +2509,14 @@ export default function SuperAdminDashboard({
                   <label>Initial Company Admin Full Name</label>
                   <input
                     type="text"
-                    required
-                    placeholder="Enter Admin Full Name"
+                    placeholder="e.g. Dr. Nguyen Van Minh"
                     value={newCompanyForm.adminName}
                     onChange={(e) => setNewCompanyForm({ ...newCompanyForm, adminName: e.target.value })}
                     className="form-control"
                   />
                 </div>
                 <div className="form-group">
-                  <label>Initial Company Admin Corporate Email</label>
+                  <label>Company Admin Corporate Email *</label>
                   <input
                     type="email"
                     required
@@ -2768,23 +2530,11 @@ export default function SuperAdminDashboard({
 
               <div className="form-grid-3">
                 <div className="form-group">
-                  <label>Subscription Tier</label>
-                  <select
-                    value={newCompanyForm.plan}
-                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, plan: e.target.value })}
-                    className="form-control"
-                  >
-                    <option value="BASIC">Basic ($950/mo)</option>
-                    <option value="PRO">Pro Enterprise ($2,800/mo)</option>
-                    <option value="ENTERPRISE">Global Platinum ($4,200/mo)</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>User Limit</label>
+                  <label>Max MRs Quota</label>
                   <input
                     type="number"
-                    value={newCompanyForm.userLimit}
-                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, userLimit: Number(e.target.value) })}
+                    value={newCompanyForm.mrLimit}
+                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, mrLimit: Number(e.target.value) })}
                     className="form-control"
                   />
                 </div>
@@ -2797,12 +2547,22 @@ export default function SuperAdminDashboard({
                     className="form-control"
                   />
                 </div>
+                <div className="form-group">
+                  <label>Default Currency</label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={newCompanyForm.currency}
+                    className="form-control"
+                    style={{ background: '#f1f5f9' }}
+                  />
+                </div>
               </div>
 
               <div className="modal-actions-bar">
                 <button type="button" className="cancel-btn" onClick={() => setIsCreateCompanyOpen(false)}>Cancel</button>
                 <button type="submit" className="submit-create-btn">
-                  <CheckCircle2 size={16} /> <span>Provision Isolated Tenant</span>
+                  <CheckCircle2 size={16} /> <span>Provision Tenant</span>
                 </button>
               </div>
             </form>
@@ -2811,7 +2571,666 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          IMPERSONATION MODAL (AUDITED)
+          MODAL: EDIT COMPANY (UPDATE)
+          ===================================================================== */}
+      {isEditCompanyOpen && editingCompany && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Edit size={22} color="#2563eb" />
+                <div>
+                  <h3>Edit Pharma Company</h3>
+                  <p>Update tenant details, quotas, and subscription configuration.</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsEditCompanyOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleUpdateCompany} className="modal-form-body">
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Company Commercial Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editCompanyForm.name}
+                    onChange={(e) => setEditCompanyForm({ ...editCompanyForm, name: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Subscription Tier</label>
+                  <select
+                    className="form-control"
+                    value={editCompanyForm.plan}
+                    onChange={(e) => setEditCompanyForm({ ...editCompanyForm, plan: e.target.value })}
+                  >
+                    <option value="BASIC">Basic ($950/mo)</option>
+                    <option value="PRO">Pro Enterprise ($2,800/mo)</option>
+                    <option value="ENTERPRISE">Global Platinum ($4,200/mo)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Contact Admin Email</label>
+                  <input
+                    type="email"
+                    value={editCompanyForm.contactEmail}
+                    onChange={(e) => setEditCompanyForm({ ...editCompanyForm, contactEmail: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Status</label>
+                  <select
+                    className="form-control"
+                    value={editCompanyForm.status}
+                    onChange={(e) => setEditCompanyForm({ ...editCompanyForm, status: e.target.value })}
+                  >
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="SUSPENDED">SUSPENDED</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Max MRs Quota</label>
+                  <input
+                    type="number"
+                    value={editCompanyForm.mrLimit}
+                    onChange={(e) => setEditCompanyForm({ ...editCompanyForm, mrLimit: Number(e.target.value) })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Storage Limit (GB)</label>
+                  <input
+                    type="number"
+                    value={editCompanyForm.storageLimitGB}
+                    onChange={(e) => setEditCompanyForm({ ...editCompanyForm, storageLimitGB: Number(e.target.value) })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsEditCompanyOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <Save size={16} /> <span>Save Changes</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: DELETE COMPANY CONFIRMATION
+          ===================================================================== */}
+      {isDeleteCompanyOpen && deletingCompany && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <AlertTriangle size={22} color="#dc2626" />
+                <div>
+                  <h3>Purge Pharma Tenant</h3>
+                  <p>Permanently delete {deletingCompany.name}</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsDeleteCompanyOpen(false)}>&times;</button>
+            </div>
+
+            <div className="modal-form-body">
+              <div style={{ background: '#fef2f2', border: '1px solid #fee2e2', borderRadius: '6px', padding: '14px', color: '#b91c1c', fontSize: '0.84rem' }}>
+                ⚠️ <strong>Permanent Action:</strong> This will delete <strong>{deletingCompany.name}</strong> and all associated tenant records in PostgreSQL. This action cannot be undone.
+              </div>
+
+              <div className="modal-actions-bar" style={{ marginTop: '20px' }}>
+                <button type="button" className="cancel-btn" onClick={() => setIsDeleteCompanyOpen(false)}>Cancel</button>
+                <button type="button" className="btn-danger" onClick={handleConfirmDeleteCompany}>
+                  <Trash2 size={16} /> <span>Confirm &amp; Delete Tenant</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: RESET ADMIN PASSWORD
+          ===================================================================== */}
+      {isResetAdminPasswordOpen && resetPasswordTarget && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Key size={22} color="#2563eb" />
+                <div>
+                  <h3>Reset Company Admin Password</h3>
+                  <p>Set a new password for {resetPasswordTarget.name} ({resetPasswordTarget.adminEmail})</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsResetAdminPasswordOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleConfirmResetAdminPassword} className="modal-form-body">
+              <div className="form-group">
+                <label>New Secure Password *</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="e.g. Admin@2026!"
+                  value={newAdminPasswordInput}
+                  onChange={(e) => setNewAdminPasswordInput(e.target.value)}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsResetAdminPasswordOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <CheckCircle size={16} /> <span>Update Password</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: ADD PLATFORM USER
+          ===================================================================== */}
+      {isCreateUserOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Users size={22} color="#059669" />
+                <div>
+                  <h3>Add Platform User</h3>
+                  <p>Create an employee account assigned to any company tenant or HQ.</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsCreateUserOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleCreateUser} className="modal-form-body">
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>First Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="First Name"
+                    value={newUserForm.firstName}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, firstName: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Last Name</label>
+                  <input
+                    type="text"
+                    placeholder="Last Name"
+                    value={newUserForm.lastName}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, lastName: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Email Address *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="user@company.com"
+                    value={newUserForm.email}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Temporary Password</label>
+                  <input
+                    type="password"
+                    placeholder="User@1234!"
+                    value={newUserForm.password}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Role *</label>
+                  <select
+                    className="form-control"
+                    value={newUserForm.role}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value })}
+                  >
+                    <option value="COMPANY_ADMIN">Company Admin</option>
+                    <option value="GENERAL_MANAGER">General Manager</option>
+                    <option value="AREA_MANAGER">Area Manager</option>
+                    <option value="MEDICAL_REP">Medical Representative (MR)</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Company Tenant</label>
+                  <select
+                    className="form-control"
+                    value={newUserForm.tenantId}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, tenantId: e.target.value })}
+                  >
+                    <option value="">Global HQ / Platform</option>
+                    {companies.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Phone / Mobile</label>
+                  <input
+                    type="text"
+                    placeholder="+91 9876543210"
+                    value={newUserForm.phone}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, phone: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Territory</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Zone 1 North"
+                    value={newUserForm.territory}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, territory: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsCreateUserOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <Plus size={16} /> <span>Create User</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: EDIT PLATFORM USER
+          ===================================================================== */}
+      {isEditUserOpen && editingUser && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Edit size={22} color="#2563eb" />
+                <div>
+                  <h3>Edit User Account</h3>
+                  <p>Modify credentials and permissions for {editingUser.email}</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsEditUserOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleUpdateUser} className="modal-form-body">
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>First Name</label>
+                  <input
+                    type="text"
+                    value={editUserForm.firstName}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, firstName: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Last Name</label>
+                  <input
+                    type="text"
+                    value={editUserForm.lastName}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, lastName: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Role</label>
+                  <select
+                    className="form-control"
+                    value={editUserForm.role}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, role: e.target.value })}
+                  >
+                    <option value="SUPER_ADMIN">Super Admin</option>
+                    <option value="COMPANY_ADMIN">Company Admin</option>
+                    <option value="GENERAL_MANAGER">General Manager</option>
+                    <option value="AREA_MANAGER">Area Manager</option>
+                    <option value="MEDICAL_REP">Medical Representative (MR)</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Status</label>
+                  <select
+                    className="form-control"
+                    value={editUserForm.status}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, status: e.target.value })}
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Suspended">Suspended</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsEditUserOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <Save size={16} /> <span>Save User</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: RESET USER PASSWORD
+          ===================================================================== */}
+      {isResetUserPasswordOpen && resetUserPasswordTarget && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Key size={22} color="#2563eb" />
+                <div>
+                  <h3>Reset User Password</h3>
+                  <p>Update password for {resetUserPasswordTarget.email}</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsResetUserPasswordOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleConfirmResetUserPassword} className="modal-form-body">
+              <div className="form-group">
+                <label>New Password *</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="e.g. Pass@2026!"
+                  value={newUserPasswordInput}
+                  onChange={(e) => setNewUserPasswordInput(e.target.value)}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsResetUserPasswordOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <CheckCircle size={16} /> <span>Update Password</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: DELETE USER CONFIRMATION
+          ===================================================================== */}
+      {isDeleteUserOpen && deletingUser && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <AlertTriangle size={22} color="#dc2626" />
+                <div>
+                  <h3>Delete User Account</h3>
+                  <p>Permanently remove {deletingUser.email}</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsDeleteUserOpen(false)}>&times;</button>
+            </div>
+
+            <div className="modal-form-body">
+              <div style={{ background: '#fef2f2', border: '1px solid #fee2e2', borderRadius: '6px', padding: '14px', color: '#b91c1c', fontSize: '0.84rem' }}>
+                ⚠️ <strong>Delete User:</strong> Are you sure you want to permanently delete account <strong>{deletingUser.email}</strong>?
+              </div>
+
+              <div className="modal-actions-bar" style={{ marginTop: '20px' }}>
+                <button type="button" className="cancel-btn" onClick={() => setIsDeleteUserOpen(false)}>Cancel</button>
+                <button type="button" className="btn-danger" onClick={handleConfirmDeleteUser}>
+                  <Trash2 size={16} /> <span>Confirm &amp; Delete User</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: ADD SOVEREIGN COUNTRY
+          ===================================================================== */}
+      {isCreateCountryOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Globe2 size={22} color="#d97706" />
+                <div>
+                  <h3>Add Sovereign Jurisdiction</h3>
+                  <p>Register a new sovereign market with statutory compliance.</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsCreateCountryOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleCreateCountry} className="modal-form-body">
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Country ISO Code (2 Letters) *</label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={3}
+                    placeholder="e.g. AE"
+                    value={newCountryForm.code}
+                    onChange={(e) => setNewCountryForm({ ...newCountryForm, code: e.target.value.toUpperCase() })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Country Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. United Arab Emirates"
+                    value={newCountryForm.name}
+                    onChange={(e) => setNewCountryForm({ ...newCountryForm, name: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Currency ISO Code *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. AED"
+                    value={newCountryForm.currencyCode}
+                    onChange={(e) => setNewCountryForm({ ...newCountryForm, currencyCode: e.target.value.toUpperCase() })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Currency Symbol</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. د.إ"
+                    value={newCountryForm.currencySymbol}
+                    onChange={(e) => setNewCountryForm({ ...newCountryForm, currencySymbol: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Primary IANA Timezone</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Asia/Dubai"
+                  value={newCountryForm.primaryTimezone}
+                  onChange={(e) => setNewCountryForm({ ...newCountryForm, primaryTimezone: e.target.value })}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsCreateCountryOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <Plus size={16} /> <span>Register Country</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: EDIT COUNTRY STATUTORY COMPLIANCE
+          ===================================================================== */}
+      {isEditCountryOpen && editingCountry && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Settings size={22} color="#2563eb" />
+                <div>
+                  <h3>Configure Compliance Rules</h3>
+                  <p>Statutory tax, social security, and currency rules for {editingCountry.name}</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsEditCountryOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleUpdateCountry} className="modal-form-body">
+              <div className="form-group">
+                <label>Tax &amp; Withholding Scheme</label>
+                <input
+                  type="text"
+                  value={editCountryForm.taxScheme}
+                  onChange={(e) => setEditCountryForm({ ...editCountryForm, taxScheme: e.target.value })}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Social Security / Statutory Fund</label>
+                <input
+                  type="text"
+                  value={editCountryForm.socialSecurity}
+                  onChange={(e) => setEditCountryForm({ ...editCountryForm, socialSecurity: e.target.value })}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsEditCountryOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <Save size={16} /> <span>Save Compliance Rules</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: MANAGE SUBSCRIPTION & BILLING
+          ===================================================================== */}
+      {isSubscriptionModalOpen && subModalTarget && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <CreditCard size={22} color="#059669" />
+                <div>
+                  <h3>Manage Subscription</h3>
+                  <p>Upgrade or adjust plan tier for {subModalTarget.name}</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsSubscriptionModalOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleSaveSubscription} className="modal-form-body">
+              <div className="form-group">
+                <label>Subscription Tier</label>
+                <select
+                  className="form-control"
+                  value={subModalForm.planTier}
+                  onChange={(e) => {
+                    const tier = e.target.value;
+                    const rate = tier === 'ENTERPRISE' ? 4200 : tier === 'PRO' ? 2800 : 950;
+                    setSubModalForm({ ...subModalForm, planTier: tier, amountBilled: rate });
+                  }}
+                >
+                  <option value="BASIC">Basic ($950/mo)</option>
+                  <option value="PRO">Pro Enterprise ($2,800/mo)</option>
+                  <option value="ENTERPRISE">Global Platinum ($4,200/mo)</option>
+                </select>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Monthly Billed Amount ($ USD)</label>
+                  <input
+                    type="number"
+                    value={subModalForm.amountBilled}
+                    onChange={(e) => setSubModalForm({ ...subModalForm, amountBilled: Number(e.target.value) })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Next Renewal Date</label>
+                  <input
+                    type="date"
+                    value={subModalForm.expiryDate}
+                    onChange={(e) => setSubModalForm({ ...subModalForm, expiryDate: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsSubscriptionModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <CheckCircle size={16} /> <span>Update Subscription</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: IMPERSONATION (AUDITED)
           ===================================================================== */}
       {isImpersonateOpen && impersonateTarget && (
         <div className="modal-overlay">
@@ -2829,15 +3248,15 @@ export default function SuperAdminDashboard({
 
             <form onSubmit={handleStartImpersonation} className="modal-form-body">
               <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '10px 12px', fontSize: '0.78rem', color: '#92400e', marginBottom: '14px' }}>
-                ⚠️ <strong>Audited Action:</strong> All interactions conducted during this impersonation session are logged with your Super Admin identity and timestamps.
+                ⚠️ <strong>Audited Session:</strong> All interactions during this impersonation are recorded in platform audit logs with your Master Super Admin ID.
               </div>
 
               <div className="form-group">
-                <label>Reason for Impersonation (Required for Audit Compliance)</label>
+                <label>Audit Compliance Reason *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Support ticket #1042: Debugging MTP routing approval"
+                  placeholder="e.g. Investigating DCR approval queue timeout"
                   value={impersonateReason}
                   onChange={(e) => setImpersonateReason(e.target.value)}
                   className="form-control"
@@ -2856,7 +3275,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          PUBLISH ANNOUNCEMENT MODAL
+          MODAL: PUBLISH GLOBAL ANNOUNCEMENT
           ===================================================================== */}
       {isAnnouncementModalOpen && (
         <div className="modal-overlay">
@@ -2866,7 +3285,7 @@ export default function SuperAdminDashboard({
                 <Megaphone size={22} color="#2563eb" />
                 <div>
                   <h3>Publish Global Announcement</h3>
-                  <p>Broadcast notices to tenants across web and mobile consoles.</p>
+                  <p>Broadcast alerts to all tenant dashboards.</p>
                 </div>
               </div>
               <button type="button" className="close-modal-btn" onClick={() => setIsAnnouncementModalOpen(false)}>&times;</button>
@@ -2874,51 +3293,23 @@ export default function SuperAdminDashboard({
 
             <form onSubmit={handleSendAnnouncement} className="modal-form-body">
               <div className="form-group">
-                <label>Announcement Title</label>
+                <label>Announcement Title *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Scheduled Maintenance Notice"
+                  placeholder="e.g. Scheduled Infrastructure Maintenance"
                   value={newAnnouncement.title}
                   onChange={(e) => setNewAnnouncement({ ...newAnnouncement, title: e.target.value })}
                   className="form-control"
                 />
               </div>
 
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label>Type</label>
-                  <select
-                    className="form-control"
-                    value={newAnnouncement.type}
-                    onChange={(e) => setNewAnnouncement({ ...newAnnouncement, type: e.target.value })}
-                  >
-                    <option value="MAINTENANCE">Maintenance Notice</option>
-                    <option value="FEATURE">New Feature Release</option>
-                    <option value="SECURITY">Security Advisory</option>
-                    <option value="POLICY">Policy / Terms Update</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Target Audience</label>
-                  <select
-                    className="form-control"
-                    value={newAnnouncement.target}
-                    onChange={(e) => setNewAnnouncement({ ...newAnnouncement, target: e.target.value })}
-                  >
-                    <option value="ALL">All Users Across Platform</option>
-                    <option value="COMPANY_ADMINS">Company Admins Only</option>
-                  </select>
-                </div>
-              </div>
-
               <div className="form-group">
-                <label>Announcement Content</label>
+                <label>Content *</label>
                 <textarea
                   required
                   rows={4}
-                  placeholder="Write announcement details..."
+                  placeholder="Write message details..."
                   value={newAnnouncement.content}
                   onChange={(e) => setNewAnnouncement({ ...newAnnouncement, content: e.target.value })}
                   className="form-control"
@@ -2937,7 +3328,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          NEW TICKET MODAL
+          MODAL: CREATE SUPPORT TICKET
           ===================================================================== */}
       {isNewTicketOpen && (
         <div className="modal-overlay">
@@ -2947,7 +3338,7 @@ export default function SuperAdminDashboard({
                 <LifeBuoy size={22} color="#2563eb" />
                 <div>
                   <h3>Create Support Ticket</h3>
-                  <p>Log a support request for a company organization.</p>
+                  <p>Log a support or technical inquiry.</p>
                 </div>
               </div>
               <button type="button" className="close-modal-btn" onClick={() => setIsNewTicketOpen(false)}>&times;</button>
@@ -2965,38 +3356,8 @@ export default function SuperAdminDashboard({
                 />
               </div>
 
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label>Category</label>
-                  <select
-                    className="form-control"
-                    value={newTicket.category}
-                    onChange={(e) => setNewTicket({ ...newTicket, category: e.target.value })}
-                  >
-                    <option value="TECHNICAL">Technical Issue</option>
-                    <option value="BILLING">Billing &amp; Subscription</option>
-                    <option value="DATA">Data / Schema Export</option>
-                    <option value="TRAINING">Training &amp; Support</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Priority</label>
-                  <select
-                    className="form-control"
-                    value={newTicket.priority}
-                    onChange={(e) => setNewTicket({ ...newTicket, priority: e.target.value })}
-                  >
-                    <option value="HIGH">High Priority</option>
-                    <option value="CRITICAL">Critical</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="LOW">Low</option>
-                  </select>
-                </div>
-              </div>
-
               <div className="form-group">
-                <label>Subject</label>
+                <label>Subject *</label>
                 <input
                   type="text"
                   required
@@ -3011,7 +3372,7 @@ export default function SuperAdminDashboard({
                 <label>Description</label>
                 <textarea
                   rows={3}
-                  placeholder="Details of the support request..."
+                  placeholder="Details of the request..."
                   value={newTicket.description}
                   onChange={(e) => setNewTicket({ ...newTicket, description: e.target.value })}
                   className="form-control"

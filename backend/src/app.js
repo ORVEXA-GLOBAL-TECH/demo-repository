@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerDocument } from './swagger.js';
 import { config } from './config/index.js';
+import { checkDbHealth } from './config/db.js';
 
 // Route imports
 import authRoutes from './routes/authRoutes.js';
@@ -22,6 +23,9 @@ import trackingRoutes from './routes/trackingRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import tenantRoutes from './routes/tenantRoutes.js';
+import countryRoutes from './routes/countryRoutes.js';
+import subscriptionRoutes from './routes/subscriptionRoutes.js';
+import auditRoutes from './routes/auditRoutes.js';
 
 const app = express();
 
@@ -46,8 +50,6 @@ app.use(morgan('dev'));
 
 // OpenAPI / Swagger Documentation endpoint
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-
-import { checkDbHealth } from './config/db.js';
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -90,6 +92,9 @@ app.use('/api/tracking', trackingRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/sovereign-countries', countryRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
+app.use('/api', auditRoutes);
 app.use('/api', tenantRoutes);
 
 // 404 handler
