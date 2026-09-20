@@ -483,6 +483,68 @@ router.patch('/:id/lock', async (req, res) => {
   }
 });
 
+// POST /api/users/:id/reset-account - Full Account Reset (Unlock, activate, reset temporary password, revoke old sessions)
+router.post('/:id/reset-account', async (req, res) => {
+  const { id } = req.params;
+  const tempPassword = req.body?.temporaryPassword || `Reset@${Math.floor(100000 + Math.random() * 900000)}!`;
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(tempPassword, salt);
+
+    const dbHealth = await checkDbHealth();
+    if (dbHealth.status === 'CONNECTED') {
+      const updateRes = await query(`
+        UPDATE users
+        SET 
+          password_hash = $1,
+          status = 'Active',
+          is_locked = false,
+          lock_reason = NULL,
+          token_version = COALESCE(token_version, 0) + 1,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+        RETURNING id, email, first_name, last_name, role, status, is_locked, territory, phone;
+      `, [hashedPassword, id]);
+
+      if (updateRes.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'User not found.' });
+      }
+
+      const user = updateRes.rows[0];
+
+      await query(`
+        INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, entity_id, details)
+        VALUES ($1, $2, $3, $4, $5, $6);
+      `, [
+        'superadmin@alleviaresfa.com',
+        'SUPER_ADMIN',
+        'USER_ACCOUNT_FULL_RESET',
+        'users',
+        id,
+        JSON.stringify({ email: user.email, action: 'UNLOCKED_AND_PASSWORD_RESET', timestamp: new Date().toISOString() })
+      ]).catch(() => {});
+
+      return res.json({
+        success: true,
+        message: `Account for ${user.email} successfully reset. Account is now Active & Unlocked.`,
+        data: {
+          ...user,
+          temporaryPassword: tempPassword
+        }
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Account reset in demo mode.`,
+      data: { id, temporaryPassword: tempPassword, status: 'Active', is_locked: false }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // PATCH /api/users/:id/permissions - Change granular admin permissions
 router.patch('/:id/permissions', async (req, res) => {
   const { id } = req.params;

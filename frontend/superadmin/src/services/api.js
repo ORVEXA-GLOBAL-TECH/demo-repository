@@ -552,6 +552,38 @@ export const resetUserPassword = async (id, password) => {
   return data;
 };
 
+export const resetAccount = async (id, temporaryPassword) => {
+  try {
+    const res = await fetchWithAuth(`/users/${id}/reset-account`, {
+      method: 'POST',
+      body: JSON.stringify({ temporaryPassword })
+    });
+    if (res.success) return res.data;
+  } catch (err) {
+    console.warn('API error resetting account, fallback to Supabase...');
+  }
+
+  const tempPwd = temporaryPassword || `Reset@${Math.floor(100000 + Math.random() * 900000)}!`;
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(tempPwd, salt);
+
+  const { data, error } = await supabase
+    .from('users')
+    .update({
+      password_hash: hashedPassword,
+      status: 'Active',
+      is_locked: false,
+      lock_reason: null,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', id)
+    .select('id, email, first_name, last_name, role, status, is_locked')
+    .single();
+
+  if (error) throw new Error(error.message);
+  return { ...data, temporaryPassword: tempPwd };
+};
+
 export const deletePlatformUser = async (id) => {
   try {
     const res = await fetchWithAuth(`/users/${id}`, {

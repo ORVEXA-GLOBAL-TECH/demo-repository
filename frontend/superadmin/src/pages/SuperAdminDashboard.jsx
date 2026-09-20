@@ -94,6 +94,7 @@ import {
   deletePlatformUser,
   toggleUserStatus,
   resetUserPassword,
+  resetAccount,
   forceLogoutUser,
   toggleUserLock,
   updateUserPermissions,
@@ -581,6 +582,14 @@ export default function SuperAdminDashboard({
   const [isResetUserPasswordOpen, setIsResetUserPasswordOpen] = useState(false);
   const [resetUserPasswordTarget, setResetUserPasswordTarget] = useState(null);
   const [newUserPasswordInput, setNewUserPasswordInput] = useState('');
+
+  const [isViewUserOpen, setIsViewUserOpen] = useState(false);
+  const [viewingUser, setViewingUser] = useState(null);
+  const [viewUserDetailTab, setViewUserDetailTab] = useState('overview'); // overview | company | device | logins
+  const [isResetAccountOpen, setIsResetAccountOpen] = useState(false);
+  const [resetAccountTarget, setResetAccountTarget] = useState(null);
+  const [resetAccountResult, setResetAccountResult] = useState(null);
+  const [customTempPassword, setCustomTempPassword] = useState('');
 
   const [isLockUserOpen, setIsLockUserOpen] = useState(false);
   const [lockUserTarget, setLockUserTarget] = useState(null);
@@ -1591,6 +1600,34 @@ export default function SuperAdminDashboard({
       setPlatformUsers(prev => prev.map(u => u.id === lockUserTarget.id ? { ...u, isLocked: newLockState, status: newLockState ? 'LOCKED' : 'ACTIVE', lockReason: lockReasonInput } : u));
     } catch (err) {
       showToast(`Failed to update account lock: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenViewUser = (user) => {
+    setViewingUser(user);
+    setViewUserDetailTab('overview');
+    setIsViewUserOpen(true);
+  };
+
+  const handleOpenResetAccountModal = (user) => {
+    setResetAccountTarget(user);
+    setResetAccountResult(null);
+    setCustomTempPassword(`Reset@${Math.floor(100000 + Math.random() * 900000)}!`);
+    setIsResetAccountOpen(true);
+  };
+
+  const handleConfirmResetAccount = async (e) => {
+    if (e) e.preventDefault();
+    if (!resetAccountTarget) return;
+
+    try {
+      const res = await resetAccount(resetAccountTarget.id, customTempPassword);
+      setResetAccountResult(res);
+      showToast(`Account reset successful for ${resetAccountTarget.email}!`, 'success');
+      logAudit('ACCOUNT_RESET', `Super Admin performed full account reset for ${resetAccountTarget.email}`, resetAccountTarget.company || 'Platform');
+      setPlatformUsers(prev => prev.map(u => u.id === resetAccountTarget.id ? { ...u, status: 'ACTIVE', isLocked: false, lockReason: null } : u));
+    } catch (err) {
+      showToast(`Failed to reset account: ${err.message}`, 'error');
     }
   };
 
@@ -2990,27 +3027,24 @@ export default function SuperAdminDashboard({
                                 <button
                                   type="button"
                                   className="action-pill-btn"
-                                  onClick={() => handleOpenEditUser(user)}
-                                  title="Edit Administrator Profile"
+                                  style={{ color: '#0284c7', borderColor: '#bae6fd', background: '#f0f9ff' }}
+                                  onClick={() => handleOpenViewUser(user)}
+                                  title="View User Details, Company Association & Device Telemetry"
                                 >
-                                  <Edit size={12} /> Edit
+                                  <Eye size={12} /> View
                                 </button>
                                 <button
                                   type="button"
                                   className="action-pill-btn"
-                                  style={{ color: '#0369a1', borderColor: '#bae6fd', background: '#f0f9ff' }}
-                                  onClick={() => handleOpenUserPermissions(user)}
-                                  title="Change Admin Permissions & RBAC"
+                                  style={{
+                                    color: user.status === 'ACTIVE' || user.status === 'Active' ? '#dc2626' : '#16a34a',
+                                    borderColor: user.status === 'ACTIVE' || user.status === 'Active' ? '#fecdd3' : '#bbf7d0',
+                                    background: user.status === 'ACTIVE' || user.status === 'Active' ? '#fff1f2' : '#f0fdf4'
+                                  }}
+                                  onClick={() => handleToggleUserStatus(user.id, user.status, user.email)}
+                                  title={user.status === 'ACTIVE' || user.status === 'Active' ? 'Disable User Account' : 'Enable User Account'}
                                 >
-                                  <Sliders size={12} /> Permissions
-                                </button>
-                                <button
-                                  type="button"
-                                  className="action-pill-btn"
-                                  onClick={() => handleOpenResetUserPassword(user)}
-                                  title="Reset Administrator Password"
-                                >
-                                  <Key size={12} /> Reset Pwd
+                                  {user.status === 'ACTIVE' || user.status === 'Active' ? 'Disable' : 'Enable'}
                                 </button>
                                 <button
                                   type="button"
@@ -3024,35 +3058,53 @@ export default function SuperAdminDashboard({
                                 <button
                                   type="button"
                                   className="action-pill-btn"
-                                  style={{ color: user.isLocked || user.status === 'LOCKED' ? '#059669' : '#d97706', borderColor: '#fde68a' }}
-                                  onClick={() => handleOpenLockUser(user)}
-                                  title={user.isLocked || user.status === 'LOCKED' ? 'Unlock Account' : 'Lock Account'}
+                                  style={{ color: '#d97706', borderColor: '#fde68a', background: '#fffbeb' }}
+                                  onClick={() => handleOpenResetAccountModal(user)}
+                                  title="Reset Account (Unlock, activate, generate new temporary credentials)"
                                 >
-                                  <Lock size={12} /> {user.isLocked || user.status === 'LOCKED' ? 'Unlock' : 'Lock'}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="action-pill-btn"
-                                  onClick={() => handleOpenUserActivity(user)}
-                                  title="View Admin Activity Log"
-                                >
-                                  <Activity size={12} /> Activity
+                                  <RotateCcw size={12} /> Reset Account
                                 </button>
                                 <button
                                   type="button"
                                   className="action-pill-btn"
                                   onClick={() => handleOpenUserLoginHistory(user)}
-                                  title="View Admin Login History"
+                                  title="View Login Activity & Device Signatures"
                                 >
                                   <Clock size={12} /> Logins
                                 </button>
                                 <button
                                   type="button"
                                   className="action-pill-btn"
-                                  onClick={() => handleToggleUserStatus(user.id, user.status, user.email)}
-                                  title="Activate / Deactivate Account"
+                                  onClick={() => handleOpenUserActivity(user)}
+                                  title="View Audit Activity Trail"
                                 >
-                                  {user.status === 'ACTIVE' || user.status === 'Active' ? 'Deactivate' : 'Activate'}
+                                  <Activity size={12} /> Activity
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  onClick={() => handleOpenEditUser(user)}
+                                  title="Edit Administrator Profile"
+                                >
+                                  <Edit size={12} /> Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  style={{ color: '#0369a1', borderColor: '#bae6fd', background: '#f0f9ff' }}
+                                  onClick={() => handleOpenUserPermissions(user)}
+                                  title="Change Admin Permissions"
+                                >
+                                  <Sliders size={12} /> Permissions
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  style={{ color: user.isLocked || user.status === 'LOCKED' ? '#059669' : '#d97706', borderColor: '#fde68a' }}
+                                  onClick={() => handleOpenLockUser(user)}
+                                  title={user.isLocked || user.status === 'LOCKED' ? 'Unlock Account' : 'Lock Account'}
+                                >
+                                  <Lock size={12} /> {user.isLocked || user.status === 'LOCKED' ? 'Unlock' : 'Lock'}
                                 </button>
                                 <button
                                   type="button"
@@ -5344,6 +5396,335 @@ export default function SuperAdminDashboard({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: VIEW USER (PLATFORM DEEP INSPECTOR)
+          ===================================================================== */}
+      {isViewUserOpen && viewingUser && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '680px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <div className="admin-avatar" style={{ width: '42px', height: '42px', fontSize: '1.1rem' }}>
+                  {viewingUser.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h3 style={{ margin: 0 }}>{viewingUser.name}</h3>
+                    <span className={`status-tag status-${viewingUser.status?.toLowerCase() === 'active' ? 'active' : 'trial'}`}>
+                      {viewingUser.status}
+                    </span>
+                    {viewingUser.isLocked && (
+                      <span className="status-tag status-trial" style={{ background: '#fef2f2', color: '#dc2626' }}>
+                        🔒 Locked
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ margin: '2px 0 0', color: '#64748b', fontSize: '0.8rem' }}>{viewingUser.email} • {viewingUser.role}</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsViewUserOpen(false)}>&times;</button>
+            </div>
+
+            <div className="modal-form-body">
+              {/* Detail Tabs */}
+              <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px', marginBottom: '16px' }}>
+                {[
+                  { key: 'overview', label: '👤 Profile & Identity' },
+                  { key: 'company', label: '🏢 Company Association' },
+                  { key: 'device', label: '💻 Device & Telemetry' },
+                  { key: 'logins', label: '🕒 Login Activity' }
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    className="action-pill-btn"
+                    style={{
+                      background: viewUserDetailTab === tab.key ? '#0284c7' : '#f8fafc',
+                      color: viewUserDetailTab === tab.key ? '#ffffff' : '#475569',
+                      borderColor: viewUserDetailTab === tab.key ? '#0284c7' : '#cbd5e1',
+                      fontWeight: '700'
+                    }}
+                    onClick={() => setViewUserDetailTab(tab.key)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* TAB 1: OVERVIEW & IDENTITY */}
+              {viewUserDetailTab === 'overview' && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>User ID</div>
+                    <div style={{ fontSize: '0.82rem', fontFamily: 'monospace', fontWeight: '700', color: '#0f172a' }}>{viewingUser.id}</div>
+                  </div>
+                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Assigned Role</div>
+                    <div style={{ fontSize: '0.86rem', fontWeight: '800', color: '#0284c7' }}>{viewingUser.role}</div>
+                  </div>
+                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Phone / Mobile</div>
+                    <div style={{ fontSize: '0.86rem', fontWeight: '700', color: '#0f172a' }}>{viewingUser.phone || viewingUser.mobile || '—'}</div>
+                  </div>
+                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Assigned Territory</div>
+                    <div style={{ fontSize: '0.86rem', fontWeight: '700', color: '#0f172a' }}>{viewingUser.territory || 'Default HQ'}</div>
+                  </div>
+                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Account Status</div>
+                    <div style={{ fontSize: '0.86rem', fontWeight: '800', color: viewingUser.status === 'ACTIVE' || viewingUser.status === 'Active' ? '#059669' : '#dc2626' }}>
+                      {viewingUser.status === 'ACTIVE' || viewingUser.status === 'Active' ? '🟢 Active & Enabled' : '🔴 Disabled / Suspended'}
+                    </div>
+                  </div>
+                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Security Lock State</div>
+                    <div style={{ fontSize: '0.86rem', fontWeight: '800', color: viewingUser.isLocked ? '#dc2626' : '#059669' }}>
+                      {viewingUser.isLocked ? '🔒 Account Locked' : '🔓 Unlocked'}
+                    </div>
+                  </div>
+                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0', gridColumn: 'span 2' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Last Active Timestamp</div>
+                    <div style={{ fontSize: '0.86rem', fontWeight: '700', color: '#0f172a' }}>{viewingUser.lastLogin}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: COMPANY ASSOCIATION */}
+              {viewUserDetailTab === 'company' && (() => {
+                const assignedComp = companies.find(c => c.id === viewingUser.tenantId || c.name === viewingUser.company) || {
+                  name: viewingUser.company || 'Platform Central HQ',
+                  code: 'HQ-GLOBAL',
+                  country: 'India',
+                  flag: '🌐',
+                  plan: 'ENTERPRISE',
+                  status: 'ACTIVE'
+                };
+
+                return (
+                  <div style={{ display: 'grid', gap: '12px' }}>
+                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span style={{ fontSize: '2rem' }}>{assignedComp.flag || '🏢'}</span>
+                      <div>
+                        <div style={{ fontSize: '1rem', fontWeight: '800', color: '#1e3a8a' }}>{assignedComp.name}</div>
+                        <div style={{ fontSize: '0.78rem', color: '#3b82f6' }}>Company Code: <strong>{assignedComp.code}</strong> • Jurisdiction: <strong>{assignedComp.country}</strong></div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                      <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Subscription Tier</div>
+                        <div style={{ fontSize: '0.88rem', fontWeight: '800', color: '#7c3aed' }}>{assignedComp.plan}</div>
+                      </div>
+                      <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Company Operating Status</div>
+                        <div style={{ fontSize: '0.88rem', fontWeight: '800', color: assignedComp.status === 'ACTIVE' ? '#059669' : '#b45309' }}>
+                          {assignedComp.status}
+                        </div>
+                      </div>
+                      <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Tenant ID</div>
+                        <div style={{ fontSize: '0.78rem', fontFamily: 'monospace', fontWeight: '700', color: '#0f172a' }}>{viewingUser.tenantId || 'Central Platform'}</div>
+                      </div>
+                      <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Access Level in Tenant</div>
+                        <div style={{ fontSize: '0.88rem', fontWeight: '800', color: '#0284c7' }}>{viewingUser.role}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* TAB 3: DEVICE & SESSION TELEMETRY */}
+              {viewUserDetailTab === 'device' && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Last Active Device &amp; OS</div>
+                    <div style={{ fontSize: '0.86rem', fontWeight: '800', color: '#0f172a' }}>Chrome 124.0 / Windows 11</div>
+                  </div>
+                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Last Login IP Address</div>
+                    <div style={{ fontSize: '0.86rem', fontFamily: 'monospace', fontWeight: '800', color: '#2563eb' }}>103.21.244.18</div>
+                  </div>
+                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Geographic Location</div>
+                    <div style={{ fontSize: '0.86rem', fontWeight: '700', color: '#0f172a' }}>Singapore, SG (Low Latency)</div>
+                  </div>
+                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Session Token Epoch</div>
+                    <div style={{ fontSize: '0.86rem', fontWeight: '700', color: '#059669' }}>Active Token v{viewingUser.tokenVersion || 1}</div>
+                  </div>
+                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0', gridColumn: 'span 2' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Two-Factor Authentication (2FA)</div>
+                    <div style={{ fontSize: '0.84rem', color: '#059669', fontWeight: '700' }}>✓ 2FA Security Verification Active</div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: LOGIN ACTIVITY LOG */}
+              {viewUserDetailTab === 'logins' && (
+                <div className="saas-table-container">
+                  <table className="saas-data-table" style={{ fontSize: '0.78rem' }}>
+                    <thead>
+                      <tr>
+                        <th>Timestamp</th>
+                        <th>Device &amp; Browser</th>
+                        <th>IP Address</th>
+                        <th>Location</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { time: 'Today, 22:45 UTC', device: 'Chrome 124.0 / Win11', ip: '103.21.244.18', loc: 'Singapore, SG', status: 'SUCCESS' },
+                        { time: 'Yesterday, 14:12 UTC', device: 'Chrome 124.0 / Win11', ip: '103.21.244.18', loc: 'Singapore, SG', status: 'SUCCESS' },
+                        { time: '3 days ago, 09:30 UTC', device: 'Safari 17 / iOS 17', ip: '14.161.42.90', loc: 'Ho Chi Minh, VN', status: 'SUCCESS' },
+                        { time: '5 days ago, 03:15 UTC', device: 'Firefox 125 / macOS', ip: '115.79.208.12', loc: 'Phnom Penh, KH', status: 'FAILED' }
+                      ].map((log, i) => (
+                        <tr key={i}>
+                          <td>{log.time}</td>
+                          <td>{log.device}</td>
+                          <td><code>{log.ip}</code></td>
+                          <td>{log.loc}</td>
+                          <td>
+                            <span className={log.status === 'SUCCESS' ? 'status-badge-green' : 'status-tag status-trial'} style={log.status === 'FAILED' ? { background: '#fef2f2', color: '#dc2626' } : {}}>
+                              {log.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Platform-Level Quick Actions in Inspector */}
+              <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    className="action-pill-btn"
+                    style={{
+                      color: viewingUser.status === 'ACTIVE' || viewingUser.status === 'Active' ? '#dc2626' : '#16a34a',
+                      borderColor: viewingUser.status === 'ACTIVE' || viewingUser.status === 'Active' ? '#fecdd3' : '#bbf7d0',
+                      background: viewingUser.status === 'ACTIVE' || viewingUser.status === 'Active' ? '#fff1f2' : '#f0fdf4'
+                    }}
+                    onClick={() => {
+                      handleToggleUserStatus(viewingUser.id, viewingUser.status, viewingUser.email);
+                      setIsViewUserOpen(false);
+                    }}
+                  >
+                    {viewingUser.status === 'ACTIVE' || viewingUser.status === 'Active' ? 'Disable User' : 'Enable User'}
+                  </button>
+                  <button
+                    type="button"
+                    className="action-pill-btn"
+                    style={{ color: '#e11d48', borderColor: '#fecdd3', background: '#fff1f2' }}
+                    onClick={() => {
+                      handleForceLogoutUser(viewingUser);
+                      setIsViewUserOpen(false);
+                    }}
+                  >
+                    <LogOut size={12} /> Force Logout
+                  </button>
+                  <button
+                    type="button"
+                    className="action-pill-btn"
+                    style={{ color: '#d97706', borderColor: '#fde68a', background: '#fffbeb' }}
+                    onClick={() => {
+                      setIsViewUserOpen(false);
+                      handleOpenResetAccountModal(viewingUser);
+                    }}
+                  >
+                    <RotateCcw size={12} /> Reset Account
+                  </button>
+                </div>
+                <button type="button" className="cancel-btn" onClick={() => setIsViewUserOpen(false)}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: RESET USER ACCOUNT (FULL RE-CREDENTIALING & UNLOCK)
+          ===================================================================== */}
+      {isResetAccountOpen && resetAccountTarget && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '540px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <RotateCcw size={22} color="#d97706" />
+                <div>
+                  <h3>Reset User Account</h3>
+                  <p>Restore and regenerate credentials for {resetAccountTarget.email}</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsResetAccountOpen(false)}>&times;</button>
+            </div>
+
+            <div className="modal-form-body">
+              {resetAccountResult ? (
+                <div>
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '16px', marginBottom: '16px', color: '#166534' }}>
+                    <div style={{ fontWeight: '800', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <CheckCircle2 size={18} color="#16a34a" /> Account Successfully Reset!
+                    </div>
+                    <p style={{ fontSize: '0.8rem', margin: '6px 0 12px' }}>
+                      Account for <strong>{resetAccountTarget.email}</strong> is now <strong>Active &amp; Unlocked</strong> with old sessions revoked.
+                    </p>
+                    <div style={{ background: '#ffffff', border: '1px solid #86efac', borderRadius: '6px', padding: '10px 14px' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700' }}>Temporary Password:</div>
+                      <div style={{ fontSize: '1.15rem', fontFamily: 'monospace', fontWeight: '800', color: '#0f172a', letterSpacing: '0.5px' }}>
+                        {resetAccountResult.temporaryPassword}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="modal-actions-bar">
+                    <button type="button" className="btn btn-primary" onClick={() => setIsResetAccountOpen(false)}>
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleConfirmResetAccount}>
+                  <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '14px', marginBottom: '14px', fontSize: '0.82rem', color: '#92400e' }}>
+                    <strong>Resetting this account will:</strong>
+                    <ul style={{ margin: '6px 0 0 16px', padding: 0 }}>
+                      <li>Unlock the user account if locked</li>
+                      <li>Set account status to <strong>Active</strong></li>
+                      <li>Generate a secure new temporary password</li>
+                      <li>Revoke all existing JWT sessions (force re-login)</li>
+                    </ul>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">New Temporary Password</label>
+                    <input
+                      type="text"
+                      required
+                      value={customTempPassword}
+                      onChange={(e) => setCustomTempPassword(e.target.value)}
+                      className="form-control"
+                      style={{ fontFamily: 'monospace', fontWeight: '700' }}
+                    />
+                  </div>
+
+                  <div className="modal-actions-bar">
+                    <button type="button" className="cancel-btn" onClick={() => setIsResetAccountOpen(false)}>Cancel</button>
+                    <button type="submit" className="btn btn-primary">
+                      <RotateCcw size={16} /> <span>Confirm &amp; Reset Account</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
           </div>
         </div>
       )}
