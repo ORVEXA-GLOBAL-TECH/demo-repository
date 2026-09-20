@@ -51,7 +51,7 @@ export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
         { id: 'system-health', label: 'System Health & Telemetry', icon: Server },
         { id: 'data-management', label: 'Data Management & Backups', icon: Database },
         { id: 'support', label: 'Support Desk', icon: LifeBuoy },
-        { id: 'communications', label: 'Announcements', icon: Megaphone }
+        { id: 'communications', label: 'Notification & Announcements', icon: Megaphone }
       ]
     },
     {

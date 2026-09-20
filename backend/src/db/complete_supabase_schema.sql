@@ -790,7 +790,62 @@ CREATE TABLE IF NOT EXISTS platform_api_failed_requests (
 );
 
 -- ==============================================================================
--- 26. DISABLE RLS ON NEW ENHANCEMENTS
+-- 26. NOTIFICATION MANAGEMENT & GLOBAL ANNOUNCEMENTS
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS platform_global_announcements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    announcement_code VARCHAR(100) UNIQUE NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL, -- MAINTENANCE | NEW_FEATURE | SECURITY | VERSION_UPDATE | PLATFORM_POLICY | TERMS_UPDATE
+    category VARCHAR(100) DEFAULT 'GENERAL',
+    priority VARCHAR(20) NOT NULL DEFAULT 'INFO', -- INFO | WARNING | CRITICAL | URGENT
+    content TEXT NOT NULL,
+    summary VARCHAR(500),
+    target_audience VARCHAR(50) NOT NULL DEFAULT 'ALL_COMPANIES', -- ALL_COMPANIES | SPECIFIC_TENANTS | ADMINS_ONLY | FIELD_REPS_ONLY
+    target_tenant_ids JSONB DEFAULT '[]'::jsonb,
+    target_roles JSONB DEFAULT '[]'::jsonb,
+    channels JSONB DEFAULT '["IN_APP_BANNER", "POPUP_MODAL"]'::jsonb, -- IN_APP_BANNER | POPUP_MODAL | EMAIL_BROADCAST | PUSH_NOTIFICATION
+    is_pinned_banner BOOLEAN DEFAULT false,
+    requires_acknowledgment BOOLEAN DEFAULT false,
+    action_cta_text VARCHAR(100),
+    action_cta_url TEXT,
+    status VARCHAR(50) NOT NULL DEFAULT 'PUBLISHED', -- DRAFT | SCHEDULED | PUBLISHED | ARCHIVED
+    scheduled_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    total_sent INT DEFAULT 0,
+    total_read INT DEFAULT 0,
+    total_acknowledged INT DEFAULT 0,
+    created_by VARCHAR(255) NOT NULL DEFAULT 'master.superadmin@orvexa.com',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_announcements_type ON platform_global_announcements(type);
+CREATE INDEX IF NOT EXISTS idx_announcements_priority ON platform_global_announcements(priority);
+CREATE INDEX IF NOT EXISTS idx_announcements_status ON platform_global_announcements(status);
+CREATE INDEX IF NOT EXISTS idx_announcements_pinned ON platform_global_announcements(is_pinned_banner);
+CREATE INDEX IF NOT EXISTS idx_announcements_created_at ON platform_global_announcements(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS announcement_acknowledgments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    announcement_id UUID NOT NULL REFERENCES platform_global_announcements(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    user_email VARCHAR(255) NOT NULL,
+    user_name VARCHAR(255),
+    role VARCHAR(50),
+    tenant_id UUID REFERENCES tenants_companies(id) ON DELETE CASCADE,
+    company_name VARCHAR(255),
+    ip_address VARCHAR(64),
+    user_agent TEXT,
+    acknowledged_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_announcement_user UNIQUE (announcement_id, user_email)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ack_announcement ON announcement_acknowledgments(announcement_id);
+CREATE INDEX IF NOT EXISTS idx_ack_tenant ON announcement_acknowledgments(tenant_id);
+
+-- ==============================================================================
+-- 27. DISABLE RLS ON NEW ENHANCEMENTS
 -- ==============================================================================
 ALTER TABLE IF EXISTS platform_active_sessions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS platform_security_threat_alerts DISABLE ROW LEVEL SECURITY;
@@ -803,14 +858,17 @@ ALTER TABLE IF EXISTS platform_api_keys DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS platform_api_clients DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS platform_webhooks DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS platform_api_failed_requests DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS platform_global_announcements DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS announcement_acknowledgments DISABLE ROW LEVEL SECURITY;
 
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, postgres, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, postgres, service_role;
 GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, postgres, service_role;
 
--- 27. CONFIRMATION & VERIFICATION OUTPUT
+-- 28. CONFIRMATION & VERIFICATION OUTPUT
 SELECT '🎉 Complete Supabase database schema and Super Admin provisioned!' as status,
        (SELECT count(*) FROM users) as total_users,
        (SELECT email FROM users WHERE role = 'SUPER_ADMIN') as super_admin_email;
+
 
 
