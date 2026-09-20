@@ -28,7 +28,7 @@ export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
         { id: 'dashboard', label: 'Platform Dashboard', icon: Activity },
         { id: 'companies', label: 'Company / Tenants', icon: Building2 },
         { id: 'jurisdictions', label: 'Countries, Timezones & FX', icon: Globe2 },
-        { id: 'platform-users', label: 'Platform Users', icon: Users },
+        { id: 'platform-users', label: 'Company Admins & Users', icon: Users },
         { id: 'subscriptions', label: 'Subscriptions & Billing', icon: CreditCard }
       ]
     },

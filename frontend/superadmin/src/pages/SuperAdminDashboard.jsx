@@ -713,7 +713,7 @@ export default function SuperAdminDashboard({
 
   // Sub-tab selectors
   const [companySubTab, setCompanySubTab] = useState('all'); // all | active | suspended | trial | admins
-  const [userSubTab, setUserSubTab] = useState('all'); // all | admins | managers | mrs
+  const [userSubTab, setUserSubTab] = useState('admins'); // admins | company-totals
   const [supportSubTab, setSupportSubTab] = useState('open'); // open | resolved
   const [jurisdictionSubTab, setJurisdictionSubTab] = useState('countries'); // countries | timezones | currencies
 
@@ -2193,128 +2193,251 @@ export default function SuperAdminDashboard({
           ===================================================================== */}
       {activeTab === 'platform-users' && (
         <div className="tab-pane-content">
+          {/* Sub-Navigation: Company Admins vs Total Users of Each Company */}
           <div className="sub-nav-tabs">
-            <button type="button" className={`sub-nav-pill ${userSubTab === 'all' ? 'active' : ''}`} onClick={() => setUserSubTab('all')}>
-              All Platform Users ({platformUsers.length})
+            <button
+              type="button"
+              className={`sub-nav-pill ${userSubTab === 'admins' ? 'active' : ''}`}
+              onClick={() => setUserSubTab('admins')}
+            >
+              🏢 Company Administrators ({platformUsers.filter(u => u.role.includes('ADMIN')).length})
             </button>
-            <button type="button" className={`sub-nav-pill ${userSubTab === 'admins' ? 'active' : ''}`} onClick={() => setUserSubTab('admins')}>
-              Admins ({platformUsers.filter(u => u.role.includes('ADMIN')).length})
-            </button>
-            <button type="button" className={`sub-nav-pill ${userSubTab === 'mrs' ? 'active' : ''}`} onClick={() => setUserSubTab('mrs')}>
-              MRs ({platformUsers.filter(u => u.role.includes('REP') || u.role === 'MR').length})
-            </button>
-          </div>
-
-          <div className="pane-action-bar">
-            <div className="search-box-large">
-              <Search size={18} />
-              <input
-                type="text"
-                placeholder="Search across all tenants: Name, Email, Company, Role..."
-                value={globalSearchQuery}
-                onChange={(e) => setGlobalSearchQuery(e.target.value)}
-                className="search-input-field"
-              />
-            </div>
-            <button type="button" className="btn btn-primary" onClick={() => setIsCreateUserOpen(true)}>
-              <Plus size={16} /> Add Platform User
+            <button
+              type="button"
+              className={`sub-nav-pill ${userSubTab === 'company-totals' ? 'active' : ''}`}
+              onClick={() => setUserSubTab('company-totals')}
+            >
+              👥 Total Users of Each Company ({companies.length})
             </button>
           </div>
 
-          <div className="saas-table-container">
-            {platformUsers.length === 0 ? (
-              <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
-                <Users size={38} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
-                <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Users Registered</div>
-                <p style={{ fontSize: '0.8rem', margin: '4px auto 14px' }}>Click "Add Platform User" to provision an employee account.</p>
+          {userSubTab === 'admins' ? (
+            <div>
+              <div className="pane-action-bar">
+                <div className="search-box-large">
+                  <Search size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search company administrators: Name, Email, Company..."
+                    value={globalSearchQuery}
+                    onChange={(e) => setGlobalSearchQuery(e.target.value)}
+                    className="search-input-field"
+                  />
+                </div>
                 <button type="button" className="btn btn-primary" onClick={() => setIsCreateUserOpen(true)}>
-                  <Plus size={16} /> Add Platform User
+                  <Plus size={16} /> Add Company Admin
                 </button>
               </div>
-            ) : (
-              <table className="saas-data-table">
-                <thead>
-                  <tr>
-                    <th>User Profile</th>
-                    <th>Company / Tenant</th>
-                    <th>Role</th>
-                    <th>Mobile</th>
-                    <th>Status</th>
-                    <th>Last Active</th>
-                    <th style={{ textAlign: 'right' }}>CRUD Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {platformUsers
-                    .filter(u => userSubTab === 'all' || (userSubTab === 'admins' ? u.role.includes('ADMIN') : u.role.includes('REP') || u.role === 'MR'))
-                    .filter(u =>
-                      u.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-                      u.email.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-                      u.company.toLowerCase().includes(globalSearchQuery.toLowerCase())
-                    )
-                    .map((user) => (
-                      <tr key={user.id}>
-                        <td>
-                          <div className="admin-profile-cell">
-                            <div className="admin-avatar">{user.name.charAt(0).toUpperCase()}</div>
-                            <div>
-                              <div className="admin-name">{user.name}</div>
-                              <div className="admin-email">{user.email}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td><strong>{user.company}</strong></td>
-                        <td><span className="plan-pill plan-pro">{user.role}</span></td>
-                        <td>{user.mobile}</td>
-                        <td>
-                          <span className={`status-tag status-${user.status?.toLowerCase() === 'active' ? 'active' : 'trial'}`}>
-                            {user.status}
-                          </span>
-                        </td>
-                        <td>{user.lastLogin}</td>
-                        <td style={{ textAlign: 'right' }}>
-                          <div className="actions-cluster">
-                            <button
-                              type="button"
-                              className="action-pill-btn"
-                              onClick={() => handleOpenEditUser(user)}
-                              title="Edit User"
-                            >
-                              <Edit size={12} /> Edit
-                            </button>
-                            <button
-                              type="button"
-                              className="action-pill-btn"
-                              onClick={() => handleOpenResetUserPassword(user)}
-                              title="Reset Password"
-                            >
-                              <Key size={12} /> Pwd
-                            </button>
-                            <button
-                              type="button"
-                              className="action-pill-btn"
-                              onClick={() => handleToggleUserStatus(user.id, user.status, user.email)}
-                            >
-                              {user.status === 'ACTIVE' || user.status === 'Active' ? 'Suspend' : 'Activate'}
-                            </button>
-                            {user.role !== 'SUPER_ADMIN' && (
-                              <button
-                                type="button"
-                                className="action-pill-btn red"
-                                onClick={() => handleOpenDeleteUser(user)}
-                                title="Delete User"
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            )}
-                          </div>
-                        </td>
+
+              <div className="saas-table-container">
+                {platformUsers.filter(u => u.role.includes('ADMIN')).length === 0 ? (
+                  <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
+                    <ShieldCheck size={38} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
+                    <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Company Admins Found</div>
+                    <p style={{ fontSize: '0.8rem', margin: '4px auto 14px' }}>Click "Add Company Admin" to provision an administrator account.</p>
+                    <button type="button" className="btn btn-primary" onClick={() => setIsCreateUserOpen(true)}>
+                      <Plus size={16} /> Add Company Admin
+                    </button>
+                  </div>
+                ) : (
+                  <table className="saas-data-table">
+                    <thead>
+                      <tr>
+                        <th>Administrator Profile</th>
+                        <th>Assigned Company</th>
+                        <th>Role</th>
+                        <th>Mobile</th>
+                        <th>Status</th>
+                        <th>Last Active</th>
+                        <th style={{ textAlign: 'right' }}>CRUD Actions</th>
                       </tr>
-                    ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+                    </thead>
+                    <tbody>
+                      {platformUsers
+                        .filter(u => u.role.includes('ADMIN'))
+                        .filter(u =>
+                          u.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+                          u.email.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+                          u.company.toLowerCase().includes(globalSearchQuery.toLowerCase())
+                        )
+                        .map((user) => (
+                          <tr key={user.id}>
+                            <td>
+                              <div className="admin-profile-cell">
+                                <div className="admin-avatar">{user.name.charAt(0).toUpperCase()}</div>
+                                <div>
+                                  <div className="admin-name">{user.name}</div>
+                                  <div className="admin-email">{user.email}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td><strong>{user.company}</strong></td>
+                            <td><span className="plan-pill plan-pro">{user.role}</span></td>
+                            <td>{user.mobile || '—'}</td>
+                            <td>
+                              <span className={`status-tag status-${user.status?.toLowerCase() === 'active' ? 'active' : 'trial'}`}>
+                                {user.status}
+                              </span>
+                            </td>
+                            <td>{user.lastLogin}</td>
+                            <td style={{ textAlign: 'right' }}>
+                              <div className="actions-cluster">
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  style={{ color: '#b45309', borderColor: '#fde68a', background: '#fffbeb' }}
+                                  onClick={() => {
+                                    setImpersonateTarget(user);
+                                    setIsImpersonateOpen(true);
+                                  }}
+                                  title="Audit & Impersonate Company Admin"
+                                >
+                                  <Eye size={12} /> Impersonate
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  onClick={() => handleOpenEditUser(user)}
+                                  title="Edit Administrator"
+                                >
+                                  <Edit size={12} /> Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  onClick={() => handleOpenResetUserPassword(user)}
+                                  title="Reset Password"
+                                >
+                                  <Key size={12} /> Pwd
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  onClick={() => handleToggleUserStatus(user.id, user.status, user.email)}
+                                >
+                                  {user.status === 'ACTIVE' || user.status === 'Active' ? 'Suspend' : 'Activate'}
+                                </button>
+                                {user.role !== 'SUPER_ADMIN' && (
+                                  <button
+                                  type="button"
+                                  className="action-pill-btn red"
+                                  onClick={() => handleOpenDeleteUser(user)}
+                                  title="Delete Administrator"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* COMPANY TOTAL USERS TELEMETRY VIEW */
+            <div>
+              <div className="pane-action-bar">
+                <div className="search-box-large">
+                  <Search size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search company user statistics: Name, Country, Plan..."
+                    value={globalSearchQuery}
+                    onChange={(e) => setGlobalSearchQuery(e.target.value)}
+                    className="search-input-field"
+                  />
+                </div>
+                <button type="button" className="btn btn-primary" onClick={() => setIsCreateCompanyOpen(true)}>
+                  <Plus size={16} /> Provision New Company
+                </button>
+              </div>
+
+              <div className="saas-table-container">
+                {companies.length === 0 ? (
+                  <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
+                    <Building2 size={38} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
+                    <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Companies Enrolled</div>
+                    <p style={{ fontSize: '0.8rem', margin: '4px auto 14px' }}>Provision a company to start monitoring total user counts.</p>
+                  </div>
+                ) : (
+                  <table className="saas-data-table">
+                    <thead>
+                      <tr>
+                        <th>Company &amp; Code</th>
+                        <th>Sovereign Country</th>
+                        <th>Subscription Plan</th>
+                        <th>No. of Admins</th>
+                        <th>Total Users</th>
+                        <th>Company Status</th>
+                        <th style={{ textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {companies
+                        .filter(c =>
+                          c.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+                          c.country.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+                          c.plan.toLowerCase().includes(globalSearchQuery.toLowerCase())
+                        )
+                        .map((c) => (
+                          <tr key={c.id}>
+                            <td>
+                              <div className="comp-name-group">
+                                <span className="comp-flag">{c.flag}</span>
+                                <div>
+                                  <div className="comp-name-text">{c.name}</div>
+                                  <div className="comp-code-sub">{c.code}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td><strong>{c.country}</strong></td>
+                            <td>
+                              <span className={`plan-pill plan-${c.plan.toLowerCase()}`}>{c.plan}</span>
+                            </td>
+                            <td>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: '700', color: '#0369a1' }}>
+                                <ShieldCheck size={14} color="#0284c7" /> {c.admin_count || 1} Admin{c.admin_count !== 1 ? 's' : ''}
+                              </span>
+                            </td>
+                            <td>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: '800', color: '#4338ca', background: '#eef2ff', padding: '4px 10px', borderRadius: '6px' }}>
+                                <Users size={14} color="#6366f1" /> {c.usersCount || c.user_count || 0} Total Users
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`status-tag status-${c.status.toLowerCase()}`}>
+                                {c.status === 'ACTIVE' ? '🟢 Active' : c.status === 'TRIAL' ? '🟣 Trial' : '🟡 Suspended'}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <div className="actions-cluster">
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  onClick={() => handleOpenEditCompany(c)}
+                                >
+                                  <Edit size={12} /> Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  onClick={() => handleOpenResetAdminPassword(c)}
+                                >
+                                  <Key size={12} /> Reset Pwd
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
