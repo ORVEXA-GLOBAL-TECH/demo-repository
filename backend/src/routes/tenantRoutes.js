@@ -151,12 +151,12 @@ router.post('/tenants', async (req, res) => {
       const insertRes = await query(`
         INSERT INTO tenants_companies (
           code, name, legal_name, country_code, default_timezone,
-          currency_code, plan, status, max_mrs, max_admins, max_doctors,
-          max_storage_gb, billing_cycle, monthly_rate, is_custom_pricing, custom_rate,
+          currency_code, plan, status,
+          billing_cycle, monthly_rate, is_custom_pricing, custom_rate,
           trial_start_at, trial_end_at, subscription_start_at, subscription_end_at,
           contact_email, contact_phone, settings
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
         RETURNING *;
       `, [
         tenantCode,
@@ -167,10 +167,6 @@ router.post('/tenants', async (req, res) => {
         cleanCurrencyCode,
         normalizedPlan,
         finalStatus,
-        maxMrs || 50,
-        maxAdmins || 5,
-        maxDoctors || 5000,
-        maxStorageGb || 50.0,
         billingCycle || 'Monthly',
         calculatedRate,
         isCustom || false,
@@ -303,23 +299,19 @@ router.put('/tenants/:id', async (req, res) => {
           currency_code = COALESCE($5, currency_code),
           plan = COALESCE($6, plan),
           status = COALESCE($7, status),
-          max_mrs = COALESCE($8, max_mrs),
-          max_admins = COALESCE($9, max_admins),
-          max_doctors = COALESCE($10, max_doctors),
-          max_storage_gb = COALESCE($11, max_storage_gb),
-          billing_cycle = COALESCE($12, billing_cycle),
-          monthly_rate = COALESCE($13, monthly_rate),
-          is_custom_pricing = COALESCE($14, is_custom_pricing),
-          custom_rate = COALESCE($15, custom_rate),
-          trial_start_at = COALESCE($16, trial_start_at),
-          trial_end_at = COALESCE($17, trial_end_at),
-          subscription_start_at = COALESCE($18, subscription_start_at),
-          subscription_end_at = COALESCE($19, subscription_end_at),
-          contact_email = COALESCE($20, contact_email),
-          contact_phone = COALESCE($21, contact_phone),
-          settings = COALESCE($22, settings),
+          billing_cycle = COALESCE($8, billing_cycle),
+          monthly_rate = COALESCE($9, monthly_rate),
+          is_custom_pricing = COALESCE($10, is_custom_pricing),
+          custom_rate = COALESCE($11, custom_rate),
+          trial_start_at = COALESCE($12, trial_start_at),
+          trial_end_at = COALESCE($13, trial_end_at),
+          subscription_start_at = COALESCE($14, subscription_start_at),
+          subscription_end_at = COALESCE($15, subscription_end_at),
+          contact_email = COALESCE($16, contact_email),
+          contact_phone = COALESCE($17, contact_phone),
+          settings = COALESCE($18, settings),
           updated_at = CURRENT_TIMESTAMP
-        WHERE id = $23
+        WHERE id = $19
         RETURNING *;
       `, [
         name,
@@ -329,10 +321,6 @@ router.put('/tenants/:id', async (req, res) => {
         cleanCurrencyCode,
         plan ? plan.toUpperCase() : null,
         status,
-        maxMrs,
-        maxAdmins,
-        maxDoctors,
-        maxStorageGb,
         billingCycle,
         monthlyRate,
         isCustomPricing,

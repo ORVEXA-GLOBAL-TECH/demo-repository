@@ -770,9 +770,6 @@ export default function SuperAdminDashboard({
     customRate: 0,
     startAt: toLocalInputDateTime(new Date()),
     endAt: toLocalInputDateTime(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)),
-    userLimit: 250,
-    mrLimit: 200,
-    storageLimitGB: 50,
     billingCycle: 'Monthly'
   });
 
@@ -783,9 +780,6 @@ export default function SuperAdminDashboard({
     customRate: 0,
     startAt: toLocalInputDateTime(new Date()),
     endAt: toLocalInputDateTime(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)),
-    userLimit: 250,
-    mrLimit: 200,
-    storageLimitGB: 50,
     contactEmail: '',
     contactPhone: '',
     billingCycle: 'Monthly',
@@ -1004,10 +998,6 @@ export default function SuperAdminDashboard({
         trialEndAt: isTrial ? new Date(newCompanyForm.endAt).toISOString() : null,
         subscriptionStartAt: !isTrial ? new Date(newCompanyForm.startAt).toISOString() : null,
         subscriptionEndAt: !isTrial ? new Date(newCompanyForm.endAt).toISOString() : null,
-        maxMrs: Number(newCompanyForm.mrLimit) || 200,
-        maxAdmins: 5,
-        maxDoctors: 5000,
-        maxStorageGb: Number(newCompanyForm.storageLimitGB) || 50,
         billingCycle: newCompanyForm.billingCycle || 'Monthly',
         contactEmail: newCompanyForm.adminEmail,
         contactPhone: newCompanyForm.adminPhone,
@@ -1035,9 +1025,6 @@ export default function SuperAdminDashboard({
         customRate: 0,
         startAt: toLocalInputDateTime(new Date()),
         endAt: toLocalInputDateTime(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)),
-        userLimit: 250,
-        mrLimit: 200,
-        storageLimitGB: 50,
         billingCycle: 'Monthly'
       });
     } catch (err) {
@@ -1058,9 +1045,6 @@ export default function SuperAdminDashboard({
       customRate: company.customRate || company.customMRR || 0,
       startAt: toLocalInputDateTime(company.trialStartAt || company.subscriptionStartAt || new Date()),
       endAt: toLocalInputDateTime(company.trialEndAt || company.subscriptionEndAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)),
-      userLimit: company.userLimit || 250,
-      mrLimit: company.mrLimit || 200,
-      storageLimitGB: company.storageLimitGB || 50,
       contactEmail: company.adminEmail || '',
       contactPhone: '',
       billingCycle: 'Monthly',
@@ -1096,8 +1080,6 @@ export default function SuperAdminDashboard({
         trialEndAt: isTrial ? new Date(editCompanyForm.endAt).toISOString() : null,
         subscriptionStartAt: !isTrial ? new Date(editCompanyForm.startAt).toISOString() : null,
         subscriptionEndAt: !isTrial ? new Date(editCompanyForm.endAt).toISOString() : null,
-        maxMrs: Number(editCompanyForm.mrLimit),
-        maxStorageGb: Number(editCompanyForm.storageLimitGB),
         contactEmail: editCompanyForm.contactEmail
       });
 
@@ -1955,6 +1937,7 @@ export default function SuperAdminDashboard({
                       <th>Company &amp; Code</th>
                       <th>Country</th>
                       <th>Plan Tier</th>
+                      <th>Total Users</th>
                       <th>Rate</th>
                       <th>Status</th>
                       <th>Start &amp; End Period</th>
@@ -1987,6 +1970,11 @@ export default function SuperAdminDashboard({
                           </td>
                           <td><strong>{company.country}</strong></td>
                           <td><span className={`plan-pill plan-${company.plan.toLowerCase()}`}>{company.plan}</span></td>
+                          <td>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: '700', color: '#1e293b' }}>
+                              <Users size={14} color="#6366f1" /> {company.usersCount || company.user_count || 0} Users
+                            </span>
+                          </td>
                           <td><strong>{company.mrr}</strong></td>
                           <td>
                             <span className={`status-tag status-${company.status.toLowerCase()}`}>
@@ -2340,12 +2328,12 @@ export default function SuperAdminDashboard({
             <div className="plan-card" style={{ borderColor: '#8b5cf6' }}>
               <div className="plan-tier-name" style={{ color: '#7c3aed' }}>FREE TRIAL / DEMO</div>
               <div className="plan-price">$0 <span>/ demo period</span></div>
-              <p className="plan-limits-desc">For pilot testing &amp; evaluation with custom duration</p>
+              <p className="plan-limits-desc">For pilot evaluation with custom duration</p>
               <ul className="plan-perks-list">
+                <li>Unlimited Users &amp; Reps</li>
                 <li>Full Field DCR &amp; Route Logging</li>
                 <li>Chemist &amp; Doctor Directory</li>
                 <li>Configurable Start &amp; End Dates</li>
-                <li>10 GB Storage Sandbox</li>
               </ul>
               <div className="plan-sub-count" style={{ background: '#f5f3ff', color: '#7c3aed' }}>
                 {companies.filter(c => c.plan === 'FREE_TRIAL' || c.plan === 'TRIAL').length} In Trial
@@ -2358,10 +2346,10 @@ export default function SuperAdminDashboard({
               <div className="plan-price">$100 <span>/ month</span></div>
               <p className="plan-limits-desc">For small pharma distribution &amp; agencies</p>
               <ul className="plan-perks-list">
-                <li>Up to 250 Field MRs</li>
+                <li>Unlimited Field Users &amp; Admins</li>
                 <li>Core MR Reporting &amp; DCR</li>
                 <li>Chemist Order Booking (POB)</li>
-                <li>50 GB Storage Limit</li>
+                <li>Configurable Start &amp; End Dates</li>
               </ul>
               <div className="plan-sub-count">{companies.filter(c => c.plan === 'STARTER' || c.plan === 'BASIC').length} Enrolled</div>
             </div>
@@ -2373,11 +2361,10 @@ export default function SuperAdminDashboard({
               <div className="plan-price">$1,000 <span>/ month</span></div>
               <p className="plan-limits-desc">For regional pharmaceutical manufacturers</p>
               <ul className="plan-perks-list">
-                <li>Up to 1,500 Field Reps</li>
+                <li>Unlimited Field Reps &amp; Managers</li>
                 <li>Full DCR + Tour Plans (MTP)</li>
                 <li>TA / DA Smart Expense Claims</li>
-                <li>Statutory Payroll &amp; NSSF</li>
-                <li>250 GB Storage Limit</li>
+                <li>Statutory Payroll &amp; Compliance</li>
               </ul>
               <div className="plan-sub-count">{companies.filter(c => c.plan === 'PROFESSIONAL' || c.plan === 'PRO').length} Enrolled</div>
             </div>
@@ -2389,9 +2376,9 @@ export default function SuperAdminDashboard({
               <p className="plan-limits-desc">For multinational pharmaceutical conglomerates</p>
               <ul className="plan-perks-list">
                 <li>Unlimited Field Reps &amp; GMs</li>
-                <li>Multi-Country Schema Isolation</li>
+                <li>Multi-Country Sovereign Isolation</li>
                 <li>AI Studio &amp; Prescription OCR</li>
-                <li>1 TB Dedicated Geo-Vault</li>
+                <li>Priority SLA &amp; Global Support</li>
               </ul>
               <div className="plan-sub-count">{companies.filter(c => c.plan === 'ENTERPRISE').length} Enrolled</div>
             </div>
@@ -2400,11 +2387,11 @@ export default function SuperAdminDashboard({
             <div className="plan-card" style={{ borderColor: '#0f172a' }}>
               <div className="plan-tier-name" style={{ color: '#0f172a' }}>CUSTOM AS PER USER</div>
               <div className="plan-price">Custom <span>/ contract</span></div>
-              <p className="plan-limits-desc">Tailored pricing &amp; custom SLAs for clients</p>
+              <p className="plan-limits-desc">Tailored pricing as per user requirement</p>
               <ul className="plan-perks-list">
-                <li>Custom Price &amp; User Quota</li>
+                <li>Unlimited Users &amp; Full Access</li>
+                <li>Custom USD Rate &amp; Billing Cycle</li>
                 <li>Flexible Contract Start/End Dates</li>
-                <li>Dedicated Virtual Database Vault</li>
                 <li>Bespoke ERP &amp; SAP Integrations</li>
               </ul>
               <div className="plan-sub-count" style={{ background: '#f1f5f9', color: '#0f172a' }}>
@@ -2749,31 +2736,23 @@ export default function SuperAdminDashboard({
                 </div>
               </div>
 
-              <div className="form-grid-3">
-                <div className="form-group">
-                  <label>Max MRs Quota</label>
-                  <input
-                    type="number"
-                    value={newCompanyForm.mrLimit}
-                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, mrLimit: Number(e.target.value) })}
-                    className="form-control"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Storage Limit (GB)</label>
-                  <input
-                    type="number"
-                    value={newCompanyForm.storageLimitGB}
-                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, storageLimitGB: Number(e.target.value) })}
-                    className="form-control"
-                  />
-                </div>
+              <div className="form-grid-2">
                 <div className="form-group">
                   <label>Default Currency</label>
                   <input
                     type="text"
                     readOnly
                     value={newCompanyForm.currency}
+                    className="form-control"
+                    style={{ background: '#f1f5f9' }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Default Timezone</label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={newCompanyForm.timezone}
                     className="form-control"
                     style={{ background: '#f1f5f9' }}
                   />
