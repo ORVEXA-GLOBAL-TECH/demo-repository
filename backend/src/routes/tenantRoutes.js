@@ -510,4 +510,203 @@ router.post('/tenants/:id/reset-admin-password', async (req, res) => {
   }
 });
 
+// POST /api/tenants/:id/assign-admin - Assign or create root company admin
+router.post('/tenants/:id/assign-admin', async (req, res) => {
+  const { id } = req.params;
+  const { adminName, adminEmail, adminPassword } = req.body;
+
+  if (!adminEmail) {
+    return res.status(400).json({ success: false, message: 'Admin email is required.' });
+  }
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(adminPassword || 'Admin@1234!', salt);
+    const [firstName, ...lastNameParts] = (adminName || 'Company Admin').split(' ');
+
+    const userRes = await query(`
+      INSERT INTO users (tenant_id, email, password_hash, first_name, last_name, role, status)
+      VALUES ($1, $2, $3, $4, $5, 'COMPANY_ADMIN', 'Active')
+      ON CONFLICT (tenant_id, email) DO UPDATE
+      SET role = 'COMPANY_ADMIN', status = 'Active', password_hash = EXCLUDED.password_hash, updated_at = CURRENT_TIMESTAMP
+      RETURNING id, email, first_name, last_name, role;
+    `, [id, adminEmail.toLowerCase().trim(), hashedPassword, firstName || 'Admin', lastNameParts.join(' ') || 'User']);
+
+    await query(`
+      UPDATE tenants_companies SET contact_email = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2
+    `, [adminEmail.toLowerCase().trim(), id]);
+
+    await query(`
+      INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, entity_id, details)
+      VALUES ($1, $2, $3, $4, $5, $6);
+    `, [
+      'superadmin@alleviaresfa.com',
+      'SUPER_ADMIN',
+      'COMPANY_ADMIN_ASSIGNED',
+      'tenants_companies',
+      id,
+      JSON.stringify({ adminEmail, adminName })
+    ]);
+
+    return res.json({
+      success: true,
+      message: `Company Admin successfully assigned to ${adminEmail}.`,
+      data: userRes.rows[0]
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/tenants/:id/extend-subscription - Extend trial or subscription validity by days
+router.post('/tenants/:id/extend-subscription', async (req, res) => {
+  const { id } = req.params;
+  const { additionalDays = 30, reason } = req.body;
+
+  try {
+    const tenantRes = await query('SELECT * FROM tenants_companies WHERE id = $1', [id]);
+    if (tenantRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Tenant not found.' });
+    }
+
+    const tenant = tenantRes.rows[0];
+    const isTrial = tenant.plan === 'FREE_TRIAL' || tenant.plan === 'TRIAL' || tenant.status === 'Trial';
+
+    let updateRes;
+    if (isTrial) {
+      const currentEnd = tenant.trial_end_at ? new Date(tenant.trial_end_at) : new Date();
+      const newEnd = new Date(Math.max(Date.now(), currentEnd.getTime()) + additionalDays * 24 * 60 * 60 * 1000);
+      updateRes = await query(`
+        UPDATE tenants_companies
+        SET trial_end_at = $1, status = 'Trial', updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+        RETURNING *;
+      `, [newEnd.toISOString(), id]);
+    } else {
+      const currentEnd = tenant.subscription_end_at ? new Date(tenant.subscription_end_at) : new Date();
+      const newEnd = new Date(Math.max(Date.now(), currentEnd.getTime()) + additionalDays * 24 * 60 * 60 * 1000);
+      updateRes = await query(`
+        UPDATE tenants_companies
+        SET subscription_end_at = $1, status = 'Active', updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+        RETURNING *;
+      `, [newEnd.toISOString(), id]);
+    }
+
+    await query(`
+      INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, entity_id, details)
+      VALUES ($1, $2, $3, $4, $5, $6);
+    `, [
+      'superadmin@alleviaresfa.com',
+      'SUPER_ADMIN',
+      'SUBSCRIPTION_EXTENDED',
+      'tenants_companies',
+      id,
+      JSON.stringify({ additionalDays, reason: reason || 'Super Admin extension' })
+    ]);
+
+    return res.json({
+      success: true,
+      message: `Subscription extended by ${additionalDays} days.`,
+      data: updateRes.rows[0]
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/tenants/:id/restore - Restore deactivated/suspended tenant to Active
+router.post('/tenants/:id/restore', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const updateRes = await query(`
+      UPDATE tenants_companies
+      SET status = 'Active', updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+      RETURNING *;
+    `, [id]);
+
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Tenant not found.' });
+    }
+
+    await query(`
+      INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, entity_id, details)
+      VALUES ($1, $2, $3, $4, $5, $6);
+    `, [
+      'superadmin@alleviaresfa.com',
+      'SUPER_ADMIN',
+      'TENANT_RESTORED',
+      'tenants_companies',
+      id,
+      JSON.stringify({ status: 'Active' })
+    ]);
+
+    return res.json({
+      success: true,
+      message: `Tenant "${updateRes.rows[0].name}" successfully restored to Active status.`,
+      data: updateRes.rows[0]
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/tenants/:id/impersonate - Issue audited impersonation payload
+router.post('/tenants/:id/impersonate', async (req, res) => {
+  const { id } = req.params;
+  const { reason = 'Super Admin Inspection' } = req.body;
+
+  try {
+    const tenantRes = await query('SELECT * FROM tenants_companies WHERE id = $1', [id]);
+    if (tenantRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Tenant not found.' });
+    }
+    const tenant = tenantRes.rows[0];
+
+    const adminRes = await query(`
+      SELECT id, email, first_name, last_name, role FROM users 
+      WHERE tenant_id = $1 AND role IN ('COMPANY_ADMIN', 'ADMIN') 
+      LIMIT 1;
+    `, [id]);
+
+    const adminUser = adminRes.rows[0] || {
+      id: 'mock-admin-' + id,
+      email: tenant.contact_email,
+      name: 'Company Admin',
+      role: 'COMPANY_ADMIN'
+    };
+
+    await query(`
+      INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, entity_id, details)
+      VALUES ($1, $2, $3, $4, $5, $6);
+    `, [
+      'superadmin@alleviaresfa.com',
+      'SUPER_ADMIN',
+      'IMPERSONATION_STARTED',
+      'tenants_companies',
+      id,
+      JSON.stringify({ tenantName: tenant.name, impersonatedEmail: adminUser.email, reason })
+    ]);
+
+    return res.json({
+      success: true,
+      message: `Impersonating ${adminUser.email} (${tenant.name})`,
+      data: {
+        tenant,
+        adminUser: {
+          id: adminUser.id,
+          email: adminUser.email,
+          name: adminUser.first_name ? `${adminUser.first_name} ${adminUser.last_name || ''}`.trim() : 'Company Admin',
+          role: 'COMPANY_ADMIN',
+          company: tenant.name
+        },
+        impersonationToken: 'imp_' + Buffer.from(`${tenant.id}:${adminUser.email}:${Date.now()}`).toString('base64')
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export default router;

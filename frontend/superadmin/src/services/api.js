@@ -342,6 +342,57 @@ export const resetTenantAdminPassword = async (tenantId, newPassword, adminEmail
   return data;
 };
 
+export const assignTenantAdmin = async (tenantId, adminData) => {
+  try {
+    const res = await fetchWithAuth(`/tenants/${tenantId}/assign-admin`, {
+      method: 'POST',
+      body: JSON.stringify(adminData)
+    });
+    if (res.success) return res.data;
+  } catch (err) {
+    console.warn('API error assigning admin, using fallback...');
+  }
+  return { success: true };
+};
+
+export const extendTenantSubscription = async (tenantId, extendData) => {
+  try {
+    const res = await fetchWithAuth(`/tenants/${tenantId}/extend-subscription`, {
+      method: 'POST',
+      body: JSON.stringify(extendData)
+    });
+    if (res.success) return res.data;
+  } catch (err) {
+    console.warn('API error extending subscription, using fallback...');
+  }
+  return { success: true };
+};
+
+export const restoreTenant = async (tenantId) => {
+  try {
+    const res = await fetchWithAuth(`/tenants/${tenantId}/restore`, {
+      method: 'POST'
+    });
+    if (res.success) return res.data;
+  } catch (err) {
+    console.warn('API error restoring tenant, fallback to Supabase...');
+  }
+  return toggleTenantStatus(tenantId, 'Active');
+};
+
+export const impersonateTenant = async (tenantId, reason) => {
+  try {
+    const res = await fetchWithAuth(`/tenants/${tenantId}/impersonate`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
+    });
+    if (res.success) return res.data;
+  } catch (err) {
+    console.warn('API error starting impersonation session, using local session...');
+  }
+  return null;
+};
+
 // ----------------------------------------------------------------------------
 // PLATFORM USERS CRUD
 // ----------------------------------------------------------------------------

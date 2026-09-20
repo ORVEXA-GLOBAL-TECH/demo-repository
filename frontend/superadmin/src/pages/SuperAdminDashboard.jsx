@@ -65,7 +65,12 @@ import {
   Timer,
   Edit,
   Save,
-  CheckSquare
+  CheckSquare,
+  CalendarPlus,
+  UserPlus,
+  Info,
+  PlayCircle,
+  StopCircle
 } from 'lucide-react';
 
 import {
@@ -74,7 +79,11 @@ import {
   updateTenant,
   deleteTenant,
   toggleTenantStatus,
+  restoreTenant,
   resetTenantAdminPassword,
+  assignTenantAdmin,
+  extendTenantSubscription,
+  impersonateTenant,
   getPlatformUsers,
   createPlatformUser,
   updatePlatformUser,
@@ -712,7 +721,7 @@ export default function SuperAdminDashboard({
   ]);
 
   // Sub-tab selectors
-  const [companySubTab, setCompanySubTab] = useState('all'); // all | active | suspended | trial | admins
+  const [companySubTab, setCompanySubTab] = useState('all'); // all | active | trial | suspended | deactivated | admins
   const [userSubTab, setUserSubTab] = useState('admins'); // admins | company-totals
   const [supportSubTab, setSupportSubTab] = useState('open'); // open | resolved
   const [jurisdictionSubTab, setJurisdictionSubTab] = useState('countries'); // countries | timezones | currencies
@@ -723,8 +732,19 @@ export default function SuperAdminDashboard({
   const [isCreateCompanyOpen, setIsCreateCompanyOpen] = useState(false);
   const [isEditCompanyOpen, setIsEditCompanyOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState(null);
+  const [isViewCompanyOpen, setIsViewCompanyOpen] = useState(false);
+  const [viewingCompany, setViewingCompany] = useState(null);
   const [isDeleteCompanyOpen, setIsDeleteCompanyOpen] = useState(false);
   const [deletingCompany, setDeletingCompany] = useState(null);
+
+  const [isAssignAdminOpen, setIsAssignAdminOpen] = useState(false);
+  const [assignAdminTarget, setAssignAdminTarget] = useState(null);
+  const [assignAdminForm, setAssignAdminForm] = useState({ adminName: '', adminEmail: '', adminPassword: '' });
+
+  const [isExtendSubscriptionOpen, setIsExtendSubscriptionOpen] = useState(false);
+  const [extendSubTarget, setExtendSubTarget] = useState(null);
+  const [extendDaysInput, setExtendDaysInput] = useState(30);
+  const [extendReasonInput, setExtendReasonInput] = useState('');
 
   const [isResetAdminPasswordOpen, setIsResetAdminPasswordOpen] = useState(false);
   const [resetPasswordTarget, setResetPasswordTarget] = useState(null);
@@ -1101,6 +1121,116 @@ export default function SuperAdminDashboard({
       setCompanies(prev => prev.map(c => c.id === id ? { ...c, status: nextStatus } : c));
     } catch (err) {
       showToast(`Status update failed: ${err.message}`, 'error');
+    }
+  };
+
+  const handleViewCompany = (company) => {
+    setViewingCompany(company);
+    setIsViewCompanyOpen(true);
+  };
+
+  const handleSetCompanyStatus = async (id, newStatus, name) => {
+    try {
+      await toggleTenantStatus(id, newStatus);
+      showToast(`Company "${name}" status updated to ${newStatus}.`, 'success');
+      logAudit('STATUS_CHANGED', `Updated status of ${name} to ${newStatus}`, name);
+      setCompanies(prev => prev.map(c => c.id === id ? { ...c, status: newStatus.toUpperCase() } : c));
+      if (viewingCompany && viewingCompany.id === id) {
+        setViewingCompany(prev => ({ ...prev, status: newStatus.toUpperCase() }));
+      }
+    } catch (err) {
+      showToast(`Status update failed: ${err.message}`, 'error');
+    }
+  };
+
+  const handleRestoreCompany = async (id, name) => {
+    try {
+      await restoreTenant(id);
+      showToast(`Company "${name}" successfully restored to ACTIVE!`, 'success');
+      logAudit('TENANT_RESTORED', `Restored tenant ${name} to active`, name);
+      setCompanies(prev => prev.map(c => c.id === id ? { ...c, status: 'ACTIVE' } : c));
+      if (viewingCompany && viewingCompany.id === id) {
+        setViewingCompany(prev => ({ ...prev, status: 'ACTIVE' }));
+      }
+    } catch (err) {
+      showToast(`Restore failed: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenAssignAdmin = (company) => {
+    setAssignAdminTarget(company);
+    setAssignAdminForm({
+      adminName: company.adminName || '',
+      adminEmail: company.adminEmail || '',
+      adminPassword: ''
+    });
+    setIsAssignAdminOpen(true);
+  };
+
+  const handleConfirmAssignAdmin = async (e) => {
+    e.preventDefault();
+    if (!assignAdminTarget || !assignAdminForm.adminEmail.trim()) {
+      showToast('Admin email is required.', 'error');
+      return;
+    }
+
+    try {
+      await assignTenantAdmin(assignAdminTarget.id, assignAdminForm);
+      showToast(`Company Admin assigned to ${assignAdminForm.adminEmail}!`, 'success');
+      logAudit('ADMIN_ASSIGNED', `Assigned ${assignAdminForm.adminEmail} as admin for ${assignAdminTarget.name}`, assignAdminTarget.name);
+      setIsAssignAdminOpen(false);
+      setAssignAdminTarget(null);
+      loadAllData();
+    } catch (err) {
+      showToast(`Failed to assign admin: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenExtendSubscription = (company) => {
+    setExtendSubTarget(company);
+    setExtendDaysInput(30);
+    setExtendReasonInput('Super Admin extension');
+    setIsExtendSubscriptionOpen(true);
+  };
+
+  const handleConfirmExtendSubscription = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!extendSubTarget) return;
+
+    try {
+      await extendTenantSubscription(extendSubTarget.id, {
+        additionalDays: Number(extendDaysInput) || 30,
+        reason: extendReasonInput || 'Super Admin extension'
+      });
+      showToast(`Subscription extended by ${extendDaysInput} days for ${extendSubTarget.name}!`, 'success');
+      logAudit('SUBSCRIPTION_EXTENDED', `Extended subscription +${extendDaysInput} days for ${extendSubTarget.name}`, extendSubTarget.name);
+      setIsExtendSubscriptionOpen(false);
+      setExtendSubTarget(null);
+      loadAllData();
+    } catch (err) {
+      showToast(`Failed to extend subscription: ${err.message}`, 'error');
+    }
+  };
+
+  const handleImpersonateCompany = async (company) => {
+    try {
+      const res = await impersonateTenant(company.id, 'Super Admin Governance Session');
+      const targetUser = res?.data?.adminUser || {
+        id: 'adm-' + company.id,
+        name: company.adminName || `${company.name} Admin`,
+        email: company.adminEmail || `admin@${company.code.toLowerCase()}.com`,
+        role: 'COMPANY_ADMIN',
+        company: company.name
+      };
+      setActiveImpersonation({
+        target: targetUser,
+        reason: 'Super Admin Governance Session',
+        timestamp: new Date().toISOString()
+      });
+      showToast(`Now impersonating ${targetUser.name} (${company.name}).`, 'success');
+      logAudit('IMPERSONATION_STARTED', `Started impersonation for ${company.name}`, company.name);
+    } catch (err) {
+      showToast(`Impersonation session error: ${err.message}`, 'error');
     }
   };
 
@@ -1825,16 +1955,19 @@ export default function SuperAdminDashboard({
               All Pharma Companies ({companies.length})
             </button>
             <button type="button" className={`sub-nav-pill ${companySubTab === 'active' ? 'active' : ''}`} onClick={() => setCompanySubTab('active')}>
-              Active Paid ({companies.filter(c => c.status === 'ACTIVE').length})
+              🟢 Active ({companies.filter(c => c.status === 'ACTIVE').length})
             </button>
             <button type="button" className={`sub-nav-pill ${companySubTab === 'trial' ? 'active' : ''}`} onClick={() => setCompanySubTab('trial')}>
-              Trials &amp; Demos ({companies.filter(c => c.status === 'TRIAL' || c.plan === 'FREE_TRIAL').length})
+              🟣 Trials &amp; Demos ({companies.filter(c => c.status === 'TRIAL' || c.plan === 'FREE_TRIAL').length})
             </button>
             <button type="button" className={`sub-nav-pill ${companySubTab === 'suspended' ? 'active' : ''}`} onClick={() => setCompanySubTab('suspended')}>
-              Suspended ({companies.filter(c => c.status === 'SUSPENDED').length})
+              🟡 Suspended ({companies.filter(c => c.status === 'SUSPENDED').length})
+            </button>
+            <button type="button" className={`sub-nav-pill ${companySubTab === 'deactivated' ? 'active' : ''}`} onClick={() => setCompanySubTab('deactivated')}>
+              ⚪ Deactivated ({companies.filter(c => c.status === 'DEACTIVATED' || c.status === 'INACTIVE').length})
             </button>
             <button type="button" className={`sub-nav-pill ${companySubTab === 'admins' ? 'active' : ''}`} onClick={() => setCompanySubTab('admins')}>
-              Company Admins ({admins.length})
+              🛡️ Company Admins ({admins.length})
             </button>
           </div>
 
@@ -1941,7 +2074,7 @@ export default function SuperAdminDashboard({
                       <th>Rate</th>
                       <th>Status</th>
                       <th>Start &amp; End Period</th>
-                      <th style={{ textAlign: 'right' }}>CRUD Actions</th>
+                      <th style={{ textAlign: 'right' }}>Super Admin Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1951,6 +2084,7 @@ export default function SuperAdminDashboard({
                         if (companySubTab === 'active') return c.status === 'ACTIVE';
                         if (companySubTab === 'trial') return c.status === 'TRIAL' || c.plan === 'FREE_TRIAL';
                         if (companySubTab === 'suspended') return c.status === 'SUSPENDED';
+                        if (companySubTab === 'deactivated') return c.status === 'DEACTIVATED' || c.status === 'INACTIVE';
                         return true;
                       })
                       .filter(c =>
@@ -1978,7 +2112,7 @@ export default function SuperAdminDashboard({
                           <td><strong>{company.mrr}</strong></td>
                           <td>
                             <span className={`status-tag status-${company.status.toLowerCase()}`}>
-                              {company.status === 'ACTIVE' ? '🟢 Active' : company.status === 'TRIAL' ? '🟣 Trial' : '🟡 Suspended'}
+                              {company.status === 'ACTIVE' ? '🟢 Active' : company.status === 'TRIAL' ? '🟣 Trial' : company.status === 'SUSPENDED' ? '🟡 Suspended' : '⚪ Deactivated'}
                             </span>
                           </td>
                           <td style={{ fontSize: '0.74rem', color: '#334155' }}>
@@ -1986,14 +2120,17 @@ export default function SuperAdminDashboard({
                           </td>
                           <td style={{ textAlign: 'right' }}>
                             <div className="actions-cluster">
+                              {/* 1. View Company */}
                               <button
                                 type="button"
-                                className="action-pill-btn primary"
-                                onClick={() => handleOpenSubscriptionModal(company)}
-                                title="Upgrade / Manage Plan with Timestamps"
+                                className="action-pill-btn"
+                                onClick={() => handleViewCompany(company)}
+                                title="View Company Profile & Telemetry"
                               >
-                                Plan &amp; Dates
+                                <Eye size={12} /> View
                               </button>
+
+                              {/* 2. Edit Company */}
                               <button
                                 type="button"
                                 className="action-pill-btn"
@@ -2002,6 +2139,38 @@ export default function SuperAdminDashboard({
                               >
                                 <Edit size={12} /> Edit
                               </button>
+
+                              {/* 3. Change Subscription */}
+                              <button
+                                type="button"
+                                className="action-pill-btn primary"
+                                onClick={() => handleOpenSubscriptionModal(company)}
+                                title="Change Subscription Plan & Pricing"
+                              >
+                                <CreditCard size={12} /> Plan
+                              </button>
+
+                              {/* 4. Extend Subscription */}
+                              <button
+                                type="button"
+                                className="action-pill-btn"
+                                onClick={() => handleOpenExtendSubscription(company)}
+                                title="Extend Trial / Subscription Duration"
+                              >
+                                <CalendarPlus size={12} /> Extend
+                              </button>
+
+                              {/* 5. Assign Root Company Admin */}
+                              <button
+                                type="button"
+                                className="action-pill-btn"
+                                onClick={() => handleOpenAssignAdmin(company)}
+                                title="Assign Root Company Administrator"
+                              >
+                                <UserPlus size={12} /> Admin
+                              </button>
+
+                              {/* 6. Reset Admin Password */}
                               <button
                                 type="button"
                                 className="action-pill-btn"
@@ -2010,18 +2179,83 @@ export default function SuperAdminDashboard({
                               >
                                 <Key size={12} /> Pwd
                               </button>
+
+                              {/* 7. Impersonate Admin */}
                               <button
                                 type="button"
                                 className="action-pill-btn"
-                                onClick={() => handleToggleCompanyStatus(company.id, company.status, company.name)}
+                                style={{ color: '#b45309', borderColor: '#fde68a', background: '#fffbeb' }}
+                                onClick={() => handleImpersonateCompany(company)}
+                                title="Impersonate / Login as Company Admin"
                               >
-                                {company.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                                <ShieldCheck size={12} /> Login
                               </button>
+
+                              {/* 8. Activate / Suspend / Deactivate / Restore Status Controls */}
+                              {company.status === 'ACTIVE' && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="action-pill-btn"
+                                    style={{ color: '#b45309' }}
+                                    onClick={() => handleSetCompanyStatus(company.id, 'SUSPENDED', company.name)}
+                                    title="Suspend Company Tenant"
+                                  >
+                                    <StopCircle size={12} /> Suspend
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="action-pill-btn"
+                                    style={{ color: '#64748b' }}
+                                    onClick={() => handleSetCompanyStatus(company.id, 'DEACTIVATED', company.name)}
+                                    title="Deactivate Company Tenant"
+                                  >
+                                    Deactivate
+                                  </button>
+                                </>
+                              )}
+
+                              {company.status === 'SUSPENDED' && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="action-pill-btn"
+                                    style={{ color: '#16a34a' }}
+                                    onClick={() => handleSetCompanyStatus(company.id, 'ACTIVE', company.name)}
+                                    title="Activate Company Tenant"
+                                  >
+                                    <PlayCircle size={12} /> Activate
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="action-pill-btn"
+                                    style={{ color: '#64748b' }}
+                                    onClick={() => handleSetCompanyStatus(company.id, 'DEACTIVATED', company.name)}
+                                    title="Deactivate Company Tenant"
+                                  >
+                                    Deactivate
+                                  </button>
+                                </>
+                              )}
+
+                              {(company.status === 'DEACTIVATED' || company.status === 'INACTIVE') && (
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  style={{ color: '#16a34a', borderColor: '#86efac', background: '#f0fdf4' }}
+                                  onClick={() => handleRestoreCompany(company.id, company.name)}
+                                  title="Restore Company Tenant to Active Status"
+                                >
+                                  <RotateCcw size={12} /> Restore
+                                </button>
+                              )}
+
+                              {/* 9. Permanent Purge / Delete */}
                               <button
                                 type="button"
                                 className="action-pill-btn red"
                                 onClick={() => handleOpenDeleteCompany(company)}
-                                title="Purge Tenant"
+                                title="Permanently Delete Tenant"
                               >
                                 <Trash2 size={12} />
                               </button>
@@ -3011,6 +3245,266 @@ export default function SuperAdminDashboard({
                 <button type="button" className="cancel-btn" onClick={() => setIsEditCompanyOpen(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary">
                   <Save size={16} /> <span>Save Changes</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: VIEW COMPANY (COMPLETE TELEMETRY & GOVERNANCE INSPECTOR)
+          ===================================================================== */}
+      {isViewCompanyOpen && viewingCompany && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '720px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <span style={{ fontSize: '1.8rem', marginRight: '4px' }}>{viewingCompany.flag || '🏢'}</span>
+                <div>
+                  <h3>{viewingCompany.name}</h3>
+                  <p>Tenant Code: <strong>{viewingCompany.code}</strong> &bull; Jurisdiction: <strong>{viewingCompany.country}</strong></p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsViewCompanyOpen(false)}>&times;</button>
+            </div>
+
+            <div className="modal-form-body">
+              {/* Top Quick Telemetry KPIs */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '16px' }}>
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '10px', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#166534', fontWeight: '700' }}>STATUS</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: '800', color: '#15803d', marginTop: '2px' }}>{viewingCompany.status}</div>
+                </div>
+                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '10px', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#1e40af', fontWeight: '700' }}>TOTAL USERS</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#1d4ed8', marginTop: '2px' }}>{viewingCompany.usersCount || viewingCompany.user_count || 0}</div>
+                </div>
+                <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', padding: '10px', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#6b21a8', fontWeight: '700' }}>PLAN TIER</div>
+                  <div style={{ fontSize: '0.92rem', fontWeight: '800', color: '#7c3aed', marginTop: '2px' }}>{viewingCompany.plan}</div>
+                </div>
+                <div style={{ background: '#fefce8', border: '1px solid #fef08a', padding: '10px', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#854d0e', fontWeight: '700' }}>MONTHLY RATE</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: '800', color: '#a16207', marginTop: '2px' }}>{viewingCompany.mrr}</div>
+                </div>
+              </div>
+
+              {/* Detailed Breakdown */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
+                  <h4 style={{ fontSize: '0.82rem', color: '#0f172a', fontWeight: '800', marginBottom: '8px' }}>🏢 Commercial &amp; Sovereign Profile</h4>
+                  <div style={{ fontSize: '0.78rem', lineHeight: '1.7', color: '#334155' }}>
+                    <div>Legal Name: <strong>{viewingCompany.legalName || viewingCompany.name}</strong></div>
+                    <div>Default Currency: <strong>{viewingCompany.currency}</strong></div>
+                    <div>Default Timezone: <strong>{viewingCompany.timezone}</strong></div>
+                    <div>Billing Cycle: <strong>{viewingCompany.billingCycle || 'Monthly'}</strong></div>
+                  </div>
+                </div>
+
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
+                  <h4 style={{ fontSize: '0.82rem', color: '#0f172a', fontWeight: '800', marginBottom: '8px' }}>🛡️ Root Company Administrator</h4>
+                  <div style={{ fontSize: '0.78rem', lineHeight: '1.7', color: '#334155' }}>
+                    <div>Admin Name: <strong>{viewingCompany.adminName || 'Company Administrator'}</strong></div>
+                    <div>Admin Email: <strong>{viewingCompany.adminEmail || 'admin@' + viewingCompany.code.toLowerCase() + '.com'}</strong></div>
+                    <div>Expiry / Renewal: <strong>{viewingCompany.renewalDate}</strong></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Action Shortcuts inside View Modal */}
+              <div style={{ background: '#f1f5f9', borderRadius: '8px', padding: '10px 14px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#0f172a' }}>Direct Governance Actions:</span>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="action-pill-btn"
+                    onClick={() => {
+                      setIsViewCompanyOpen(false);
+                      handleOpenExtendSubscription(viewingCompany);
+                    }}
+                  >
+                    <CalendarPlus size={12} /> Extend Validity
+                  </button>
+                  <button
+                    type="button"
+                    className="action-pill-btn primary"
+                    onClick={() => {
+                      setIsViewCompanyOpen(false);
+                      handleOpenSubscriptionModal(viewingCompany);
+                    }}
+                  >
+                    <CreditCard size={12} /> Change Plan
+                  </button>
+                  <button
+                    type="button"
+                    className="action-pill-btn"
+                    onClick={() => {
+                      setIsViewCompanyOpen(false);
+                      handleOpenAssignAdmin(viewingCompany);
+                    }}
+                  >
+                    <UserPlus size={12} /> Assign Admin
+                  </button>
+                  <button
+                    type="button"
+                    className="action-pill-btn"
+                    onClick={() => {
+                      setIsViewCompanyOpen(false);
+                      handleOpenResetAdminPassword(viewingCompany);
+                    }}
+                  >
+                    <Key size={12} /> Reset Pwd
+                  </button>
+                  <button
+                    type="button"
+                    className="action-pill-btn"
+                    style={{ color: '#b45309', borderColor: '#fde68a', background: '#fffbeb' }}
+                    onClick={() => {
+                      setIsViewCompanyOpen(false);
+                      handleImpersonateCompany(viewingCompany);
+                    }}
+                  >
+                    <ShieldCheck size={12} /> Login as Admin
+                  </button>
+                </div>
+              </div>
+
+              <div className="modal-actions-bar" style={{ marginTop: '16px' }}>
+                <button type="button" className="btn btn-primary" onClick={() => setIsViewCompanyOpen(false)}>
+                  Close Inspector
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: ASSIGN ROOT COMPANY ADMIN
+          ===================================================================== */}
+      {isAssignAdminOpen && assignAdminTarget && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <UserPlus size={22} color="#0284c7" />
+                <div>
+                  <h3>Assign Root Company Administrator</h3>
+                  <p>Assign or change the root admin for <strong>{assignAdminTarget.name}</strong></p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsAssignAdminOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleConfirmAssignAdmin} className="modal-form-body">
+              <div className="form-group">
+                <label>Admin Full Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Dr. Nguyen Van Minh"
+                  value={assignAdminForm.adminName}
+                  onChange={(e) => setAssignAdminForm({ ...assignAdminForm, adminName: e.target.value })}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Admin Corporate Email *</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="admin@company.com"
+                  value={assignAdminForm.adminEmail}
+                  onChange={(e) => setAssignAdminForm({ ...assignAdminForm, adminEmail: e.target.value })}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Admin Initial Password (optional)</label>
+                <input
+                  type="password"
+                  placeholder="Leave blank for default Admin@1234!"
+                  value={assignAdminForm.adminPassword}
+                  onChange={(e) => setAssignAdminForm({ ...assignAdminForm, adminPassword: e.target.value })}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsAssignAdminOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <UserPlus size={16} /> <span>Assign Administrator</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: EXTEND SUBSCRIPTION / TRIAL DURATION
+          ===================================================================== */}
+      {isExtendSubscriptionOpen && extendSubTarget && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '540px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <CalendarPlus size={22} color="#16a34a" />
+                <div>
+                  <h3>Extend Subscription / Trial Duration</h3>
+                  <p>Add validity days for <strong>{extendSubTarget.name}</strong> ({extendSubTarget.plan})</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsExtendSubscriptionOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleConfirmExtendSubscription} className="modal-form-body">
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px', marginBottom: '14px', fontSize: '0.82rem', color: '#166534' }}>
+                <div>Current Expiry Date: <strong>{extendSubTarget.renewalDate}</strong></div>
+                <div>Subscription Status: <strong>{extendSubTarget.status}</strong></div>
+              </div>
+
+              <div className="form-group">
+                <label>Quick Validity Extension Presets:</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginTop: '6px' }}>
+                  <button type="button" className={`action-pill-btn ${extendDaysInput === 7 ? 'primary' : ''}`} onClick={() => setExtendDaysInput(7)}>+7 Days</button>
+                  <button type="button" className={`action-pill-btn ${extendDaysInput === 14 ? 'primary' : ''}`} onClick={() => setExtendDaysInput(14)}>+14 Days (Trial)</button>
+                  <button type="button" className={`action-pill-btn ${extendDaysInput === 30 ? 'primary' : ''}`} onClick={() => setExtendDaysInput(30)}>+30 Days (1 Month)</button>
+                  <button type="button" className={`action-pill-btn ${extendDaysInput === 90 ? 'primary' : ''}`} onClick={() => setExtendDaysInput(90)}>+90 Days (Quarter)</button>
+                  <button type="button" className={`action-pill-btn ${extendDaysInput === 180 ? 'primary' : ''}`} onClick={() => setExtendDaysInput(180)}>+180 Days (Half Yr)</button>
+                  <button type="button" className={`action-pill-btn ${extendDaysInput === 365 ? 'primary' : ''}`} onClick={() => setExtendDaysInput(365)}>+365 Days (1 Year)</button>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Additional Days to Add *</label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={extendDaysInput}
+                  onChange={(e) => setExtendDaysInput(Number(e.target.value))}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Reason / Audit Note</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Extended demo evaluation period upon request"
+                  value={extendReasonInput}
+                  onChange={(e) => setExtendReasonInput(e.target.value)}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsExtendSubscriptionOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <CalendarPlus size={16} /> <span>Apply Duration Extension</span>
                 </button>
               </div>
             </form>
