@@ -1,18 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { loginUser } from '../services/api';
 
 const AuthContext = createContext(null);
 
 export const DEFAULT_USERS = {
-  SUPER_ADMIN: {
-    id: 'usr-000',
-    name: 'Executive Board / Super Admin',
-    email: 'superadmin@alleviare.com',
-    role: 'SUPER_ADMIN',
-    designation: 'Global Enterprise Super Administrator',
-    territory: 'Enterprise Global HQ',
-    allowedPlatforms: ['web']
-  },
   ADMIN: {
     id: 'usr-001',
     name: 'Dr. Rajesh Sharma',
@@ -101,34 +92,7 @@ export function AuthProvider({ children }) {
     return localStorage.getItem('alleviare_token') || null;
   });
 
-  // Portal switcher: 'staff' | 'superadmin'
-  const [activePortal, setActivePortal] = useState(() => {
-    if (typeof window !== 'undefined' && window.location.hash.toLowerCase().includes('superadmin')) {
-      return 'superadmin';
-    }
-    return 'staff';
-  });
-
-  useEffect(() => {
-    const handleHashChange = () => {
-      if (window.location.hash.toLowerCase().includes('superadmin')) {
-        setActivePortal('superadmin');
-      } else if (window.location.hash.toLowerCase().includes('staff') || window.location.hash.toLowerCase().includes('login')) {
-        setActivePortal('staff');
-      }
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
-  const switchLoginPortal = (portal) => {
-    setActivePortal(portal);
-    if (typeof window !== 'undefined') {
-      window.location.hash = portal === 'superadmin' ? '#superadmin' : '#login';
-    }
-  };
-
-  const login = async ({ email, role: requestedRole, portalType = 'staff' }) => {
+  const login = async ({ email, role: requestedRole }) => {
     // Determine target persona
     let target = null;
     if (email) {
@@ -138,14 +102,7 @@ export function AuthProvider({ children }) {
       target = DEFAULT_USERS[requestedRole];
     }
     if (!target) {
-      target = portalType === 'superadmin' ? DEFAULT_USERS.SUPER_ADMIN : DEFAULT_USERS.ADMIN;
-    }
-
-    // Strict Super Admin Portal Validation
-    if (portalType === 'superadmin') {
-      if (target.role !== 'SUPER_ADMIN') {
-        throw new Error('Access Denied: This terminal is strictly reserved for Super Administrators. Please log in through the Corporate Staff Portal.');
-      }
+      target = DEFAULT_USERS.ADMIN;
     }
 
     // Platform restriction check
@@ -219,8 +176,6 @@ export function AuthProvider({ children }) {
         currentUser,
         role,
         token,
-        activePortal,
-        switchLoginPortal,
         login,
         logout,
         switchRole,

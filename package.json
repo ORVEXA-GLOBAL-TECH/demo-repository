@@ -1,7 +1,7 @@
 {
   "name": "alleviare-sfa-suite",
   "version": "1.0.0",
-  "description": "Alleviare Pharma Field Sales Force Automation (SFA) Monorepo",
+  "description": "Alleviare Pharma Field Sales Force Automation (SFA) & Orvexa SaaS Monorepo",
   "private": true,
   "workspaces": [
     "backend",
@@ -14,9 +14,14 @@
     "start": "node backend/server.js",
     "dev": "npm run dev:backend",
     "dev:backend": "npm --prefix backend start",
-    "dev:web": "npm --prefix frontend/web dev",
+    "dev:web": "npm --prefix frontend/web run dev",
+    "dev:staff": "npm --prefix frontend/web run dev",
+    "dev:superadmin": "npm --prefix frontend/superadmin run dev",
     "dev:mobile": "npm --prefix frontend/mobile start",
-    "build:web": "npm --prefix frontend/web build"
+    "build:web": "npm --prefix frontend/web run build",
+    "build:staff": "npm --prefix frontend/web run build",
+    "build:superadmin": "npm --prefix frontend/superadmin run build",
+    "build:all": "npm run build:web && npm run build:superadmin"
   },
   "keywords": [
     "pharma-sfa",
@@ -25,7 +30,9 @@
     "vite",
     "nodejs",
     "express",
-    "react-native"
+    "react-native",
+    "superadmin",
+    "saas"
   ],
   "author": "Alleviare Team",
   "license": "ISC"

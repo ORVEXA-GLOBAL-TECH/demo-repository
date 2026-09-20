@@ -14,26 +14,16 @@ import TrackingPage from './pages/TrackingPage';
 import AttendancePage from './pages/AttendancePage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import AiToolsPage from './pages/AiToolsPage';
-import SuperAdminLoginPage from './pages/SuperAdminLoginPage';
 import StaffLoginPage from './pages/StaffLoginPage';
-import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import { getNotifications, SOCKET_URL } from './services/api';
 import './styles/theme.css';
 
-function MainApp() {
-  const { currentUser, role, activePortal } = useAuth();
-  const [activeTab, setActiveTab] = useState(() => {
-    return role === 'SUPER_ADMIN' ? 'superadmin-dashboard' : 'dashboard';
-  });
+function MainStaffApp() {
+  const { currentUser } = useAuth();
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
-  useEffect(() => {
-    if (role === 'SUPER_ADMIN' && activeTab === 'dashboard') {
-      setActiveTab('superadmin-dashboard');
-    }
-  }, [role]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -74,25 +64,13 @@ function MainApp() {
     }
   };
 
-  // If user is not authenticated, display the appropriate Login Page
+  // If user is not authenticated, display Staff Login
   if (!currentUser) {
-    if (activePortal === 'superadmin') {
-      return <SuperAdminLoginPage />;
-    }
     return <StaffLoginPage />;
   }
 
   const getPageTitle = () => {
     switch (activeTab) {
-      case 'saas-overview': return 'Global SaaS Multi-Tenant Overview // Orvexa Global Tech';
-      case 'saas-companies': return 'Multi-Tenant Company Lifecycle & Management';
-      case 'saas-countries': return 'Sovereign Country Compliance, Tax & Statutory Registry';
-      case 'saas-admins': return 'Company Administrators & Tenant Security Monitoring';
-      case 'saas-subscriptions': return 'Global SaaS Subscription Economics & Invoicing';
-      case 'saas-features': return 'Per-Company Feature & Module Licensing Matrix';
-      case 'saas-tenants': return 'Multi-Tenant Database & Storage Isolation';
-      case 'saas-system-health': return 'Infrastructure Health, Security Center & Global Audit Trail';
-      case 'superadmin-dashboard': return 'Global SaaS Multi-Tenant Command Center';
       case 'dashboard': return 'Executive Pharma SFA Dashboard';
       case 'dcr': return 'Daily Call Reporting (DCR 360°)';
       case 'orders': return 'POB Chemist Order Bookings & Stockists';
@@ -108,15 +86,6 @@ function MainApp() {
   };
 
   const renderContent = () => {
-    if (activeTab.startsWith('saas-') || activeTab === 'superadmin-dashboard') {
-      return (
-        <SuperAdminDashboard
-          activeSubTab={activeTab.startsWith('saas-') ? activeTab : 'saas-overview'}
-          setActiveSubTab={setActiveTab}
-        />
-      );
-    }
-
     switch (activeTab) {
       case 'dashboard': return <Dashboard setActiveTab={setActiveTab} />;
       case 'dcr': return <DcrPage />;
@@ -128,11 +97,7 @@ function MainApp() {
       case 'attendance': return <AttendancePage />;
       case 'analytics': return <AnalyticsPage />;
       case 'ai-tools': return <AiToolsPage />;
-      default: return role === 'SUPER_ADMIN' ? (
-        <SuperAdminDashboard activeSubTab="saas-overview" setActiveSubTab={setActiveTab} />
-      ) : (
-        <Dashboard setActiveTab={setActiveTab} />
-      );
+      default: return <Dashboard setActiveTab={setActiveTab} />;
     }
   };
 
@@ -163,7 +128,7 @@ function MainApp() {
 export default function App() {
   return (
     <AuthProvider>
-      <MainApp />
+      <MainStaffApp />
     </AuthProvider>
   );
 }

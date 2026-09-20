@@ -13,13 +13,12 @@ import {
   Building,
   Mail,
   Lock,
-  Sparkles,
   AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function StaffLoginPage() {
-  const { login, switchLoginPortal, defaultUsers } = useAuth();
+  const { login } = useAuth();
   const [selectedRole, setSelectedRole] = useState('ADMIN');
   const [email, setEmail] = useState('admin@alleviare.com');
   const [password, setPassword] = useState('Staff@2026!Secure');
@@ -121,8 +120,7 @@ export default function StaffLoginPage() {
     try {
       await login({
         email,
-        role: selectedRole,
-        portalType: 'staff'
+        role: selectedRole
       });
     } catch (err) {
       setErrorMessage(err.message || 'Staff login failed. Please check your credentials.');
@@ -272,12 +270,12 @@ export default function StaffLoginPage() {
               </div>
             </div>
 
-            <div className="login-helpers-row">
-              <label className="remember-checkbox-label">
+            <div className="login-helpers-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#64748b' }}>
+              <label className="remember-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                 <input type="checkbox" defaultChecked />
                 <span>Remember on this computer</span>
               </label>
-              <span className="forgot-password-link">Forgot password? Contact IT</span>
+              <span className="forgot-password-link" style={{ color: '#2563eb', cursor: 'pointer' }}>Forgot password? Contact IT</span>
             </div>
 
             <button
@@ -295,22 +293,6 @@ export default function StaffLoginPage() {
               )}
             </button>
           </form>
-
-          {/* Super Admin Switcher Link Footer */}
-          <div className="portal-switch-footer staff-footer">
-            <div className="super-admin-teaser">
-              <Sparkles size={16} color="#d97706" />
-              <span>Are you a member of the Executive Board or Super Admin?</span>
-            </div>
-            <button
-              type="button"
-              className="switch-to-superadmin-btn"
-              onClick={() => switchLoginPortal('superadmin')}
-            >
-              <Shield size={16} />
-              <span>Go to Tier-0 Super Admin Portal &rarr;</span>
-            </button>
-          </div>
         </div>
       </div>
     </div>
