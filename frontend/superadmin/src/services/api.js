@@ -38,10 +38,10 @@ export const markNotificationRead = (id) => fetchWithAuth(`/notifications/${id}/
 export const markAllNotificationsRead = () => fetchWithAuth('/notifications/mark-all-read', { method: 'POST' });
 
 // Auth & Users
-export const loginUser = (email, role, platform = 'web') => {
+export const loginUser = (email, role = 'SUPER_ADMIN', platform = 'web', password = '') => {
   return fetchWithAuth('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, role, platform })
+    body: JSON.stringify({ email, role, platform, password })
   });
 };
 

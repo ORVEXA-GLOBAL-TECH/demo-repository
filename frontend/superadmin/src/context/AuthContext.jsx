@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
 
   const login = async ({ email, password }) => {
     try {
-      const res = await loginUser(email, 'SUPER_ADMIN', 'web');
+      const res = await loginUser(email, 'SUPER_ADMIN', 'web', password);
       if (res && res.user) {
         if (res.user.role !== 'SUPER_ADMIN') {
           throw new Error('Access Denied: This terminal is strictly reserved for Super Administrators.');
