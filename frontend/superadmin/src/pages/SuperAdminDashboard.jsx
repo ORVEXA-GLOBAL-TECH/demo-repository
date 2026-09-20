@@ -68,6 +68,159 @@ import {
 // Sovereign country registry templates with statutory compliance, timezones, and currencies
 const DEFAULT_SOVEREIGN_REGISTRY = [
   {
+    code: 'VN',
+    name: 'Vietnam',
+    flag: '🇻🇳',
+    currencyCode: 'VND',
+    currencySymbol: '₫',
+    currencyName: 'Vietnamese Dong',
+    fxRateToUSD: 25400.0,
+    timezone: 'Asia/Ho_Chi_Minh',
+    utcOffset: 'UTC+07:00',
+    language: 'Vietnamese (Tiếng Việt), English',
+    fiscalYear: 'January - December',
+    taxScheme: 'Progressive PIT (5%-35%) + 10% VAT',
+    socialSecurity: 'Social Health + Unemployment + Social Insurance (32%)',
+    publicHolidays: 11,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'KH',
+    name: 'Cambodia',
+    flag: '🇰🇭',
+    currencyCode: 'USD / KHR',
+    currencySymbol: '$ / ៛',
+    currencyName: 'US Dollar / Cambodian Riel',
+    fxRateToUSD: 4100.0,
+    timezone: 'Asia/Phnom_Penh',
+    utcOffset: 'UTC+07:00',
+    language: 'Khmer (ភាសាខ្មែរ), English',
+    fiscalYear: 'January - December',
+    taxScheme: 'Tax on Salary (0% - 20%) + 10% VAT',
+    socialSecurity: 'NSSF (Occupational Risk + Health Care 2.6%)',
+    publicHolidays: 22,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'LA',
+    name: 'Laos',
+    flag: '🇱🇦',
+    currencyCode: 'LAK',
+    currencySymbol: '₭',
+    currencyName: 'Lao Kip',
+    fxRateToUSD: 22000.0,
+    timezone: 'Asia/Vientiane',
+    utcOffset: 'UTC+07:00',
+    language: 'Lao (ພາສາລາວ), English',
+    fiscalYear: 'January - December',
+    taxScheme: 'PIT (0%-25%) + 10% VAT',
+    socialSecurity: 'NSSF Laos (Social Security Organization 11%)',
+    publicHolidays: 10,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'TH',
+    name: 'Thailand (Bangkok)',
+    flag: '🇹🇭',
+    currencyCode: 'THB',
+    currencySymbol: '฿',
+    currencyName: 'Thai Baht',
+    fxRateToUSD: 36.50,
+    timezone: 'Asia/Bangkok',
+    utcOffset: 'UTC+07:00',
+    language: 'Thai (ภาษาไทย), English',
+    fiscalYear: 'January - December',
+    taxScheme: 'PIT (Personal Income Tax 5%-35%) + 7% VAT',
+    socialSecurity: 'Social Security Office (SSO 5% max 750 THB)',
+    publicHolidays: 19,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'MM',
+    name: 'Myanmar',
+    flag: '🇲🇲',
+    currencyCode: 'MMK',
+    currencySymbol: 'Ks',
+    currencyName: 'Myanmar Kyat',
+    fxRateToUSD: 2100.0,
+    timezone: 'Asia/Yangon',
+    utcOffset: 'UTC+06:30',
+    language: 'Burmese (မြန်မာစာ), English',
+    fiscalYear: 'October - September',
+    taxScheme: 'PIT (0%-25%) + 5% Commercial Tax',
+    socialSecurity: 'Social Security Board (SSB 5%)',
+    publicHolidays: 26,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'MY',
+    name: 'Malaysia',
+    flag: '🇲🇾',
+    currencyCode: 'MYR',
+    currencySymbol: 'RM',
+    currencyName: 'Malaysian Ringgit',
+    fxRateToUSD: 4.70,
+    timezone: 'Asia/Kuala_Lumpur',
+    utcOffset: 'UTC+08:00',
+    language: 'Malay (Bahasa Melayu), English',
+    fiscalYear: 'January - December',
+    taxScheme: 'PCB Withholding (0%-30%) + SST (8%)',
+    socialSecurity: 'EPF (11%) + SOCSO (0.5%) + EIS',
+    publicHolidays: 15,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'SG',
+    name: 'Singapore',
+    flag: '🇸🇬',
+    currencyCode: 'SGD',
+    currencySymbol: 'S$',
+    currencyName: 'Singapore Dollar',
+    fxRateToUSD: 1.34,
+    timezone: 'Asia/Singapore',
+    utcOffset: 'UTC+08:00',
+    language: 'English, Mandarin, Malay, Tamil',
+    fiscalYear: 'January - December',
+    taxScheme: 'Progressive PIT (0%-24%) + 9% GST',
+    socialSecurity: 'Central Provident Fund (CPF 20%)',
+    publicHolidays: 11,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'ID',
+    name: 'Indonesia',
+    flag: '🇮🇩',
+    currencyCode: 'IDR',
+    currencySymbol: 'Rp',
+    currencyName: 'Indonesian Rupiah',
+    fxRateToUSD: 15850.0,
+    timezone: 'Asia/Jakarta',
+    utcOffset: 'UTC+07:00',
+    language: 'Indonesian (Bahasa Indonesia), English',
+    fiscalYear: 'January - December',
+    taxScheme: 'PPh 21 (5%-35%) + 11% PPN',
+    socialSecurity: 'BPJS Ketenagakerjaan (5.7%) + BPJS Kesehatan (5%)',
+    publicHolidays: 16,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'PH',
+    name: 'Philippines',
+    flag: '🇵🇭',
+    currencyCode: 'PHP',
+    currencySymbol: '₱',
+    currencyName: 'Philippine Peso',
+    fxRateToUSD: 58.20,
+    timezone: 'Asia/Manila',
+    utcOffset: 'UTC+08:00',
+    language: 'Filipino (Tagalog), English',
+    fiscalYear: 'January - December',
+    taxScheme: 'TRAIN Law (0%-35%) + 12% VAT',
+    socialSecurity: 'SSS (4.5%) + PhilHealth (5%) + Pag-IBIG',
+    publicHolidays: 18,
+    status: 'ACTIVE'
+  },
+  {
     code: 'IN',
     name: 'India',
     flag: '🇮🇳',
@@ -85,23 +238,6 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
     status: 'ACTIVE'
   },
   {
-    code: 'KH',
-    name: 'Cambodia',
-    flag: '🇰🇭',
-    currencyCode: 'USD / KHR',
-    currencySymbol: '$ / ៛',
-    currencyName: 'US Dollar / Cambodian Riel',
-    fxRateToUSD: 4100.0,
-    timezone: 'Asia/Phnom_Penh',
-    utcOffset: 'UTC+07:00',
-    language: 'Khmer, English',
-    fiscalYear: 'January - December',
-    taxScheme: 'Tax on Salary (0% - 20%) + 10% VAT',
-    socialSecurity: 'NSSF (Occupational Risk + Health Care 2.6%)',
-    publicHolidays: 22,
-    status: 'ACTIVE'
-  },
-  {
     code: 'BD',
     name: 'Bangladesh',
     flag: '🇧🇩',
@@ -111,7 +247,7 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
     fxRateToUSD: 120.0,
     timezone: 'Asia/Dhaka',
     utcOffset: 'UTC+06:00',
-    language: 'Bengali, English',
+    language: 'Bengali (বাংলা), English',
     fiscalYear: 'July - June',
     taxScheme: 'Progressive Tax Slab + 15% VAT',
     socialSecurity: 'Workers Profit Participation Fund (WPPF 5%)',
@@ -128,7 +264,7 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
     fxRateToUSD: 133.50,
     timezone: 'Asia/Kathmandu',
     utcOffset: 'UTC+05:45',
-    language: 'Nepali, English',
+    language: 'Nepali (नेपाली), English',
     fiscalYear: 'July - June (Shrawan-Ashadh)',
     taxScheme: 'TDS (15%) + Social Security Tax (1%)',
     socialSecurity: 'Social Security Fund (SSF 31% Contributory)',
@@ -136,42 +272,25 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
     status: 'ACTIVE'
   },
   {
-    code: 'TH',
-    name: 'Thailand',
-    flag: '🇹🇭',
-    currencyCode: 'THB',
-    currencySymbol: '฿',
-    currencyName: 'Thai Baht',
-    fxRateToUSD: 36.50,
-    timezone: 'Asia/Bangkok',
-    utcOffset: 'UTC+07:00',
-    language: 'Thai, English',
-    fiscalYear: 'January - December',
-    taxScheme: 'PIT (Personal Income Tax 5%-35%) + 7% VAT',
-    socialSecurity: 'Social Security Office (SSO 5% max 750 THB)',
-    publicHolidays: 19,
-    status: 'ACTIVE'
-  },
-  {
-    code: 'VN',
-    name: 'Vietnam',
-    flag: '🇻🇳',
-    currencyCode: 'VND',
-    currencySymbol: '₫',
-    currencyName: 'Vietnamese Dong',
-    fxRateToUSD: 25400.0,
-    timezone: 'Asia/Ho_Chi_Minh',
-    utcOffset: 'UTC+07:00',
-    language: 'Vietnamese, English',
-    fiscalYear: 'January - December',
-    taxScheme: 'Progressive PIT (5%-35%) + 10% VAT',
-    socialSecurity: 'Social Health + Unemployment + Social Insurance (32%)',
-    publicHolidays: 11,
+    code: 'LK',
+    name: 'Sri Lanka',
+    flag: '🇱🇰',
+    currencyCode: 'LKR',
+    currencySymbol: 'Rs',
+    currencyName: 'Sri Lankan Rupee',
+    fxRateToUSD: 305.0,
+    timezone: 'Asia/Colombo',
+    utcOffset: 'UTC+05:30',
+    language: 'Sinhala, Tamil, English',
+    fiscalYear: 'April - March',
+    taxScheme: 'APIT (6%-36%) + 18% VAT',
+    socialSecurity: 'EPF (8%) + ETF (3%)',
+    publicHolidays: 25,
     status: 'ACTIVE'
   },
   {
     code: 'AE',
-    name: 'United Arab Emirates',
+    name: 'United Arab Emirates (Dubai)',
     flag: '🇦🇪',
     currencyCode: 'AED',
     currencySymbol: 'د.إ',
@@ -179,11 +298,147 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
     fxRateToUSD: 3.67,
     timezone: 'Asia/Dubai',
     utcOffset: 'UTC+04:00',
-    language: 'Arabic, English',
+    language: 'Arabic (العربية), English',
     fiscalYear: 'January - December',
     taxScheme: 'Corporate Tax (9%) + 5% VAT (0% Personal Income Tax)',
     socialSecurity: 'GPSSA Pension Scheme (National Employees 20%)',
     publicHolidays: 14,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'SA',
+    name: 'Saudi Arabia (Riyadh)',
+    flag: '🇸🇦',
+    currencyCode: 'SAR',
+    currencySymbol: '﷼',
+    currencyName: 'Saudi Riyal',
+    fxRateToUSD: 3.75,
+    timezone: 'Asia/Riyadh',
+    utcOffset: 'UTC+03:00',
+    language: 'Arabic (العربية), English',
+    fiscalYear: 'January - December',
+    taxScheme: '15% VAT (0% Personal Income Tax)',
+    socialSecurity: 'GOSI (Social Insurance 21.5%)',
+    publicHolidays: 10,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'QA',
+    name: 'Qatar',
+    flag: '🇶🇦',
+    currencyCode: 'QAR',
+    currencySymbol: 'ر.ق',
+    currencyName: 'Qatari Riyal',
+    fxRateToUSD: 3.64,
+    timezone: 'Asia/Qatar',
+    utcOffset: 'UTC+03:00',
+    language: 'Arabic, English',
+    fiscalYear: 'January - December',
+    taxScheme: '10% Corporate Tax (0% Personal Income Tax)',
+    socialSecurity: 'GRSIA (National Pension Scheme 15%)',
+    publicHolidays: 11,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'OM',
+    name: 'Oman',
+    flag: '🇴🇲',
+    currencyCode: 'OMR',
+    currencySymbol: 'ر.ع.',
+    currencyName: 'Omani Rial',
+    fxRateToUSD: 0.385,
+    timezone: 'Asia/Muscat',
+    utcOffset: 'UTC+04:00',
+    language: 'Arabic, English',
+    fiscalYear: 'January - December',
+    taxScheme: '5% VAT (0% Personal Income Tax)',
+    socialSecurity: 'PASI (Social Insurance 18.5%)',
+    publicHolidays: 12,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'JP',
+    name: 'Japan (Tokyo)',
+    flag: '🇯🇵',
+    currencyCode: 'JPY',
+    currencySymbol: '¥',
+    currencyName: 'Japanese Yen',
+    fxRateToUSD: 155.0,
+    timezone: 'Asia/Tokyo',
+    utcOffset: 'UTC+09:00',
+    language: 'Japanese (日本語), English',
+    fiscalYear: 'April - March',
+    taxScheme: 'Income Tax (5%-45%) + 10% Consumption Tax',
+    socialSecurity: 'Shakai Hoken (Health, Pension & Care ~15%)',
+    publicHolidays: 16,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'KR',
+    name: 'South Korea (Seoul)',
+    flag: '🇰🇷',
+    currencyCode: 'KRW',
+    currencySymbol: '₩',
+    currencyName: 'South Korean Won',
+    fxRateToUSD: 1380.0,
+    timezone: 'Asia/Seoul',
+    utcOffset: 'UTC+09:00',
+    language: 'Korean (한국어), English',
+    fiscalYear: 'January - December',
+    taxScheme: 'Income Tax (6%-45%) + 10% VAT',
+    socialSecurity: 'Four Major National Insurances (~9%)',
+    publicHolidays: 15,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'AU',
+    name: 'Australia (Sydney)',
+    flag: '🇦🇺',
+    currencyCode: 'AUD',
+    currencySymbol: 'A$',
+    currencyName: 'Australian Dollar',
+    fxRateToUSD: 1.52,
+    timezone: 'Australia/Sydney',
+    utcOffset: 'UTC+10:00',
+    language: 'English',
+    fiscalYear: 'July - June',
+    taxScheme: 'PAYG Withholding (0%-45%) + 10% GST',
+    socialSecurity: 'Superannuation Guarantee (11.5%)',
+    publicHolidays: 13,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'GB',
+    name: 'United Kingdom (London)',
+    flag: '🇬🇧',
+    currencyCode: 'GBP',
+    currencySymbol: '£',
+    currencyName: 'British Pound',
+    fxRateToUSD: 0.78,
+    timezone: 'Europe/London',
+    utcOffset: 'UTC+00:00',
+    language: 'English',
+    fiscalYear: 'April - April (6 Apr - 5 Apr)',
+    taxScheme: 'PAYE (20%-45%) + 20% VAT',
+    socialSecurity: 'National Insurance (NI Class 1)',
+    publicHolidays: 8,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'DE',
+    name: 'Germany / European Union',
+    flag: '🇩🇪',
+    currencyCode: 'EUR',
+    currencySymbol: '€',
+    currencyName: 'Euro',
+    fxRateToUSD: 0.92,
+    timezone: 'Europe/Berlin',
+    utcOffset: 'UTC+01:00',
+    language: 'German (Deutsch), English',
+    fiscalYear: 'January - December',
+    taxScheme: 'Income Tax (14%-45%) + 19% VAT',
+    socialSecurity: 'Statutory Social & Pension Insurances (~40% split)',
+    publicHolidays: 10,
     status: 'ACTIVE'
   },
   {
@@ -201,6 +456,23 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
     taxScheme: 'Federal + State Withholding + FICA',
     socialSecurity: 'Social Security (6.2%) + Medicare (1.45%)',
     publicHolidays: 11,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'CA',
+    name: 'Canada (Toronto)',
+    flag: '🇨🇦',
+    currencyCode: 'CAD',
+    currencySymbol: 'C$',
+    currencyName: 'Canadian Dollar',
+    fxRateToUSD: 1.37,
+    timezone: 'America/Toronto',
+    utcOffset: 'UTC-05:00',
+    language: 'English, French',
+    fiscalYear: 'January - December',
+    taxScheme: 'Federal + Provincial (15%-33%) + GST/HST',
+    socialSecurity: 'Canada Pension Plan (CPP 5.95%) + EI',
+    publicHolidays: 12,
     status: 'ACTIVE'
   }
 ];
@@ -1399,14 +1671,11 @@ export default function SuperAdminDashboard({
                           value={fxConverter.fromCurrency}
                           onChange={(e) => setFxConverter({ ...fxConverter, fromCurrency: e.target.value })}
                         >
-                          <option value="USD">USD ($ - US Dollar)</option>
-                          <option value="INR">INR (₹ - Indian Rupee)</option>
-                          <option value="KHR">KHR (៛ - Cambodian Riel)</option>
-                          <option value="BDT">BDT (৳ - Bangladeshi Taka)</option>
-                          <option value="NPR">NPR (रू - Nepalese Rupee)</option>
-                          <option value="THB">THB (฿ - Thai Baht)</option>
-                          <option value="VND">VND (₫ - Vietnamese Dong)</option>
-                          <option value="AED">AED (د.إ - UAE Dirham)</option>
+                          {sovereignRegistry.map((reg) => (
+                            <option key={`from-${reg.code}`} value={reg.currencyCode.split(' ')[0]}>
+                              {reg.flag} {reg.currencyCode} ({reg.currencySymbol} - {reg.name})
+                            </option>
+                          ))}
                         </select>
                       </div>
 
@@ -1417,14 +1686,11 @@ export default function SuperAdminDashboard({
                           value={fxConverter.toCurrency}
                           onChange={(e) => setFxConverter({ ...fxConverter, toCurrency: e.target.value })}
                         >
-                          <option value="INR">INR (₹ - Indian Rupee)</option>
-                          <option value="USD">USD ($ - US Dollar)</option>
-                          <option value="KHR">KHR (៛ - Cambodian Riel)</option>
-                          <option value="BDT">BDT (৳ - Bangladeshi Taka)</option>
-                          <option value="NPR">NPR (रू - Nepalese Rupee)</option>
-                          <option value="THB">THB (฿ - Thai Baht)</option>
-                          <option value="VND">VND (₫ - Vietnamese Dong)</option>
-                          <option value="AED">AED (د.إ - UAE Dirham)</option>
+                          {sovereignRegistry.map((reg) => (
+                            <option key={`to-${reg.code}`} value={reg.currencyCode.split(' ')[0]}>
+                              {reg.flag} {reg.currencyCode} ({reg.currencySymbol} - {reg.name})
+                            </option>
+                          ))}
                         </select>
                       </div>
                     </div>
