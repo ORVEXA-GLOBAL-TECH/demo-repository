@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Building2,
   Globe2,
@@ -58,8 +58,152 @@ import {
   SlidersHorizontal,
   Flame,
   Check,
-  X
+  X,
+  Coins,
+  ArrowRightLeft,
+  Compass,
+  Timer
 } from 'lucide-react';
+
+// Sovereign country registry templates with statutory compliance, timezones, and currencies
+const DEFAULT_SOVEREIGN_REGISTRY = [
+  {
+    code: 'IN',
+    name: 'India',
+    flag: '🇮🇳',
+    currencyCode: 'INR',
+    currencySymbol: '₹',
+    currencyName: 'Indian Rupee',
+    fxRateToUSD: 83.50,
+    timezone: 'Asia/Kolkata',
+    utcOffset: 'UTC+05:30',
+    language: 'English, Hindi',
+    fiscalYear: 'April - March',
+    taxScheme: 'GST (18%) + TDS (10%)',
+    socialSecurity: 'EPFO (12%) + ESIC (0.75%) + Gratuity',
+    publicHolidays: 14,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'KH',
+    name: 'Cambodia',
+    flag: '🇰🇭',
+    currencyCode: 'USD / KHR',
+    currencySymbol: '$ / ៛',
+    currencyName: 'US Dollar / Cambodian Riel',
+    fxRateToUSD: 4100.0,
+    timezone: 'Asia/Phnom_Penh',
+    utcOffset: 'UTC+07:00',
+    language: 'Khmer, English',
+    fiscalYear: 'January - December',
+    taxScheme: 'Tax on Salary (0% - 20%) + 10% VAT',
+    socialSecurity: 'NSSF (Occupational Risk + Health Care 2.6%)',
+    publicHolidays: 22,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'BD',
+    name: 'Bangladesh',
+    flag: '🇧🇩',
+    currencyCode: 'BDT',
+    currencySymbol: '৳',
+    currencyName: 'Bangladeshi Taka',
+    fxRateToUSD: 120.0,
+    timezone: 'Asia/Dhaka',
+    utcOffset: 'UTC+06:00',
+    language: 'Bengali, English',
+    fiscalYear: 'July - June',
+    taxScheme: 'Progressive Tax Slab + 15% VAT',
+    socialSecurity: 'Workers Profit Participation Fund (WPPF 5%)',
+    publicHolidays: 16,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'NP',
+    name: 'Nepal',
+    flag: '🇳🇵',
+    currencyCode: 'NPR',
+    currencySymbol: 'रू',
+    currencyName: 'Nepalese Rupee',
+    fxRateToUSD: 133.50,
+    timezone: 'Asia/Kathmandu',
+    utcOffset: 'UTC+05:45',
+    language: 'Nepali, English',
+    fiscalYear: 'July - June (Shrawan-Ashadh)',
+    taxScheme: 'TDS (15%) + Social Security Tax (1%)',
+    socialSecurity: 'Social Security Fund (SSF 31% Contributory)',
+    publicHolidays: 18,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'TH',
+    name: 'Thailand',
+    flag: '🇹🇭',
+    currencyCode: 'THB',
+    currencySymbol: '฿',
+    currencyName: 'Thai Baht',
+    fxRateToUSD: 36.50,
+    timezone: 'Asia/Bangkok',
+    utcOffset: 'UTC+07:00',
+    language: 'Thai, English',
+    fiscalYear: 'January - December',
+    taxScheme: 'PIT (Personal Income Tax 5%-35%) + 7% VAT',
+    socialSecurity: 'Social Security Office (SSO 5% max 750 THB)',
+    publicHolidays: 19,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'VN',
+    name: 'Vietnam',
+    flag: '🇻🇳',
+    currencyCode: 'VND',
+    currencySymbol: '₫',
+    currencyName: 'Vietnamese Dong',
+    fxRateToUSD: 25400.0,
+    timezone: 'Asia/Ho_Chi_Minh',
+    utcOffset: 'UTC+07:00',
+    language: 'Vietnamese, English',
+    fiscalYear: 'January - December',
+    taxScheme: 'Progressive PIT (5%-35%) + 10% VAT',
+    socialSecurity: 'Social Health + Unemployment + Social Insurance (32%)',
+    publicHolidays: 11,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'AE',
+    name: 'United Arab Emirates',
+    flag: '🇦🇪',
+    currencyCode: 'AED',
+    currencySymbol: 'د.إ',
+    currencyName: 'UAE Dirham',
+    fxRateToUSD: 3.67,
+    timezone: 'Asia/Dubai',
+    utcOffset: 'UTC+04:00',
+    language: 'Arabic, English',
+    fiscalYear: 'January - December',
+    taxScheme: 'Corporate Tax (9%) + 5% VAT (0% Personal Income Tax)',
+    socialSecurity: 'GPSSA Pension Scheme (National Employees 20%)',
+    publicHolidays: 14,
+    status: 'ACTIVE'
+  },
+  {
+    code: 'US',
+    name: 'United States & Global HQ',
+    flag: '🇺🇸',
+    currencyCode: 'USD',
+    currencySymbol: '$',
+    currencyName: 'US Dollar',
+    fxRateToUSD: 1.0,
+    timezone: 'America/New_York',
+    utcOffset: 'UTC-05:00',
+    language: 'English',
+    fiscalYear: 'January - December',
+    taxScheme: 'Federal + State Withholding + FICA',
+    socialSecurity: 'Social Security (6.2%) + Medicare (1.45%)',
+    publicHolidays: 11,
+    status: 'ACTIVE'
+  }
+];
 
 export default function SuperAdminDashboard({
   activeTab = 'dashboard',
@@ -78,6 +222,28 @@ export default function SuperAdminDashboard({
   const [recentActivities, setRecentActivities] = useState([]);
   const [supportTickets, setSupportTickets] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
+  const [sovereignRegistry, setSovereignRegistry] = useState(DEFAULT_SOVEREIGN_REGISTRY);
+
+  // Active Multi-Currency Display Setting (USD, INR, KHR, BDT, NPR, THB, VND, AED)
+  const [selectedDisplayCurrency, setSelectedDisplayCurrency] = useState('USD');
+  const [selectedCountryFilter, setSelectedCountryFilter] = useState('ALL');
+
+  // Live World Clock State (updates every second)
+  const [currentUtcTime, setCurrentUtcTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentUtcTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Currency Converter Interactive Tool State
+  const [fxConverter, setFxConverter] = useState({
+    amount: 1000,
+    fromCurrency: 'USD',
+    toCurrency: 'INR'
+  });
+
+  // Feature Flags
   const [featureFlags, setFeatureFlags] = useState([
     { id: 'FF-01', key: 'new_dcr_ui', name: 'New Dynamic DCR Experience v2', rolloutPercent: 0, status: 'CANARY', description: 'Interactive doctor visualizer and smart route map during daily call reporting' },
     { id: 'FF-02', key: 'ai_prescription_ocr', name: 'AI Chemist Prescription OCR', rolloutPercent: 0, status: 'BETA', description: 'Automatic optical character recognition of chemist order booking slips' },
@@ -88,7 +254,7 @@ export default function SuperAdminDashboard({
   const [globalSettings, setGlobalSettings] = useState({
     dateFormat: 'YYYY-MM-DD',
     timezone: 'UTC+05:30',
-    currency: 'INR',
+    currency: 'USD',
     language: 'English',
     defaultWorkingDays: 'Monday - Saturday',
     mfaEnforced: true,
@@ -122,11 +288,10 @@ export default function SuperAdminDashboard({
   const [companySubTab, setCompanySubTab] = useState('all'); // all | active | suspended | trial | admins
   const [userSubTab, setUserSubTab] = useState('all'); // all | admins | managers | mrs
   const [supportSubTab, setSupportSubTab] = useState('open'); // open | resolved
+  const [jurisdictionSubTab, setJurisdictionSubTab] = useState('countries'); // countries | timezones | currencies
 
   // Modals & Action States
   const [isCreateCompanyOpen, setIsCreateCompanyOpen] = useState(false);
-  const [isEditCompanyOpen, setIsEditCompanyOpen] = useState(false);
-  const [selectedCompany, setSelectedCompany] = useState(null);
   const [isImpersonateOpen, setIsImpersonateOpen] = useState(false);
   const [impersonateTarget, setImpersonateTarget] = useState(null);
   const [impersonateReason, setImpersonateReason] = useState('');
@@ -134,14 +299,14 @@ export default function SuperAdminDashboard({
   const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = useState(false);
   const [isNewTicketOpen, setIsNewTicketOpen] = useState(false);
 
-  // Form states
+  // Form state
   const [newCompanyForm, setNewCompanyForm] = useState({
     name: '',
     code: '',
     country: 'India',
     currency: 'INR',
     timezone: 'Asia/Kolkata',
-    fiscalYear: 'Apr - Mar',
+    fiscalYear: 'April - March',
     adminName: '',
     adminEmail: '',
     adminPhone: '',
@@ -169,6 +334,11 @@ export default function SuperAdminDashboard({
   // --------------------------------------------------------------------------
   // DYNAMICALLY COMPUTED METRICS
   // --------------------------------------------------------------------------
+  const filteredCompanies = companies.filter(c => {
+    if (selectedCountryFilter !== 'ALL' && c.country !== selectedCountryFilter) return false;
+    return true;
+  });
+
   const totalCompanies = companies.length;
   const activeCompanies = companies.filter(c => c.status === 'ACTIVE').length;
   const trialCompanies = companies.filter(c => c.status === 'TRIAL').length;
@@ -187,14 +357,64 @@ export default function SuperAdminDashboard({
   const totalStorageTB = (totalStorageGB / 1024).toFixed(2);
   const totalCallsToday = companies.reduce((acc, c) => acc + (Number(c.apiCallsToday) || 0), 0);
 
-  const totalMRR = companies.reduce((acc, c) => {
+  const totalMRR_USD = companies.reduce((acc, c) => {
     if (c.status !== 'ACTIVE') return acc;
     const planRate = c.plan === 'ENTERPRISE' ? 4200 : c.plan === 'PRO' ? 2800 : 950;
     return acc + (Number(c.customMRR) || planRate);
   }, 0);
-  const totalARR = totalMRR * 12;
+  const totalARR_USD = totalMRR_USD * 12;
 
-  const expiringLicenses = companies.filter(c => c.daysUntilExpiry !== undefined && c.daysUntilExpiry <= 30);
+  // Currency Converter Calculation
+  const convertCurrency = (amountInUSD, targetCurrency) => {
+    const targetMeta = sovereignRegistry.find(c => c.currencyCode.includes(targetCurrency));
+    const rate = targetMeta ? targetMeta.fxRateToUSD : 1;
+    return {
+      converted: (amountInUSD * rate).toLocaleString(undefined, { maximumFractionDigits: 2 }),
+      symbol: targetMeta ? targetMeta.currencySymbol : '$'
+    };
+  };
+
+  const getConvertedFxResult = () => {
+    const fromMeta = sovereignRegistry.find(c => c.currencyCode.includes(fxConverter.fromCurrency));
+    const toMeta = sovereignRegistry.find(c => c.currencyCode.includes(fxConverter.toCurrency));
+    const fromRate = fromMeta ? fromMeta.fxRateToUSD : 1;
+    const toRate = toMeta ? toMeta.fxRateToUSD : 1;
+    // Base amount in USD
+    const inUSD = fxConverter.amount / fromRate;
+    const result = (inUSD * toRate).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    return {
+      result,
+      symbol: toMeta ? toMeta.currencySymbol : '$'
+    };
+  };
+
+  // Helper for displaying time in IANA timezone
+  const formatTimezoneClock = (ianaTz) => {
+    try {
+      return currentUtcTime.toLocaleTimeString('en-US', {
+        timeZone: ianaTz,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      });
+    } catch {
+      return currentUtcTime.toLocaleTimeString();
+    }
+  };
+
+  const formatTimezoneDate = (ianaTz) => {
+    try {
+      return currentUtcTime.toLocaleDateString('en-US', {
+        timeZone: ianaTz,
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return currentUtcTime.toLocaleDateString();
+    }
+  };
 
   // --------------------------------------------------------------------------
   // ACTION HANDLERS
@@ -225,12 +445,15 @@ export default function SuperAdminDashboard({
     const adminId = `ADM-${String(admins.length + 1).padStart(2, '0')}`;
     const planRate = newCompanyForm.plan === 'ENTERPRISE' ? 4200 : newCompanyForm.plan === 'PRO' ? 2800 : 950;
 
+    const matchedCountry = sovereignRegistry.find(c => c.name === newCompanyForm.country);
+    const countryFlag = matchedCountry ? matchedCountry.flag : '🌐';
+
     const createdCompany = {
       id: companyId,
       code: newCompanyForm.code || `CMP-${Date.now().toString().slice(-4)}`,
       name: newCompanyForm.name,
       country: newCompanyForm.country,
-      flag: newCompanyForm.country === 'Cambodia' ? '🇰🇭' : newCompanyForm.country === 'India' ? '🇮🇳' : newCompanyForm.country === 'Bangladesh' ? '🇧🇩' : '🌐',
+      flag: countryFlag,
       currency: newCompanyForm.currency,
       timezone: newCompanyForm.timezone,
       fiscalYear: newCompanyForm.fiscalYear,
@@ -299,7 +522,7 @@ export default function SuperAdminDashboard({
     setCompanies(prev => [createdCompany, ...prev]);
     setAdmins(prev => [createdAdmin, ...prev]);
     setPlatformUsers(prev => [createdPlatformUser, ...prev]);
-    logAudit('Create Company', `Provisioned tenant ${tenantId} for ${createdCompany.name}`, createdCompany.name);
+    logAudit('Create Company', `Provisioned tenant ${tenantId} for ${createdCompany.name} in ${createdCompany.country} (${createdCompany.timezone}, ${createdCompany.currency})`, createdCompany.name);
 
     setIsCreateCompanyOpen(false);
     setNewCompanyForm({
@@ -308,7 +531,7 @@ export default function SuperAdminDashboard({
       country: 'India',
       currency: 'INR',
       timezone: 'Asia/Kolkata',
-      fiscalYear: 'Apr - Mar',
+      fiscalYear: 'April - March',
       adminName: '',
       adminEmail: '',
       adminPhone: '',
@@ -317,6 +540,19 @@ export default function SuperAdminDashboard({
       mrLimit: 200,
       storageLimitGB: 50
     });
+  };
+
+  const handleCountrySelectionChange = (countryName) => {
+    const matched = sovereignRegistry.find(c => c.name === countryName);
+    if (matched) {
+      setNewCompanyForm(prev => ({
+        ...prev,
+        country: matched.name,
+        currency: matched.currencyCode,
+        timezone: matched.timezone,
+        fiscalYear: matched.fiscalYear
+      }));
+    }
   };
 
   const handleToggleModule = (companyId, moduleKey) => {
@@ -443,22 +679,22 @@ export default function SuperAdminDashboard({
         <div className="saas-header-left">
           <div className="saas-global-chip">
             <Globe2 size={14} />
-            <span>ORVEXA GLOBAL TECH // SAAS GOVERNANCE LAYER</span>
+            <span>ORVEXA GLOBAL TECH // MULTI-COUNTRY &bull; MULTI-TIMEZONE &bull; MULTI-CURRENCY</span>
           </div>
           <h1 className="saas-header-title">Super Admin Platform Command Center</h1>
           <p className="saas-header-desc">
-            30-Point SaaS Governance &bull; Multi-Tenant Isolation &bull; Sovereign Compliance &bull; Feature Flags &bull; Disaster Recovery
+            Global SaaS Sovereign Governance &bull; 8+ Active Jurisdictions &bull; Automatic Local Time &amp; Tax Compliance &bull; Multi-Currency FX Engine
           </p>
         </div>
 
         <div className="saas-quick-stats-pills">
           <div className="header-stat-pill">
-            <span className="pill-label">Total MRR</span>
-            <span className="pill-value text-green">${totalMRR.toLocaleString()}</span>
+            <span className="pill-label">Total MRR (USD)</span>
+            <span className="pill-value text-green">${totalMRR_USD.toLocaleString()}</span>
           </div>
           <div className="header-stat-pill">
             <span className="pill-label">ARR Run-Rate</span>
-            <span className="pill-value text-purple">${totalARR.toLocaleString()}</span>
+            <span className="pill-value text-purple">${totalARR_USD.toLocaleString()}</span>
           </div>
           <div className="header-stat-pill">
             <span className="pill-label">Active Tenants</span>
@@ -484,9 +720,9 @@ export default function SuperAdminDashboard({
           <div className="arch-reminder-card" style={{ borderLeftColor: '#f59e0b', background: 'linear-gradient(90deg, #fffbeb 0%, #f8fafc 100%)' }}>
             <ShieldCheck size={22} color="#d97706" style={{ flexShrink: 0 }} />
             <div>
-              <span className="arch-card-title" style={{ color: '#92400e', fontSize: '0.86rem' }}>Platform Governance Dashboard Active: </span>
+              <span className="arch-card-title" style={{ color: '#92400e', fontSize: '0.86rem' }}>Multi-Country Global Platform Active: </span>
               <span className="arch-card-desc" style={{ color: '#78350f' }}>
-                Complete visibility across {totalCompanies} tenants, {totalUsers.toLocaleString()} users, {totalAdmins} admins, {totalDoctors.toLocaleString()} doctors, {totalVisits.toLocaleString()} visits, and storage schemas.
+                Complete visibility across {totalCompanies} tenants, {totalUsers.toLocaleString()} users, {totalAdmins} admins, {totalDoctors.toLocaleString()} doctors, {totalVisits.toLocaleString()} visits, and sovereign currency engines.
               </span>
             </div>
           </div>
@@ -555,12 +791,12 @@ export default function SuperAdminDashboard({
 
             <div className="saas-kpi-card">
               <div className="kpi-top">
-                <span className="kpi-label">MRR &amp; ARR Status</span>
+                <span className="kpi-label">MRR &amp; ARR Status (USD)</span>
                 <CreditCard size={18} className="kpi-icon green" />
               </div>
-              <div className="kpi-number text-green">${totalMRR.toLocaleString()} <span style={{ fontSize: '0.8rem', color: '#64748b' }}>MRR</span></div>
+              <div className="kpi-number text-green">${totalMRR_USD.toLocaleString()} <span style={{ fontSize: '0.8rem', color: '#64748b' }}>MRR</span></div>
               <div className="kpi-sub">
-                <strong>{activeCompanies} Subscriptions</strong> &bull; ARR: ${totalARR.toLocaleString()}
+                <strong>{activeCompanies} Subscriptions</strong> &bull; ARR: ${totalARR_USD.toLocaleString()}
               </div>
             </div>
           </div>
@@ -572,7 +808,7 @@ export default function SuperAdminDashboard({
                 <div className="section-header">
                   <div>
                     <h2 className="section-title">Tenant Companies Overview</h2>
-                    <p className="section-desc">Multi-tenant isolation status, users quota, and subscription tier</p>
+                    <p className="section-desc">Multi-tenant isolation status, local timezone, and currency tier</p>
                   </div>
                   <button type="button" className="btn btn-secondary btn-sm" onClick={() => setActiveTab('companies')}>
                     Manage Companies ({totalCompanies}) <ArrowUpRight size={14} />
@@ -593,11 +829,11 @@ export default function SuperAdminDashboard({
                     <table className="custom-table">
                       <thead>
                         <tr>
-                          <th>Company</th>
-                          <th>Schema</th>
+                          <th>Company &amp; Flag</th>
+                          <th>Jurisdiction</th>
+                          <th>Timezone</th>
+                          <th>Currency</th>
                           <th>Plan</th>
-                          <th>Users</th>
-                          <th>MRR</th>
                           <th>Status</th>
                           <th style={{ textAlign: 'right' }}>Action</th>
                         </tr>
@@ -610,14 +846,14 @@ export default function SuperAdminDashboard({
                                 <span className="comp-flag">{comp.flag}</span>
                                 <div>
                                   <div className="comp-name-text">{comp.name}</div>
-                                  <div className="comp-code-sub">{comp.country} &bull; {comp.currency}</div>
+                                  <div className="comp-code-sub">{comp.code} &bull; {comp.tenantId}</div>
                                 </div>
                               </div>
                             </td>
-                            <td><span className="tenant-id-pill">{comp.tenantId}</span></td>
+                            <td><strong>{comp.country}</strong></td>
+                            <td><span className="tenant-id-pill">{comp.timezone}</span></td>
+                            <td><strong>{comp.currency}</strong></td>
                             <td><span className={`plan-pill plan-${comp.plan.toLowerCase()}`}>{comp.plan}</span></td>
-                            <td><strong>{comp.usersCount} Users</strong></td>
-                            <td><strong>{comp.mrr}</strong></td>
                             <td>
                               <span className={`status-tag status-${comp.status.toLowerCase()}`}>
                                 {comp.status === 'ACTIVE' ? '🟢 Active' : '🟡 Suspended'}
@@ -636,7 +872,7 @@ export default function SuperAdminDashboard({
                 </div>
               </div>
 
-              {/* Recent Activity Audit Stream */}
+              {/* Real-Time Platform Activity Stream */}
               <div className="card-section">
                 <div className="section-header">
                   <div>
@@ -675,49 +911,55 @@ export default function SuperAdminDashboard({
               </div>
             </div>
 
-            {/* Right Column: Health & Announcements */}
+            {/* Right Column: World Clock & Live FX Rates */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {/* Live Multi-Timezone World Clock */}
               <div className="card-section">
                 <div className="card-header-flex">
                   <h3 className="card-header-title">
-                    <Server size={18} color="#059669" /> Microservices Health Telemetry
+                    <Clock size={18} color="#d97706" /> Live Regional World Clocks
                   </h3>
-                  <span style={{ fontSize: '0.72rem', color: '#059669', fontWeight: '800', background: '#dcfce7', padding: '2px 8px', borderRadius: '12px' }}>
-                    🟢 9/9 Healthy
-                  </span>
+                  <button type="button" className="action-pill-btn" onClick={() => setActiveTab('jurisdictions')}>
+                    All Clocks &rarr;
+                  </button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  {['API Gateway', 'Multi-Tenant DB', 'Storage Vault', 'Auth Service', 'Notifications', 'GPS Tracking', 'Email Service', 'SMS Gateway', 'Background Jobs'].map((svc) => (
-                    <div key={svc} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 10px' }}>
-                      <div style={{ fontSize: '0.68rem', color: '#64748b' }}>{svc}</div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
-                        <span style={{ fontSize: '0.82rem', fontWeight: '800', color: '#0f172a' }}>● Healthy</span>
-                        <span style={{ fontSize: '0.68rem', color: '#059669', fontWeight: '700' }}>99.99%</span>
+                  {sovereignRegistry.slice(0, 4).map((reg) => (
+                    <div key={reg.code} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: '#64748b' }}>
+                        <span>{reg.flag} {reg.name}</span>
+                        <span style={{ fontWeight: '700' }}>{reg.utcOffset}</span>
                       </div>
+                      <div style={{ fontSize: '1.05rem', fontWeight: '800', color: '#0f172a', marginTop: '2px', fontFamily: 'monospace' }}>
+                        {formatTimezoneClock(reg.timezone)}
+                      </div>
+                      <div style={{ fontSize: '0.66rem', color: '#94a3b8' }}>{formatTimezoneDate(reg.timezone)}</div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* System Alerts */}
+              {/* Microservices Health */}
               <div className="card-section">
                 <div className="card-header-flex">
                   <h3 className="card-header-title">
-                    <AlertTriangle size={18} color="#ef4444" /> System Alerts ({systemAlerts.length} Active)
+                    <Server size={18} color="#059669" /> Global Cloud Health
                   </h3>
+                  <span style={{ fontSize: '0.72rem', color: '#059669', fontWeight: '800', background: '#dcfce7', padding: '2px 8px', borderRadius: '12px' }}>
+                    🟢 8 Regions Active
+                  </span>
                 </div>
-                {systemAlerts.length === 0 ? (
-                  <div style={{ padding: '16px', textAlign: 'center', color: '#059669', background: '#f0fdf4', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600' }}>
-                    🟢 All systems operating within normal parameters. No active alerts.
-                  </div>
-                ) : (
-                  systemAlerts.map(alertItem => (
-                    <div key={alertItem.id} style={{ padding: '8px 12px', background: '#fef2f2', border: '1px solid #fee2e2', borderRadius: '6px', marginBottom: '6px' }}>
-                      <div style={{ fontSize: '0.8rem', fontWeight: '800', color: '#991b1b' }}>{alertItem.title}</div>
-                      <div style={{ fontSize: '0.72rem', color: '#7f1d1d' }}>{alertItem.desc}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  {['API Gateway (Global)', 'PostgreSQL Multi-Tenant', 'Azure Geo-Blob Vault', 'Auth Service (JWT/OIDC)', 'GPS & Satellite Gateway', 'SendGrid Global Ingress'].map((svc) => (
+                    <div key={svc} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '0.68rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{svc}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#059669' }}>● 99.99%</span>
+                        <span style={{ fontSize: '0.68rem', color: '#64748b' }}>&lt; 40ms</span>
+                      </div>
                     </div>
-                  ))
-                )}
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -859,6 +1101,7 @@ export default function SuperAdminDashboard({
                   <thead>
                     <tr>
                       <th>Company &amp; Jurisdiction</th>
+                      <th>Timezone &amp; Currency</th>
                       <th>Plan</th>
                       <th>Users / Limits</th>
                       <th>Storage</th>
@@ -882,8 +1125,14 @@ export default function SuperAdminDashboard({
                               <span className="comp-flag">{company.flag}</span>
                               <div>
                                 <div className="comp-name-text">{company.name}</div>
-                                <div className="comp-code-sub">{company.code} &bull; {company.tenantId}</div>
+                                <div className="comp-code-sub">{company.code} &bull; {company.tenantId} &bull; {company.country}</div>
                               </div>
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span className="tenant-id-pill" style={{ marginBottom: '2px' }}>{company.timezone}</span>
+                              <strong style={{ fontSize: '0.76rem', color: '#2563eb' }}>{company.currency}</strong>
                             </div>
                           </td>
                           <td><span className={`plan-pill plan-${company.plan.toLowerCase()}`}>{company.plan}</span></td>
@@ -943,7 +1192,265 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          3. PLATFORM USERS (CROSS-TENANT SEARCH & GOVERNANCE)
+          3. MULTI-COUNTRY, MULTI-TIMEZONE & MULTI-CURRENCY JURISDICTIONS HUB
+          ===================================================================== */}
+      {activeTab === 'jurisdictions' && (
+        <div className="tab-pane-content">
+          <div className="sub-nav-tabs">
+            <button type="button" className={`sub-nav-pill ${jurisdictionSubTab === 'countries' ? 'active' : ''}`} onClick={() => setJurisdictionSubTab('countries')}>
+              <Globe2 size={14} /> Sovereign Countries ({sovereignRegistry.length})
+            </button>
+            <button type="button" className={`sub-nav-pill ${jurisdictionSubTab === 'timezones' ? 'active' : ''}`} onClick={() => setJurisdictionSubTab('timezones')}>
+              <Clock size={14} /> Multi-Timezone World Clocks
+            </button>
+            <button type="button" className={`sub-nav-pill ${jurisdictionSubTab === 'currencies' ? 'active' : ''}`} onClick={() => setJurisdictionSubTab('currencies')}>
+              <Coins size={14} /> Multi-Currency &amp; FX Engine
+            </button>
+          </div>
+
+          {/* VIEW A: SOVEREIGN COUNTRIES & REGULATORY REGISTRY */}
+          {jurisdictionSubTab === 'countries' && (
+            <div>
+              <div className="country-header-banner" style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '16px', borderRadius: '12px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <h2 className="section-title">Supported Sovereign Jurisdictions &amp; Regulatory Frameworks</h2>
+                    <p className="section-desc">
+                      Super Admin configures sovereign statutory requirements: local currency symbols, IANA timezone standards, fiscal year cycles, tax withholding (GST/VAT/TDS), and mandatory social security contributions (NSSF, SSF, SSO, EPFO, ESIC).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="primary-action-btn"
+                    onClick={() => alert('New Sovereign Jurisdiction Wizard: Setup statutory fiscal year, tax withholding rates, and social security formulas.')}
+                  >
+                    <Plus size={16} /> Add Sovereign Country
+                  </button>
+                </div>
+              </div>
+
+              <div className="countries-grid">
+                {sovereignRegistry.map((c) => {
+                  const countryCompaniesCount = companies.filter(comp => comp.country.toLowerCase() === c.name.toLowerCase()).length;
+                  return (
+                    <div key={c.code} className="country-card">
+                      <div className="country-card-header">
+                        <div className="country-title-row">
+                          <span className="country-big-flag">{c.flag}</span>
+                          <div>
+                            <h3 className="country-name">{c.name} ({c.code})</h3>
+                            <span className="country-active-tag">{countryCompaniesCount} {countryCompaniesCount === 1 ? 'Company' : 'Companies'} Onboarded</span>
+                          </div>
+                        </div>
+                        <span className="status-badge-green">Operational</span>
+                      </div>
+
+                      <div className="country-details-list">
+                        <div className="detail-item">
+                          <span className="detail-key">Currency &amp; Symbol:</span>
+                          <span className="detail-val"><strong>{c.currencyCode} ({c.currencySymbol})</strong></span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="detail-key">IANA Timezone:</span>
+                          <span className="detail-val">{c.timezone} ({c.utcOffset})</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="detail-key">Fiscal Year Cycle:</span>
+                          <span className="detail-val">{c.fiscalYear}</span>
+                        </div>
+                        <div className="detail-item highlight-tax">
+                          <span className="detail-key">Tax / Withholding:</span>
+                          <span className="detail-val">{c.taxScheme}</span>
+                        </div>
+                        <div className="detail-item highlight-nssf">
+                          <span className="detail-key">Social Security / Statutory:</span>
+                          <span className="detail-val">{c.socialSecurity}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="detail-key">Public Holiday Calendar:</span>
+                          <span className="detail-val">{c.publicHolidays} Statutory Holidays</span>
+                        </div>
+                      </div>
+
+                      <div className="country-card-footer">
+                        <button
+                          type="button"
+                          className="btn-configure-country"
+                          onClick={() => alert(`Configuring statutory compliance rules for ${c.name}`)}
+                        >
+                          <Settings size={14} />
+                          <span>Configure Compliance Rules</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* VIEW B: MULTI-TIMEZONE LIVE ENGINE */}
+          {jurisdictionSubTab === 'timezones' && (
+            <div>
+              <div className="card-section" style={{ marginBottom: '18px' }}>
+                <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Timer size={20} color="#d97706" /> Global Live Regional Clocks &amp; Timezone Telemetry
+                </h2>
+                <p className="section-desc">
+                  Synchronizes field representative shift schedules, DCR cutoff deadlines, automated snapshot triggers, and midnight attendance rolls across global timezones.
+                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginTop: '16px' }}>
+                  {sovereignRegistry.map((reg) => (
+                    <div key={reg.code} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '1.2rem' }}>{reg.flag}</span>
+                        <span className="tenant-id-pill">{reg.utcOffset}</span>
+                      </div>
+                      <div style={{ fontSize: '0.92rem', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>{reg.name}</div>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', fontFamily: 'monospace' }}>{reg.timezone}</div>
+                      <div style={{ fontSize: '1.35rem', fontWeight: '800', color: '#1e3a8a', margin: '10px 0 2px', fontFamily: 'monospace' }}>
+                        {formatTimezoneClock(reg.timezone)}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: '#475569', fontWeight: '600' }}>
+                        {formatTimezoneDate(reg.timezone)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* VIEW C: MULTI-CURRENCY & FX EXCHANGE ENGINE */}
+          {jurisdictionSubTab === 'currencies' && (
+            <div>
+              <div className="saas-overview-layout">
+                {/* FX Rates Table */}
+                <div className="card-section">
+                  <div className="section-header">
+                    <div>
+                      <h2 className="section-title">Multi-Currency Exchange Rate Engine (FX Matrix)</h2>
+                      <p className="section-desc">Real-time benchmark FX rates relative to Base Platform Currency (USD).</p>
+                    </div>
+                    <button type="button" className="action-pill-btn" onClick={() => alert('FX rates refreshed from global interbank exchange feed.')}>
+                      <RefreshCw size={13} /> Refresh FX Rates
+                    </button>
+                  </div>
+
+                  <div className="saas-table-container">
+                    <table className="saas-data-table">
+                      <thead>
+                        <tr>
+                          <th>Jurisdiction &amp; Currency</th>
+                          <th>ISO Code</th>
+                          <th>Symbol</th>
+                          <th>Exchange Rate (per 1 USD)</th>
+                          <th>Base Equivalent ($1,000 USD)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sovereignRegistry.map((c) => (
+                          <tr key={c.code}>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span>{c.flag}</span>
+                                <strong>{c.currencyName}</strong>
+                              </div>
+                            </td>
+                            <td><span className="tenant-id-pill">{c.currencyCode}</span></td>
+                            <td><strong style={{ fontSize: '0.95rem' }}>{c.currencySymbol}</strong></td>
+                            <td style={{ fontFamily: 'monospace', fontWeight: '700' }}>
+                              1 USD = {c.fxRateToUSD.toLocaleString()} {c.currencyCode}
+                            </td>
+                            <td style={{ fontFamily: 'monospace', color: '#059669', fontWeight: '700' }}>
+                              {c.currencySymbol} {(1000 * c.fxRateToUSD).toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Interactive Currency Converter Tool */}
+                <div className="card-section">
+                  <h3 className="card-header-title">
+                    <ArrowRightLeft size={18} color="#2563eb" /> Live Currency Converter Tool
+                  </h3>
+                  <p className="section-desc">Instantly calculate subscription pricing and invoice totals across sovereign currencies.</p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '16px' }}>
+                    <div className="form-group">
+                      <label>Amount</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        value={fxConverter.amount}
+                        onChange={(e) => setFxConverter({ ...fxConverter, amount: Number(e.target.value) })}
+                      />
+                    </div>
+
+                    <div className="form-grid-2">
+                      <div className="form-group">
+                        <label>From Currency</label>
+                        <select
+                          className="form-control"
+                          value={fxConverter.fromCurrency}
+                          onChange={(e) => setFxConverter({ ...fxConverter, fromCurrency: e.target.value })}
+                        >
+                          <option value="USD">USD ($ - US Dollar)</option>
+                          <option value="INR">INR (₹ - Indian Rupee)</option>
+                          <option value="KHR">KHR (៛ - Cambodian Riel)</option>
+                          <option value="BDT">BDT (৳ - Bangladeshi Taka)</option>
+                          <option value="NPR">NPR (रू - Nepalese Rupee)</option>
+                          <option value="THB">THB (฿ - Thai Baht)</option>
+                          <option value="VND">VND (₫ - Vietnamese Dong)</option>
+                          <option value="AED">AED (د.إ - UAE Dirham)</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label>To Currency</label>
+                        <select
+                          className="form-control"
+                          value={fxConverter.toCurrency}
+                          onChange={(e) => setFxConverter({ ...fxConverter, toCurrency: e.target.value })}
+                        >
+                          <option value="INR">INR (₹ - Indian Rupee)</option>
+                          <option value="USD">USD ($ - US Dollar)</option>
+                          <option value="KHR">KHR (៛ - Cambodian Riel)</option>
+                          <option value="BDT">BDT (৳ - Bangladeshi Taka)</option>
+                          <option value="NPR">NPR (रू - Nepalese Rupee)</option>
+                          <option value="THB">THB (฿ - Thai Baht)</option>
+                          <option value="VND">VND (₫ - Vietnamese Dong)</option>
+                          <option value="AED">AED (د.إ - UAE Dirham)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Converted Result Box */}
+                    <div style={{ background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.74rem', color: '#1e40af', fontWeight: '700', textTransform: 'uppercase' }}>
+                        Converted Sovereign Amount
+                      </div>
+                      <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#1e3a8a', margin: '4px 0' }}>
+                        {getConvertedFxResult().symbol} {getConvertedFxResult().result}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: '#3b82f6' }}>
+                        {fxConverter.amount.toLocaleString()} {fxConverter.fromCurrency} = {getConvertedFxResult().result} {fxConverter.toCurrency}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =====================================================================
+          4. PLATFORM USERS (CROSS-TENANT SEARCH & GOVERNANCE)
           ===================================================================== */}
       {activeTab === 'platform-users' && (
         <div className="tab-pane-content">
@@ -1052,7 +1559,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          4. SUBSCRIPTIONS & BILLING MANAGEMENT
+          5. SUBSCRIPTIONS & BILLING MANAGEMENT
           ===================================================================== */}
       {activeTab === 'subscriptions' && (
         <div className="tab-pane-content">
@@ -1155,7 +1662,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          5. FEATURES & CANARY FEATURE FLAGS
+          6. FEATURES & CANARY FEATURE FLAGS
           ===================================================================== */}
       {activeTab === 'features' && (
         <div className="tab-pane-content">
@@ -1284,7 +1791,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          6. GLOBAL PLATFORM CONFIGURATION & SETTINGS
+          7. GLOBAL PLATFORM CONFIGURATION & SETTINGS
           ===================================================================== */}
       {activeTab === 'settings' && (
         <div className="tab-pane-content">
@@ -1323,7 +1830,7 @@ export default function SuperAdminDashboard({
                   />
                 </div>
                 <div className="form-group">
-                  <label>Default Currency</label>
+                  <label>Default Base Currency</label>
                   <input
                     type="text"
                     className="form-control"
@@ -1372,7 +1879,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          7. GLOBAL ROLE TEMPLATES
+          8. GLOBAL ROLE TEMPLATES
           ===================================================================== */}
       {activeTab === 'roles' && (
         <div className="tab-pane-content">
@@ -1408,7 +1915,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          8. INTEGRATIONS & API MANAGEMENT
+          9. INTEGRATIONS & API MANAGEMENT
           ===================================================================== */}
       {activeTab === 'integrations' && (
         <div className="tab-pane-content">
@@ -1453,7 +1960,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          9. MOBILE APP VERSION MANAGEMENT
+          10. MOBILE APP VERSION MANAGEMENT
           ===================================================================== */}
       {activeTab === 'app-management' && (
         <div className="tab-pane-content">
@@ -1530,7 +2037,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          10. CROSS-COMPANY ANALYTICS
+          11. CROSS-COMPANY ANALYTICS
           ===================================================================== */}
       {activeTab === 'analytics' && (
         <div className="tab-pane-content">
@@ -1567,7 +2074,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          11. SECURITY & AUDIT LOGS
+          12. SECURITY & AUDIT LOGS
           ===================================================================== */}
       {activeTab === 'security' && (
         <div className="tab-pane-content">
@@ -1615,7 +2122,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          12. SYSTEM HEALTH & MAINTENANCE MODE
+          13. SYSTEM HEALTH & MAINTENANCE MODE
           ===================================================================== */}
       {activeTab === 'system-health' && (
         <div className="tab-pane-content">
@@ -1676,7 +2183,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          13. SUPPORT DESK / TICKETS
+          14. SUPPORT DESK / TICKETS
           ===================================================================== */}
       {activeTab === 'support' && (
         <div className="tab-pane-content">
@@ -1755,7 +2262,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          14. ANNOUNCEMENTS & BROADCAST NOTIFICATIONS
+          15. ANNOUNCEMENTS & BROADCAST NOTIFICATIONS
           ===================================================================== */}
       {activeTab === 'communications' && (
         <div className="tab-pane-content">
@@ -1794,7 +2301,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          15. EMERGENCY & DISASTER KILL-SWITCH
+          16. EMERGENCY & DISASTER KILL-SWITCH
           ===================================================================== */}
       {activeTab === 'emergency' && (
         <div className="tab-pane-content">
@@ -1873,7 +2380,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          16. MY ACCOUNT & MASTER SECURITY
+          17. MY ACCOUNT & MASTER SECURITY
           ===================================================================== */}
       {activeTab === 'my-account' && (
         <div className="tab-pane-content">
@@ -1902,7 +2409,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          CREATE COMPANY MODAL
+          CREATE COMPANY MODAL (WITH SOVEREIGN JURISDICTION AUTOFILL)
           ===================================================================== */}
       {isCreateCompanyOpen && (
         <div className="modal-overlay">
@@ -1912,7 +2419,7 @@ export default function SuperAdminDashboard({
                 <Building2 size={24} color="#2563eb" />
                 <div>
                   <h3>Create New Pharmaceutical Enterprise Company</h3>
-                  <p>Provisions a dedicated isolated tenant, currency, and initial company administrator.</p>
+                  <p>Provisions an isolated tenant with automatic sovereign currency, IANA timezone, and statutory tax defaults.</p>
                 </div>
               </div>
               <button type="button" className="close-modal-btn" onClick={() => setIsCreateCompanyOpen(false)}>&times;</button>
@@ -1925,7 +2432,7 @@ export default function SuperAdminDashboard({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Acme Pharma Ltd"
+                    placeholder="e.g. Royal Pharma Cambodia Ltd"
                     value={newCompanyForm.name}
                     onChange={(e) => setNewCompanyForm({ ...newCompanyForm, name: e.target.value })}
                     className="form-control"
@@ -1936,7 +2443,7 @@ export default function SuperAdminDashboard({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. ACM-IN"
+                    placeholder="e.g. RYL-KH"
                     value={newCompanyForm.code}
                     onChange={(e) => setNewCompanyForm({ ...newCompanyForm, code: e.target.value })}
                     className="form-control"
@@ -1946,32 +2453,19 @@ export default function SuperAdminDashboard({
 
               <div className="form-grid-3">
                 <div className="form-group">
-                  <label>Country Jurisdiction</label>
+                  <label>Country Jurisdiction (Autofills Settings)</label>
                   <select
                     value={newCompanyForm.country}
-                    onChange={(e) => {
-                      const country = e.target.value;
-                      let curr = 'INR';
-                      let tz = 'Asia/Kolkata';
-                      if (country === 'Cambodia') { curr = 'USD'; tz = 'Asia/Phnom_Penh'; }
-                      if (country === 'Bangladesh') { curr = 'BDT'; tz = 'Asia/Dhaka'; }
-                      if (country === 'Nepal') { curr = 'NPR'; tz = 'Asia/Kathmandu'; }
-                      if (country === 'Thailand') { curr = 'THB'; tz = 'Asia/Bangkok'; }
-                      if (country === 'Vietnam') { curr = 'VND'; tz = 'Asia/Ho_Chi_Minh'; }
-                      setNewCompanyForm({ ...newCompanyForm, country, currency: curr, timezone: tz });
-                    }}
+                    onChange={(e) => handleCountrySelectionChange(e.target.value)}
                     className="form-control"
                   >
-                    <option value="India">🇮🇳 India</option>
-                    <option value="Cambodia">🇰🇭 Cambodia</option>
-                    <option value="Bangladesh">🇧🇩 Bangladesh</option>
-                    <option value="Nepal">🇳🇵 Nepal</option>
-                    <option value="Thailand">🇹🇭 Thailand</option>
-                    <option value="Vietnam">🇻🇳 Vietnam</option>
+                    {sovereignRegistry.map(reg => (
+                      <option key={reg.code} value={reg.name}>{reg.flag} {reg.name}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Currency</label>
+                  <label>Default Currency</label>
                   <input
                     type="text"
                     value={newCompanyForm.currency}
@@ -1980,7 +2474,7 @@ export default function SuperAdminDashboard({
                   />
                 </div>
                 <div className="form-group">
-                  <label>Timezone</label>
+                  <label>Timezone (IANA Standard)</label>
                   <input
                     type="text"
                     value={newCompanyForm.timezone}

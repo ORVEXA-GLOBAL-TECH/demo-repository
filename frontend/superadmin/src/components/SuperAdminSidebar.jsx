@@ -2,6 +2,7 @@ import React from 'react';
 import {
   Activity,
   Building2,
+  Globe2,
   Users,
   CreditCard,
   Layers,
@@ -26,35 +27,36 @@ export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
       items: [
         { id: 'dashboard', label: '1. Platform Dashboard', icon: Activity },
         { id: 'companies', label: '2. Company / Tenants', icon: Building2 },
-        { id: 'platform-users', label: '3. Platform Users', icon: Users },
-        { id: 'subscriptions', label: '4. Subscriptions & Billing', icon: CreditCard }
+        { id: 'jurisdictions', label: '3. Countries, Timezones & FX', icon: Globe2 },
+        { id: 'platform-users', label: '4. Platform Users', icon: Users },
+        { id: 'subscriptions', label: '5. Subscriptions & Billing', icon: CreditCard }
       ]
     },
     {
       label: 'Configuration & Control',
       items: [
-        { id: 'features', label: '5. Features & Rollouts', icon: Layers },
-        { id: 'settings', label: '6. Global Settings', icon: Settings },
-        { id: 'roles', label: '7. Role Templates', icon: ShieldCheck },
-        { id: 'integrations', label: '8. Integrations & APIs', icon: Radio },
-        { id: 'app-management', label: '9. App Version Control', icon: Smartphone }
+        { id: 'features', label: '6. Features & Rollouts', icon: Layers },
+        { id: 'settings', label: '7. Global Settings', icon: Settings },
+        { id: 'roles', label: '8. Role Templates', icon: ShieldCheck },
+        { id: 'integrations', label: '9. Integrations & APIs', icon: Radio },
+        { id: 'app-management', label: '10. App Version Control', icon: Smartphone }
       ]
     },
     {
       label: 'Intelligence & Operations',
       items: [
-        { id: 'analytics', label: '10. Platform Analytics', icon: BarChart3 },
-        { id: 'security', label: '11. Security & Audit Logs', icon: Lock },
-        { id: 'system-health', label: '12. System Health & Maintenance', icon: Server },
-        { id: 'support', label: '13. Support Desk', icon: LifeBuoy },
-        { id: 'communications', label: '14. Announcements', icon: Megaphone }
+        { id: 'analytics', label: '11. Platform Analytics', icon: BarChart3 },
+        { id: 'security', label: '12. Security & Audit Logs', icon: Lock },
+        { id: 'system-health', label: '13. System Health & Maintenance', icon: Server },
+        { id: 'support', label: '14. Support Desk', icon: LifeBuoy },
+        { id: 'communications', label: '15. Announcements', icon: Megaphone }
       ]
     },
     {
       label: 'Master Admin',
       items: [
-        { id: 'emergency', label: '15. Emergency Kill-Switch', icon: AlertOctagon, isDanger: true },
-        { id: 'my-account', label: '16. My Account & Security', icon: UserCircle }
+        { id: 'emergency', label: '16. Emergency Kill-Switch', icon: AlertOctagon, isDanger: true },
+        { id: 'my-account', label: '17. My Account & Security', icon: UserCircle }
       ]
     }
   ];

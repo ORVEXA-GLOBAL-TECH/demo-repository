@@ -64,20 +64,21 @@ function MainSuperAdminApp() {
     switch (activeTab) {
       case 'dashboard': return '1. Platform Dashboard // Master Multi-Tenant Overview';
       case 'companies': return '2. Company / Tenant Governance & Lifecycle';
-      case 'platform-users': return '3. Platform Users & Cross-Tenant Directory';
-      case 'subscriptions': return '4. Subscriptions, Invoicing & Monetization';
-      case 'features': return '5. Feature Governance & Canary Feature Flags';
-      case 'settings': return '6. Global Platform Configuration & Defaults';
-      case 'roles': return '7. Global Role Templates & Access Matrices';
-      case 'integrations': return '8. Enterprise Integrations & API Management';
-      case 'app-management': return '9. Mobile App Version Control & Force Updates';
-      case 'analytics': return '10. Cross-Company Telemetry & Usage Analytics';
-      case 'security': return '11. Security Governance & Immutable Audit Logs';
-      case 'system-health': return '12. System Health, Microservices & Maintenance Mode';
-      case 'support': return '13. Cross-Company Support Desk & Tickets';
-      case 'communications': return '14. Global Announcements & Notifications';
-      case 'emergency': return '15. Disaster & Emergency Platform Kill-Switch';
-      case 'my-account': return '16. My Master Administrator Account';
+      case 'jurisdictions': return '3. Multi-Country, Multi-Timezone & Multi-Currency FX Engine';
+      case 'platform-users': return '4. Platform Users & Cross-Tenant Directory';
+      case 'subscriptions': return '5. Subscriptions, Invoicing & Monetization';
+      case 'features': return '6. Feature Governance & Canary Feature Flags';
+      case 'settings': return '7. Global Platform Configuration & Defaults';
+      case 'roles': return '8. Global Role Templates & Access Matrices';
+      case 'integrations': return '9. Enterprise Integrations & API Management';
+      case 'app-management': return '10. Mobile App Version Control & Force Updates';
+      case 'analytics': return '11. Cross-Company Telemetry & Usage Analytics';
+      case 'security': return '12. Security Governance & Immutable Audit Logs';
+      case 'system-health': return '13. System Health, Microservices & Maintenance Mode';
+      case 'support': return '14. Cross-Company Support Desk & Tickets';
+      case 'communications': return '15. Global Announcements & Notifications';
+      case 'emergency': return '16. Disaster & Emergency Platform Kill-Switch';
+      case 'my-account': return '17. My Master Administrator Account';
       default: return 'Orvexa Super Admin Governance Suite';
     }
   };
