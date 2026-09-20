@@ -70,7 +70,11 @@ import {
   UserPlus,
   Info,
   PlayCircle,
-  StopCircle
+  StopCircle,
+  TrendingUp,
+  TrendingDown,
+  RefreshCcw,
+  Award
 } from 'lucide-react';
 
 import {
@@ -90,6 +94,11 @@ import {
   deletePlatformUser,
   toggleUserStatus,
   resetUserPassword,
+  forceLogoutUser,
+  toggleUserLock,
+  updateUserPermissions,
+  getUserActivity,
+  getUserLoginHistory,
   getSovereignCountries,
   createCountry,
   updateCountry,
@@ -98,6 +107,14 @@ import {
   createSubscription,
   updateSubscription,
   deleteSubscription,
+  getPlans,
+  createPlan,
+  updatePlan,
+  deletePlan,
+  upgradeDowngradePlan,
+  renewSubscription,
+  configureSubscriptionDates,
+  processSubscriptionExpiries,
   getAuditLogs,
   createAuditLog,
   getSystemAlerts,
@@ -538,12 +555,94 @@ export default function SuperAdminDashboard({
   const [companies, setCompanies] = useState([]);
   const [admins, setAdmins] = useState([]);
   const [platformUsers, setPlatformUsers] = useState([]);
+  const [plans, setPlans] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [systemAlerts, setSystemAlerts] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
   const [supportTickets, setSupportTickets] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [sovereignRegistry, setSovereignRegistry] = useState(DEFAULT_SOVEREIGN_REGISTRY);
+
+  // --------------------------------------------------------------------------
+  // PLAN MANAGEMENT & ADVANCED SUBSCRIPTION STATES
+  // --------------------------------------------------------------------------
+  const [isCreatePlanOpen, setIsCreatePlanOpen] = useState(false);
+  const [isEditPlanOpen, setIsEditPlanOpen] = useState(false);
+  const [isDeletePlanOpen, setIsDeletePlanOpen] = useState(false);
+  const [deletingPlan, setDeletingPlan] = useState(null);
+  const [newPlanForm, setNewPlanForm] = useState({
+    code: '',
+    name: '',
+    description: '',
+    tier: 'STARTER',
+    priceMonthly: 100,
+    priceYearly: 1000,
+    trialDays: 14,
+    gracePeriodDays: 7,
+    featuresText: 'Unlimited Field Users & Admins\nCore MR Daily Call Reports\nChemist Order Booking (POB)\nProduct Catalog & Samples',
+    isActive: true,
+    isCustom: false
+  });
+  const [editingPlanForm, setEditingPlanForm] = useState({
+    id: '',
+    code: '',
+    name: '',
+    description: '',
+    tier: 'STARTER',
+    priceMonthly: 100,
+    priceYearly: 1000,
+    trialDays: 14,
+    gracePeriodDays: 7,
+    featuresText: '',
+    isActive: true,
+    isCustom: false
+  });
+
+  // Upgrade & Downgrade Modal State
+  const [isUpgradeDowngradeOpen, setIsUpgradeDowngradeOpen] = useState(false);
+  const [upgradeTargetCompany, setUpgradeTargetCompany] = useState(null);
+  const [upgradeForm, setUpgradeForm] = useState({
+    targetTier: 'PROFESSIONAL',
+    actionType: 'UPGRADE',
+    customRate: 0,
+    isCustomPricing: false,
+    billingInterval: 'Monthly',
+    reason: 'Super Admin tier upgrade'
+  });
+
+  // Renewal Modal State
+  const [isRenewSubOpen, setIsRenewSubOpen] = useState(false);
+  const [renewTargetCompany, setRenewTargetCompany] = useState(null);
+  const [renewForm, setRenewForm] = useState({
+    durationMonths: 12,
+    additionalDays: 0,
+    newExpiryDate: '',
+    amountBilled: 0,
+    notes: 'Super Admin manual renewal'
+  });
+
+  // Dates & Grace Period Configuration Modal State
+  const [isConfigDatesOpen, setIsConfigDatesOpen] = useState(false);
+  const [configTargetCompany, setConfigTargetCompany] = useState(null);
+  const [configDatesForm, setConfigDatesForm] = useState({
+    subscriptionStartAt: '',
+    subscriptionEndAt: '',
+    trialStartAt: '',
+    trialEndAt: '',
+    gracePeriodDays: 7,
+    autoSuspendAfterGrace: true,
+    status: 'Active',
+    planTier: 'STARTER'
+  });
+
+  // Batch Auto-Suspend Expiry Processing Modal State
+  const [isProcessExpiriesOpen, setIsProcessExpiriesOpen] = useState(false);
+  const [processExpiriesResult, setProcessExpiriesResult] = useState({
+    loading: false,
+    message: '',
+    suspendedCount: 0,
+    suspendedCompanies: []
+  });
 
   // Active Multi-Currency Display Setting
   const [selectedDisplayCurrency, setSelectedDisplayCurrency] = useState('USD');
@@ -570,14 +669,19 @@ export default function SuperAdminDashboard({
   // --------------------------------------------------------------------------
   const loadAllData = async () => {
     try {
-      const [tenantsRes, usersRes, countriesRes, subsRes, alertsRes, auditRes] = await Promise.allSettled([
+      const [tenantsRes, usersRes, countriesRes, subsRes, alertsRes, auditRes, plansRes] = await Promise.allSettled([
         getTenants(),
         getPlatformUsers(),
         getSovereignCountries(),
         getSubscriptions(),
         getSystemAlerts(),
-        getAuditLogs(30)
+        getAuditLogs(30),
+        getPlans()
       ]);
+
+      if (plansRes.status === 'fulfilled' && Array.isArray(plansRes.value)) {
+        setPlans(plansRes.value);
+      }
 
       if (tenantsRes.status === 'fulfilled' && Array.isArray(tenantsRes.value)) {
         const mappedCompanies = tenantsRes.value.map(t => {
@@ -620,6 +724,10 @@ export default function SuperAdminDashboard({
             trialEndAt: t.trial_end_at,
             subscriptionStartAt: t.subscription_start_at,
             subscriptionEndAt: t.subscription_end_at,
+            gracePeriodDays: t.grace_period_days !== undefined ? t.grace_period_days : 7,
+            autoSuspendAfterGrace: t.auto_suspend_after_grace !== false,
+            lastRenewedAt: t.last_renewed_at,
+            renewalCount: t.renewal_count || 0,
             renewalDate: t.subscription_end_at ? new Date(t.subscription_end_at).toISOString().split('T')[0] : (t.trial_end_at ? new Date(t.trial_end_at).toISOString().split('T')[0] : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
             modules: t.settings?.modules || {
               mrReporting: true,
@@ -653,6 +761,18 @@ export default function SuperAdminDashboard({
           tenantId: u.tenant_id,
           role: u.role || 'COMPANY_ADMIN',
           status: (u.status || 'Active').toUpperCase(),
+          isLocked: Boolean(u.is_locked || u.status?.toUpperCase() === 'LOCKED'),
+          lockReason: u.lock_reason || '',
+          permissions: typeof u.permissions === 'object' && u.permissions ? u.permissions : {
+            manage_users: true,
+            manage_products: true,
+            manage_orders: true,
+            manage_doctors: true,
+            manage_dcr: true,
+            view_analytics: true,
+            export_data: true,
+            manage_settings: true
+          },
           territory: u.territory || 'Global HQ',
           countryCode: u.country_code || 'IN',
           lastLogin: u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : 'Never logged in'
@@ -790,6 +910,33 @@ export default function SuperAdminDashboard({
   const [isResetUserPasswordOpen, setIsResetUserPasswordOpen] = useState(false);
   const [resetUserPasswordTarget, setResetUserPasswordTarget] = useState(null);
   const [newUserPasswordInput, setNewUserPasswordInput] = useState('');
+
+  const [isLockUserOpen, setIsLockUserOpen] = useState(false);
+  const [lockUserTarget, setLockUserTarget] = useState(null);
+  const [lockReasonInput, setLockReasonInput] = useState('');
+
+  const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
+  const [permissionsTarget, setPermissionsTarget] = useState(null);
+  const [userPermissionsForm, setUserPermissionsForm] = useState({
+    manage_users: true,
+    manage_products: true,
+    manage_orders: true,
+    manage_doctors: true,
+    manage_dcr: true,
+    view_analytics: true,
+    export_data: true,
+    manage_settings: true
+  });
+
+  const [isUserActivityOpen, setIsUserActivityOpen] = useState(false);
+  const [activityTargetUser, setActivityTargetUser] = useState(null);
+  const [userActivitiesList, setUserActivitiesList] = useState([]);
+  const [isActivitiesLoading, setIsActivitiesLoading] = useState(false);
+
+  const [isUserLoginHistoryOpen, setIsUserLoginHistoryOpen] = useState(false);
+  const [loginHistoryTargetUser, setLoginHistoryTargetUser] = useState(null);
+  const [userLoginHistoryList, setUserLoginHistoryList] = useState([]);
+  const [isLoginHistoryLoading, setIsLoginHistoryLoading] = useState(false);
 
   const [isCreateCountryOpen, setIsCreateCountryOpen] = useState(false);
   const [isEditCountryOpen, setIsEditCountryOpen] = useState(false);
@@ -1271,6 +1418,292 @@ export default function SuperAdminDashboard({
     }
   };
 
+  // --------------------------------------------------------------------------
+  // PLAN MANAGEMENT HANDLERS (Create, Edit, Delete)
+  // --------------------------------------------------------------------------
+  const handleCreatePlan = async (e) => {
+    e.preventDefault();
+    if (!newPlanForm.code.trim() || !newPlanForm.name.trim()) {
+      showToast('Plan code and name are required.', 'error');
+      return;
+    }
+
+    try {
+      const featuresArray = newPlanForm.featuresText
+        ? newPlanForm.featuresText.split('\n').map(f => f.trim()).filter(Boolean)
+        : [];
+
+      await createPlan({
+        code: newPlanForm.code,
+        name: newPlanForm.name,
+        description: newPlanForm.description,
+        tier: newPlanForm.tier,
+        priceMonthly: Number(newPlanForm.priceMonthly) || 0,
+        priceYearly: Number(newPlanForm.priceYearly) || 0,
+        trialDays: Number(newPlanForm.trialDays) || 14,
+        gracePeriodDays: Number(newPlanForm.gracePeriodDays) || 7,
+        features: featuresArray,
+        isActive: newPlanForm.isActive,
+        isCustom: newPlanForm.isCustom
+      });
+
+      showToast(`SaaS Plan "${newPlanForm.name}" created successfully!`, 'success');
+      logAudit('PLAN_CREATED', `Created plan ${newPlanForm.name} (${newPlanForm.code})`, newPlanForm.name);
+      setIsCreatePlanOpen(false);
+      loadAllData();
+      setNewPlanForm({
+        code: '',
+        name: '',
+        description: '',
+        tier: 'STARTER',
+        priceMonthly: 100,
+        priceYearly: 1000,
+        trialDays: 14,
+        gracePeriodDays: 7,
+        featuresText: 'Unlimited Field Users & Admins\nCore MR Daily Call Reports\nChemist Order Booking (POB)\nProduct Catalog & Samples',
+        isActive: true,
+        isCustom: false
+      });
+    } catch (err) {
+      showToast(`Failed to create plan: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenEditPlan = (plan) => {
+    setEditingPlanForm({
+      id: plan.id,
+      code: plan.code,
+      name: plan.name,
+      description: plan.description || '',
+      tier: plan.tier || 'STARTER',
+      priceMonthly: plan.price_monthly !== undefined ? plan.price_monthly : (plan.priceMonthly || 0),
+      priceYearly: plan.price_yearly !== undefined ? plan.price_yearly : (plan.priceYearly || 0),
+      trialDays: plan.trial_days !== undefined ? plan.trial_days : (plan.trialDays || 14),
+      gracePeriodDays: plan.grace_period_days !== undefined ? plan.grace_period_days : (plan.gracePeriodDays || 7),
+      featuresText: Array.isArray(plan.features) ? plan.features.join('\n') : (plan.features || ''),
+      isActive: plan.is_active !== undefined ? plan.is_active : true,
+      isCustom: plan.is_custom || false
+    });
+    setIsEditPlanOpen(true);
+  };
+
+  const handleUpdatePlan = async (e) => {
+    e.preventDefault();
+    if (!editingPlanForm.name.trim()) {
+      showToast('Plan name is required.', 'error');
+      return;
+    }
+
+    try {
+      const featuresArray = editingPlanForm.featuresText
+        ? editingPlanForm.featuresText.split('\n').map(f => f.trim()).filter(Boolean)
+        : [];
+
+      await updatePlan(editingPlanForm.id || editingPlanForm.code, {
+        name: editingPlanForm.name,
+        description: editingPlanForm.description,
+        tier: editingPlanForm.tier,
+        priceMonthly: Number(editingPlanForm.priceMonthly) || 0,
+        priceYearly: Number(editingPlanForm.priceYearly) || 0,
+        trialDays: Number(editingPlanForm.trialDays) || 14,
+        gracePeriodDays: Number(editingPlanForm.gracePeriodDays) || 7,
+        features: featuresArray,
+        isActive: editingPlanForm.isActive,
+        isCustom: editingPlanForm.isCustom
+      });
+
+      showToast(`Plan "${editingPlanForm.name}" updated successfully!`, 'success');
+      logAudit('PLAN_UPDATED', `Updated plan ${editingPlanForm.name}`, editingPlanForm.name);
+      setIsEditPlanOpen(false);
+      loadAllData();
+    } catch (err) {
+      showToast(`Failed to update plan: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenDeletePlan = (plan) => {
+    setDeletingPlan(plan);
+    setIsDeletePlanOpen(true);
+  };
+
+  const handleConfirmDeletePlan = async () => {
+    if (!deletingPlan) return;
+    try {
+      await deletePlan(deletingPlan.id || deletingPlan.code);
+      showToast(`Plan "${deletingPlan.name}" removed successfully!`, 'success');
+      logAudit('PLAN_DELETED', `Deleted plan ${deletingPlan.name}`, deletingPlan.name);
+      setIsDeletePlanOpen(false);
+      setDeletingPlan(null);
+      loadAllData();
+    } catch (err) {
+      showToast(`Failed to delete plan: ${err.message}`, 'error');
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // ADVANCED SUBSCRIPTION LIFECYCLE HANDLERS
+  // --------------------------------------------------------------------------
+  const handleOpenUpgradeDowngrade = (company, forcedAction = null) => {
+    setUpgradeTargetCompany(company);
+    const action = forcedAction || (company.plan === 'ENTERPRISE' ? 'DOWNGRADE' : 'UPGRADE');
+    const target = action === 'UPGRADE'
+      ? (company.plan === 'STARTER' || company.plan === 'FREE_TRIAL' ? 'PROFESSIONAL' : 'ENTERPRISE')
+      : (company.plan === 'ENTERPRISE' ? 'PROFESSIONAL' : 'STARTER');
+
+    setUpgradeForm({
+      targetTier: target,
+      actionType: action,
+      customRate: company.customRate || company.customMRR || 0,
+      isCustomPricing: company.isCustomPricing || false,
+      billingInterval: 'Monthly',
+      reason: `Super Admin ${action.toLowerCase()} for ${company.name}`
+    });
+    setIsUpgradeDowngradeOpen(true);
+  };
+
+  const handleConfirmUpgradeDowngrade = async (e) => {
+    e.preventDefault();
+    if (!upgradeTargetCompany) return;
+
+    try {
+      await upgradeDowngradePlan({
+        tenantId: upgradeTargetCompany.id,
+        newPlanTier: upgradeForm.targetTier,
+        actionType: upgradeForm.actionType,
+        customRate: upgradeForm.customRate,
+        isCustomPricing: upgradeForm.isCustomPricing || upgradeForm.targetTier === 'CUSTOM',
+        billingInterval: upgradeForm.billingInterval,
+        reason: upgradeForm.reason
+      });
+
+      showToast(`Company ${upgradeTargetCompany.name} successfully ${upgradeForm.actionType.toLowerCase()}d to ${upgradeForm.targetTier}!`, 'success');
+      logAudit(
+        upgradeForm.actionType === 'UPGRADE' ? 'PLAN_UPGRADED' : 'PLAN_DOWNGRADED',
+        `${upgradeForm.actionType}d ${upgradeTargetCompany.name} from ${upgradeTargetCompany.plan} to ${upgradeForm.targetTier}`,
+        upgradeTargetCompany.name
+      );
+      setIsUpgradeDowngradeOpen(false);
+      setUpgradeTargetCompany(null);
+      loadAllData();
+    } catch (err) {
+      showToast(`Failed to modify tier: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenRenewSub = (company) => {
+    setRenewTargetCompany(company);
+    const currentRate = typeof company.mrr === 'string' && company.mrr.includes('$')
+      ? Number(company.mrr.replace(/[^0-9.]/g, '')) || 100
+      : (company.customMRR || 100);
+
+    setRenewForm({
+      durationMonths: 12,
+      additionalDays: 0,
+      newExpiryDate: '',
+      amountBilled: currentRate * 12,
+      notes: 'Super Admin annual renewal'
+    });
+    setIsRenewSubOpen(true);
+  };
+
+  const handleConfirmRenewSub = async (e) => {
+    e.preventDefault();
+    if (!renewTargetCompany) return;
+
+    try {
+      await renewSubscription({
+        tenantId: renewTargetCompany.id,
+        durationMonths: Number(renewForm.durationMonths) || 12,
+        additionalDays: Number(renewForm.additionalDays) || 0,
+        newExpiryDate: renewForm.newExpiryDate || undefined,
+        amountBilled: Number(renewForm.amountBilled) || 0,
+        notes: renewForm.notes
+      });
+
+      showToast(`Subscription renewed successfully for "${renewTargetCompany.name}"!`, 'success');
+      logAudit('SUBSCRIPTION_RENEWED', `Renewed subscription for ${renewTargetCompany.name}`, renewTargetCompany.name);
+      setIsRenewSubOpen(false);
+      setRenewTargetCompany(null);
+      loadAllData();
+    } catch (err) {
+      showToast(`Failed to renew subscription: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenConfigDates = (company) => {
+    setConfigTargetCompany(company);
+    const isTrial = company.plan === 'FREE_TRIAL' || company.plan === 'TRIAL' || company.status === 'TRIAL';
+
+    setConfigDatesForm({
+      subscriptionStartAt: toLocalInputDateTime(company.subscriptionStartAt || new Date()),
+      subscriptionEndAt: toLocalInputDateTime(company.subscriptionEndAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)),
+      trialStartAt: toLocalInputDateTime(company.trialStartAt || new Date()),
+      trialEndAt: toLocalInputDateTime(company.trialEndAt || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)),
+      gracePeriodDays: company.gracePeriodDays !== undefined ? company.gracePeriodDays : 7,
+      autoSuspendAfterGrace: company.autoSuspendAfterGrace !== false,
+      status: company.status,
+      planTier: company.plan
+    });
+    setIsConfigDatesOpen(true);
+  };
+
+  const handleConfirmConfigDates = async (e) => {
+    e.preventDefault();
+    if (!configTargetCompany) return;
+
+    try {
+      const isTrial = configDatesForm.planTier === 'FREE_TRIAL' || configDatesForm.planTier === 'TRIAL' || configDatesForm.status === 'TRIAL';
+
+      await configureSubscriptionDates({
+        tenantId: configTargetCompany.id,
+        subscriptionStartAt: !isTrial ? new Date(configDatesForm.subscriptionStartAt).toISOString() : null,
+        subscriptionEndAt: !isTrial ? new Date(configDatesForm.subscriptionEndAt).toISOString() : null,
+        trialStartAt: isTrial ? new Date(configDatesForm.trialStartAt).toISOString() : null,
+        trialEndAt: isTrial ? new Date(configDatesForm.trialEndAt).toISOString() : null,
+        gracePeriodDays: Number(configDatesForm.gracePeriodDays) || 7,
+        autoSuspendAfterGrace: Boolean(configDatesForm.autoSuspendAfterGrace),
+        planTier: configDatesForm.planTier,
+        status: configDatesForm.status
+      });
+
+      showToast(`Subscription dates & grace policy updated for ${configTargetCompany.name}!`, 'success');
+      logAudit('SUBSCRIPTION_DATES_CONFIGURED', `Configured dates & grace period for ${configTargetCompany.name}`, configTargetCompany.name);
+      setIsConfigDatesOpen(false);
+      setConfigTargetCompany(null);
+      loadAllData();
+    } catch (err) {
+      showToast(`Failed to update dates: ${err.message}`, 'error');
+    }
+  };
+
+  const handleProcessExpiries = async () => {
+    setProcessExpiriesResult({ loading: true, message: 'Analyzing account subscriptions & grace periods...', suspendedCount: 0, suspendedCompanies: [] });
+    setIsProcessExpiriesOpen(true);
+
+    try {
+      const res = await processSubscriptionExpiries();
+      setProcessExpiriesResult({
+        loading: false,
+        message: res.message || 'Expiries processed successfully.',
+        suspendedCount: res.suspendedCount || 0,
+        suspendedCompanies: res.suspendedCompanies || []
+      });
+      if (res.suspendedCount > 0) {
+        showToast(`${res.suspendedCount} expired account(s) automatically suspended after grace period.`, 'warning');
+      } else {
+        showToast('All tenant subscriptions and grace periods are in good standing.', 'success');
+      }
+      loadAllData();
+    } catch (err) {
+      setProcessExpiriesResult({
+        loading: false,
+        message: `Error executing batch expiry processor: ${err.message}`,
+        suspendedCount: 0,
+        suspendedCompanies: []
+      });
+    }
+  };
+
   const handleImpersonateCompany = async (company) => {
     try {
       const res = await impersonateTenant(company.id, 'Super Admin Governance Session');
@@ -1463,6 +1896,101 @@ export default function SuperAdminDashboard({
       setPlatformUsers(prev => prev.filter(u => u.id !== deletingUser.id));
     } catch (err) {
       showToast(`Failed to delete user: ${err.message}`, 'error');
+    }
+  };
+
+  const handleForceLogoutUser = async (user) => {
+    if (!window.confirm(`Are you sure you want to force logout ${user.name || user.email}? All active sessions will be terminated immediately.`)) return;
+    try {
+      await forceLogoutUser(user.id);
+      showToast(`Force logout applied: All active sessions revoked for ${user.email}.`, 'success');
+      logAudit('USER_FORCED_LOGOUT', `Forcefully revoked sessions for ${user.email}`);
+    } catch (err) {
+      showToast(`Force logout failed: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenLockUser = (user) => {
+    setLockUserTarget(user);
+    setLockReasonInput(user.lockReason || (user.isLocked || user.status === 'LOCKED' ? '' : 'Security policy violation / Suspicious activity'));
+    setIsLockUserOpen(true);
+  };
+
+  const handleConfirmLockUser = async (e) => {
+    e.preventDefault();
+    if (!lockUserTarget) return;
+    const isCurrentlyLocked = lockUserTarget.isLocked || lockUserTarget.status === 'LOCKED' || lockUserTarget.status === 'Locked';
+    const newLockState = !isCurrentlyLocked;
+
+    try {
+      await toggleUserLock(lockUserTarget.id, newLockState, lockReasonInput);
+      const actionMsg = newLockState ? `Account ${lockUserTarget.email} locked.` : `Account ${lockUserTarget.email} unlocked.`;
+      showToast(actionMsg, 'success');
+      logAudit(newLockState ? 'USER_ACCOUNT_LOCKED' : 'USER_ACCOUNT_UNLOCKED', `${actionMsg} Reason: ${lockReasonInput}`);
+      setIsLockUserOpen(false);
+      setLockUserTarget(null);
+      setPlatformUsers(prev => prev.map(u => u.id === lockUserTarget.id ? { ...u, isLocked: newLockState, status: newLockState ? 'LOCKED' : 'ACTIVE', lockReason: lockReasonInput } : u));
+    } catch (err) {
+      showToast(`Failed to update account lock: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenUserPermissions = (user) => {
+    setPermissionsTarget(user);
+    const defaultPerms = {
+      manage_users: true,
+      manage_products: true,
+      manage_orders: true,
+      manage_doctors: true,
+      manage_dcr: true,
+      view_analytics: true,
+      export_data: true,
+      manage_settings: true
+    };
+    setUserPermissionsForm(user.permissions && typeof user.permissions === 'object' ? { ...defaultPerms, ...user.permissions } : defaultPerms);
+    setIsPermissionsModalOpen(true);
+  };
+
+  const handleSaveUserPermissions = async (e) => {
+    e.preventDefault();
+    if (!permissionsTarget) return;
+    try {
+      await updateUserPermissions(permissionsTarget.id, userPermissionsForm);
+      showToast(`Permissions updated for ${permissionsTarget.email}!`, 'success');
+      logAudit('USER_PERMISSIONS_CHANGED', `Updated granular permissions for ${permissionsTarget.email}`);
+      setIsPermissionsModalOpen(false);
+      setPermissionsTarget(null);
+      setPlatformUsers(prev => prev.map(u => u.id === permissionsTarget.id ? { ...u, permissions: userPermissionsForm } : u));
+    } catch (err) {
+      showToast(`Permission update error: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenUserActivity = async (user) => {
+    setActivityTargetUser(user);
+    setIsUserActivityOpen(true);
+    setIsActivitiesLoading(true);
+    try {
+      const logs = await getUserActivity(user.id);
+      setUserActivitiesList(Array.isArray(logs) ? logs : []);
+    } catch (err) {
+      console.warn('Activity fetch error:', err);
+    } finally {
+      setIsActivitiesLoading(false);
+    }
+  };
+
+  const handleOpenUserLoginHistory = async (user) => {
+    setLoginHistoryTargetUser(user);
+    setIsUserLoginHistoryOpen(true);
+    setIsLoginHistoryLoading(true);
+    try {
+      const history = await getUserLoginHistory(user.id);
+      setUserLoginHistoryList(Array.isArray(history) ? history : []);
+    } catch (err) {
+      console.warn('Login history fetch error:', err);
+    } finally {
+      setIsLoginHistoryLoading(false);
     }
   };
 
@@ -2679,6 +3207,73 @@ export default function SuperAdminDashboard({
                                 <button
                                   type="button"
                                   className="action-pill-btn"
+                                  onClick={() => handleOpenEditUser(user)}
+                                  title="Edit Administrator Profile"
+                                >
+                                  <Edit size={12} /> Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  style={{ color: '#0369a1', borderColor: '#bae6fd', background: '#f0f9ff' }}
+                                  onClick={() => handleOpenUserPermissions(user)}
+                                  title="Change Admin Permissions & RBAC"
+                                >
+                                  <Sliders size={12} /> Permissions
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  onClick={() => handleOpenResetUserPassword(user)}
+                                  title="Reset Administrator Password"
+                                >
+                                  <Key size={12} /> Reset Pwd
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  style={{ color: '#e11d48', borderColor: '#fecdd3', background: '#fff1f2' }}
+                                  onClick={() => handleForceLogoutUser(user)}
+                                  title="Force Logout / Revoke Active Sessions"
+                                >
+                                  <LogOut size={12} /> Force Logout
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  style={{ color: user.isLocked || user.status === 'LOCKED' ? '#059669' : '#d97706', borderColor: '#fde68a' }}
+                                  onClick={() => handleOpenLockUser(user)}
+                                  title={user.isLocked || user.status === 'LOCKED' ? 'Unlock Account' : 'Lock Account'}
+                                >
+                                  <Lock size={12} /> {user.isLocked || user.status === 'LOCKED' ? 'Unlock' : 'Lock'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  onClick={() => handleOpenUserActivity(user)}
+                                  title="View Admin Activity Log"
+                                >
+                                  <Activity size={12} /> Activity
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  onClick={() => handleOpenUserLoginHistory(user)}
+                                  title="View Admin Login History"
+                                >
+                                  <Clock size={12} /> Logins
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  onClick={() => handleToggleUserStatus(user.id, user.status, user.email)}
+                                  title="Activate / Deactivate Account"
+                                >
+                                  {user.status === 'ACTIVE' || user.status === 'Active' ? 'Deactivate' : 'Activate'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
                                   style={{ color: '#b45309', borderColor: '#fde68a', background: '#fffbeb' }}
                                   onClick={() => {
                                     setImpersonateTarget(user);
@@ -2688,41 +3283,18 @@ export default function SuperAdminDashboard({
                                 >
                                   <Eye size={12} /> Impersonate
                                 </button>
-                                <button
-                                  type="button"
-                                  className="action-pill-btn"
-                                  onClick={() => handleOpenEditUser(user)}
-                                  title="Edit Administrator"
-                                >
-                                  <Edit size={12} /> Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  className="action-pill-btn"
-                                  onClick={() => handleOpenResetUserPassword(user)}
-                                  title="Reset Password"
-                                >
-                                  <Key size={12} /> Pwd
-                                </button>
-                                <button
-                                  type="button"
-                                  className="action-pill-btn"
-                                  onClick={() => handleToggleUserStatus(user.id, user.status, user.email)}
-                                >
-                                  {user.status === 'ACTIVE' || user.status === 'Active' ? 'Suspend' : 'Activate'}
-                                </button>
                                 {user.role !== 'SUPER_ADMIN' && (
                                   <button
-                                  type="button"
-                                  className="action-pill-btn red"
-                                  onClick={() => handleOpenDeleteUser(user)}
-                                  title="Delete Administrator"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              )}
-                            </div>
-                          </td>
+                                    type="button"
+                                    className="action-pill-btn red"
+                                    onClick={() => handleOpenDeleteUser(user)}
+                                    title="Delete Administrator"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
                         </tr>
                       ))}
                     </tbody>
@@ -2836,122 +3408,288 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          5. SUBSCRIPTIONS & MONETIZATION (5 TIERS: FREE TRIAL, STARTER, PRO, ENTERPRISE, CUSTOM)
+          5. SUBSCRIPTIONS & MONETIZATION (PLANS CRUD & ADVANCED GOVERNANCE)
           ===================================================================== */}
       {activeTab === 'subscriptions' && (
         <div className="tab-pane-content">
-          <div className="subscription-plans-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-            {/* TIER 1: FREE TRIAL / DEMO */}
-            <div className="plan-card" style={{ borderColor: '#8b5cf6' }}>
-              <div className="plan-tier-name" style={{ color: '#7c3aed' }}>FREE TRIAL / DEMO</div>
-              <div className="plan-price">$0 <span>/ demo period</span></div>
-              <p className="plan-limits-desc">For pilot evaluation with custom duration</p>
-              <ul className="plan-perks-list">
-                <li>Unlimited Users &amp; Reps</li>
-                <li>Full Field DCR &amp; Route Logging</li>
-                <li>Chemist &amp; Doctor Directory</li>
-                <li>Configurable Start &amp; End Dates</li>
-              </ul>
-              <div className="plan-sub-count" style={{ background: '#f5f3ff', color: '#7c3aed' }}>
-                {companies.filter(c => c.plan === 'FREE_TRIAL' || c.plan === 'TRIAL').length} In Trial
-              </div>
+          <div className="pane-action-bar" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CreditCard size={22} color="#0284c7" /> SaaS Plans &amp; Subscription Governance
+              </h2>
+              <p className="section-desc">Create/edit plans, configure trial periods, grace periods, upgrades, renewals, and automated suspension.</p>
             </div>
-
-            {/* TIER 2: STARTER */}
-            <div className="plan-card">
-              <div className="plan-tier-name">STARTER</div>
-              <div className="plan-price">$100 <span>/ month</span></div>
-              <p className="plan-limits-desc">For small pharma distribution &amp; agencies</p>
-              <ul className="plan-perks-list">
-                <li>Unlimited Field Users &amp; Admins</li>
-                <li>Core MR Reporting &amp; DCR</li>
-                <li>Chemist Order Booking (POB)</li>
-                <li>Configurable Start &amp; End Dates</li>
-              </ul>
-              <div className="plan-sub-count">{companies.filter(c => c.plan === 'STARTER' || c.plan === 'BASIC').length} Enrolled</div>
-            </div>
-
-            {/* TIER 3: PROFESSIONAL */}
-            <div className="plan-card featured-plan">
-              <div className="featured-ribbon">POPULAR</div>
-              <div className="plan-tier-name">PROFESSIONAL</div>
-              <div className="plan-price">$1,000 <span>/ month</span></div>
-              <p className="plan-limits-desc">For regional pharmaceutical manufacturers</p>
-              <ul className="plan-perks-list">
-                <li>Unlimited Field Reps &amp; Managers</li>
-                <li>Full DCR + Tour Plans (MTP)</li>
-                <li>TA / DA Smart Expense Claims</li>
-                <li>Statutory Payroll &amp; Compliance</li>
-              </ul>
-              <div className="plan-sub-count">{companies.filter(c => c.plan === 'PROFESSIONAL' || c.plan === 'PRO').length} Enrolled</div>
-            </div>
-
-            {/* TIER 4: ENTERPRISE */}
-            <div className="plan-card">
-              <div className="plan-tier-name">ENTERPRISE</div>
-              <div className="plan-price">$2,500 <span>/ month</span></div>
-              <p className="plan-limits-desc">For multinational pharmaceutical conglomerates</p>
-              <ul className="plan-perks-list">
-                <li>Unlimited Field Reps &amp; GMs</li>
-                <li>Multi-Country Sovereign Isolation</li>
-                <li>AI Studio &amp; Prescription OCR</li>
-                <li>Priority SLA &amp; Global Support</li>
-              </ul>
-              <div className="plan-sub-count">{companies.filter(c => c.plan === 'ENTERPRISE').length} Enrolled</div>
-            </div>
-
-            {/* TIER 5: CUSTOM */}
-            <div className="plan-card" style={{ borderColor: '#0f172a' }}>
-              <div className="plan-tier-name" style={{ color: '#0f172a' }}>CUSTOM AS PER USER</div>
-              <div className="plan-price">Custom <span>/ contract</span></div>
-              <p className="plan-limits-desc">Tailored pricing as per user requirement</p>
-              <ul className="plan-perks-list">
-                <li>Unlimited Users &amp; Full Access</li>
-                <li>Custom USD Rate &amp; Billing Cycle</li>
-                <li>Flexible Contract Start/End Dates</li>
-                <li>Bespoke ERP &amp; SAP Integrations</li>
-              </ul>
-              <div className="plan-sub-count" style={{ background: '#f1f5f9', color: '#0f172a' }}>
-                {companies.filter(c => c.plan === 'CUSTOM' || c.isCustomPricing).length} Custom Accounts
-              </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleProcessExpiries}
+                title="Scan all accounts for expired subscriptions/trials and apply grace period suspension rules"
+              >
+                <RefreshCw size={15} /> <span>Process Expiries &amp; Grace Check</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setIsCreatePlanOpen(true)}
+              >
+                <Plus size={16} /> <span>Create New Plan</span>
+              </button>
             </div>
           </div>
 
-          <div className="section-title-sm" style={{ marginTop: '28px' }}>
-            <span>Tenant Billing &amp; Subscriptions Overview</span>
+          {/* DYNAMIC SUBSCRIPTION PLANS GRID */}
+          <div className="subscription-plans-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+            {(plans.length > 0 ? plans : [
+              {
+                id: 'p1', code: 'FREE_TRIAL', name: 'Free Trial / Demo', description: 'Pilot evaluation with full feature access for a configurable trial period.',
+                price_monthly: 0, price_yearly: 0, trial_days: 14, grace_period_days: 7,
+                features: ['Unlimited Users & Admins', 'Field DCR & GPS Tracking', 'Chemist & Doctor Directories', 'Configurable Start & End Dates', 'Full Analytics Suite']
+              },
+              {
+                id: 'p2', code: 'STARTER', name: 'Starter Tier', description: 'Entry-level pharma distribution for growing teams and regional distributors.',
+                price_monthly: 100, price_yearly: 1000, trial_days: 14, grace_period_days: 7,
+                features: ['Unlimited Field Users & Admins', 'Core MR Daily Call Reports', 'Chemist Order Booking (POB)', 'Product Catalog & Samples', 'Email Support']
+              },
+              {
+                id: 'p3', code: 'PROFESSIONAL', name: 'Professional Tier', description: 'Complete operational powerhouse for regional pharma manufacturers.',
+                price_monthly: 1000, price_yearly: 10000, trial_days: 14, grace_period_days: 7,
+                features: ['Unlimited Field Reps & Managers', 'Tour Plans (MTP) & Approvals', 'TA / DA Smart Expense Claims', 'Statutory Payroll & Compliance', 'Live Geo-Tracking & Hierarchy']
+              },
+              {
+                id: 'p4', code: 'ENTERPRISE', name: 'Enterprise Tier', description: 'For multinational pharmaceutical conglomerates requiring sovereign isolation.',
+                price_monthly: 2500, price_yearly: 25000, trial_days: 30, grace_period_days: 14,
+                features: ['Unlimited Field Reps & Executive GMs', 'Multi-Country Sovereign Isolation', 'AI Prescription OCR & Studio', 'Automated SAP/Oracle ERP Sync', '24/7 Dedicated SLA Support']
+              },
+              {
+                id: 'p5', code: 'CUSTOM', name: 'Custom Enterprise Tier', description: 'Tailored contract terms, bespoke pricing, and custom SLAs as per client requirements.',
+                price_monthly: 0, price_yearly: 0, trial_days: 14, grace_period_days: 14, is_custom: true,
+                features: ['Unlimited Users & Custom Limits', 'Custom USD Rate & Contract Terms', 'Flexible Billing Schedules', 'Bespoke ERP Integration & On-Premises Option', 'Dedicated Solutions Architect']
+              }
+            ]).map((plan) => {
+              const enrolledCount = companies.filter(c => 
+                c.plan === plan.code || 
+                (plan.code === 'FREE_TRIAL' && (c.plan === 'TRIAL' || c.status === 'TRIAL')) ||
+                (plan.code === 'STARTER' && c.plan === 'BASIC') ||
+                (plan.code === 'PROFESSIONAL' && c.plan === 'PRO') ||
+                (plan.code === 'CUSTOM' && c.isCustomPricing)
+              ).length;
+
+              const isFeatured = plan.code === 'PROFESSIONAL' || plan.tier === 'PROFESSIONAL';
+              const isTrial = plan.code === 'FREE_TRIAL' || plan.tier === 'FREE_TRIAL';
+              const isCustom = plan.code === 'CUSTOM' || plan.is_custom;
+
+              return (
+                <div
+                  key={plan.id || plan.code}
+                  className={`plan-card ${isFeatured ? 'featured-plan' : ''}`}
+                  style={{
+                    borderColor: isFeatured ? '#0284c7' : isTrial ? '#8b5cf6' : isCustom ? '#0f172a' : '#e2e8f0',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <div>
+                    {isFeatured && <div className="featured-ribbon">POPULAR</div>}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <span className="plan-tier-name" style={{ color: isTrial ? '#7c3aed' : isCustom ? '#0f172a' : '#0284c7', margin: 0 }}>
+                        {plan.name || plan.code}
+                      </span>
+                      <span className="plan-pill plan-pro" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
+                        {plan.code}
+                      </span>
+                    </div>
+
+                    <div className="plan-price">
+                      {isTrial ? '$0' : isCustom ? 'Custom' : `$${Number(plan.price_monthly || plan.priceMonthly || 0).toLocaleString()}`}
+                      <span> {isTrial ? '/ demo period' : isCustom ? '/ contract' : '/ month'}</span>
+                    </div>
+
+                    {!isTrial && !isCustom && (
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '-4px', marginBottom: '10px' }}>
+                        ${Number(plan.price_yearly || plan.priceYearly || 0).toLocaleString()} / year (Save 17%)
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', margin: '8px 0 12px' }}>
+                      <span style={{ fontSize: '0.68rem', background: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: '4px', fontWeight: '700' }}>
+                        ⏳ {plan.trial_days || plan.trialDays || 14}d Trial
+                      </span>
+                      <span style={{ fontSize: '0.68rem', background: '#ecfdf5', color: '#047857', padding: '2px 8px', borderRadius: '4px', fontWeight: '700' }}>
+                        🛡️ {plan.grace_period_days || plan.gracePeriodDays || 7}d Grace
+                      </span>
+                    </div>
+
+                    <p className="plan-limits-desc" style={{ fontSize: '0.78rem', minHeight: '34px' }}>
+                      {plan.description || 'Enterprise plan configuration with full modular capability.'}
+                    </p>
+
+                    <ul className="plan-perks-list" style={{ marginTop: '10px', fontSize: '0.76rem' }}>
+                      {(Array.isArray(plan.features) ? plan.features : typeof plan.features === 'string' ? JSON.parse(plan.features || '[]') : []).map((feat, fIdx) => (
+                        <li key={fIdx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <CheckCircle2 size={13} color="#16a34a" /> {feat}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <div className="plan-sub-count" style={{ background: isTrial ? '#f5f3ff' : isFeatured ? '#f0f9ff' : '#f8fafc', color: isTrial ? '#7c3aed' : isFeatured ? '#0369a1' : '#334155', marginTop: '16px' }}>
+                      {enrolledCount} {enrolledCount === 1 ? 'Company' : 'Companies'} Enrolled
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        style={{ flex: 1, padding: '6px 8px', fontSize: '0.74rem' }}
+                        onClick={() => handleOpenEditPlan(plan)}
+                      >
+                        <Edit size={12} /> Edit Plan
+                      </button>
+                      {plan.code !== 'FREE_TRIAL' && plan.code !== 'STARTER' && (
+                        <button
+                          type="button"
+                          className="action-pill-btn red"
+                          style={{ padding: '6px 10px' }}
+                          onClick={() => handleOpenDeletePlan(plan)}
+                          title="Delete Plan"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          <div className="saas-table-container">
+          <div className="section-title-sm" style={{ marginTop: '36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: '800', fontSize: '1rem', color: '#0f172a' }}>Tenant Billing &amp; Subscriptions Overview</span>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{companies.length} Total Accounts Under Governance</span>
+          </div>
+
+          <div className="saas-table-container" style={{ marginTop: '12px' }}>
             <table className="saas-data-table">
               <thead>
                 <tr>
                   <th>Company Tenant</th>
                   <th>Current Tier</th>
                   <th>Monthly Rate</th>
-                  <th>Status</th>
-                  <th>Start / End Date</th>
-                  <th style={{ textAlign: 'right' }}>Manage</th>
+                  <th>Status &amp; Health</th>
+                  <th>Subscription Start &amp; Expiry</th>
+                  <th>Grace Policy</th>
+                  <th style={{ textAlign: 'right' }}>Subscription Controls</th>
                 </tr>
               </thead>
               <tbody>
-                {companies.map(c => (
-                  <tr key={c.id}>
-                    <td><strong>{c.name}</strong></td>
-                    <td><span className={`plan-pill plan-${c.plan.toLowerCase()}`}>{c.plan}</span></td>
-                    <td><strong>{c.mrr}</strong></td>
-                    <td>
-                      <span className={`status-tag status-${c.status.toLowerCase()}`}>
-                        {c.status}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: '0.76rem' }}>{c.renewalDate}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleOpenSubscriptionModal(c)}>
-                        Manage Plan &amp; Dates
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {companies.map(c => {
+                  const isTrial = c.plan === 'FREE_TRIAL' || c.plan === 'TRIAL' || c.status === 'TRIAL';
+                  const expDate = c.subscriptionEndAt || c.trialEndAt || c.renewalDate;
+                  const expTime = expDate ? new Date(expDate).getTime() : null;
+                  const nowTime = Date.now();
+                  const daysRemaining = expTime ? Math.ceil((expTime - nowTime) / (1000 * 60 * 60 * 24)) : null;
+                  const graceDays = c.gracePeriodDays !== undefined ? c.gracePeriodDays : 7;
+                  const isGraceActive = daysRemaining !== null && daysRemaining <= 0 && daysRemaining > -graceDays;
+                  const isFullyExpired = daysRemaining !== null && daysRemaining <= -graceDays;
+
+                  return (
+                    <tr key={c.id}>
+                      <td>
+                        <div className="comp-name-group">
+                          <span className="comp-flag">{c.flag}</span>
+                          <div>
+                            <div className="comp-name-text">{c.name}</div>
+                            <div className="comp-code-sub">{c.code} &bull; {c.country}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`plan-pill plan-${c.plan?.toLowerCase()}`}>{c.plan}</span>
+                      </td>
+                      <td><strong>{c.mrr}</strong></td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <span className={`status-tag status-${c.status?.toLowerCase()}`}>
+                            {c.status === 'ACTIVE' ? '🟢 Active' : c.status === 'TRIAL' ? '🟣 In Trial' : c.status === 'SUSPENDED' ? '🟡 Suspended' : c.status}
+                          </span>
+                          {isGraceActive && (
+                            <span style={{ fontSize: '0.66rem', color: '#d97706', fontWeight: '700', background: '#fffbeb', padding: '1px 6px', borderRadius: '4px' }}>
+                              ⚠️ Grace Active ({Math.abs(daysRemaining)}d past expiry)
+                            </span>
+                          )}
+                          {isFullyExpired && c.status === 'SUSPENDED' && (
+                            <span style={{ fontSize: '0.66rem', color: '#dc2626', fontWeight: '700', background: '#fef2f2', padding: '1px 6px', borderRadius: '4px' }}>
+                              🛑 Auto-Suspended (Grace Expired)
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ fontSize: '0.78rem' }}>
+                          <div style={{ color: '#0f172a', fontWeight: '600' }}>
+                            📅 Expiry: <strong>{c.renewalDate}</strong>
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: daysRemaining !== null && daysRemaining < 15 ? '#dc2626' : '#64748b' }}>
+                            {daysRemaining !== null ? (
+                              daysRemaining > 0 ? `${daysRemaining} days remaining` : `Expired ${Math.abs(daysRemaining)} days ago`
+                            ) : 'No end date set'}
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ fontSize: '0.74rem', color: '#475569' }}>
+                          <div><strong>{graceDays} Days</strong> Grace</div>
+                          <div style={{ fontSize: '0.68rem', color: c.autoSuspendAfterGrace !== false ? '#16a34a' : '#64748b' }}>
+                            {c.autoSuspendAfterGrace !== false ? '✓ Auto-suspend ON' : '✕ Auto-suspend OFF'}
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div className="actions-cluster">
+                          <button
+                            type="button"
+                            className="action-pill-btn"
+                            style={{ color: '#0284c7', borderColor: '#bae6fd', background: '#f0f9ff' }}
+                            onClick={() => handleOpenSubscriptionModal(c)}
+                            title="Assign or Change SaaS Plan"
+                          >
+                            <CreditCard size={12} /> Assign Plan
+                          </button>
+                          <button
+                            type="button"
+                            className="action-pill-btn"
+                            style={{ color: '#7c3aed', borderColor: '#ddd6fe', background: '#f5f3ff' }}
+                            onClick={() => handleOpenUpgradeDowngrade(c)}
+                            title="Upgrade or Downgrade Subscription Tier"
+                          >
+                            <TrendingUp size={12} /> Up/Downgrade
+                          </button>
+                          <button
+                            type="button"
+                            className="action-pill-btn"
+                            style={{ color: '#059669', borderColor: '#a7f3d0', background: '#ecfdf5' }}
+                            onClick={() => handleOpenRenewSub(c)}
+                            title="Renew Subscription"
+                          >
+                            <RefreshCcw size={12} /> Renew
+                          </button>
+                          <button
+                            type="button"
+                            className="action-pill-btn"
+                            style={{ color: '#b45309', borderColor: '#fde68a', background: '#fffbeb' }}
+                            onClick={() => handleOpenConfigDates(c)}
+                            title="Configure Subscription & Trial Start/End Dates & Grace Period"
+                          >
+                            <Calendar size={12} /> Dates &amp; Grace
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -4094,6 +4832,268 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
+          MODAL: CHANGE ADMIN PERMISSIONS (RBAC GOVERNANCE)
+          ===================================================================== */}
+      {isPermissionsModalOpen && permissionsTarget && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '640px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Sliders size={22} color="#0284c7" />
+                <div>
+                  <h3>Change Administrator Permissions (RBAC)</h3>
+                  <p>Configure granular functional permissions for <strong>{permissionsTarget.name}</strong> ({permissionsTarget.email})</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsPermissionsModalOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleSaveUserPermissions} className="modal-form-body">
+              <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '12px', marginBottom: '14px', fontSize: '0.8rem', color: '#0369a1' }}>
+                <strong>Assigned Organization:</strong> {permissionsTarget.company} | <strong>Current Role:</strong> {permissionsTarget.role}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                {[
+                  { key: 'manage_users', label: '👥 User & Rep Management', desc: 'Create, edit & manage field reps' },
+                  { key: 'manage_products', label: '💊 Product Catalog', desc: 'Manage medicines, SKU & prices' },
+                  { key: 'manage_orders', label: '📦 Orders & Booking', desc: 'Approve chemist & doctor orders' },
+                  { key: 'manage_doctors', label: '🩺 Doctor Directory', desc: 'Manage healthcare specialists' },
+                  { key: 'manage_dcr', label: '📋 DCR & Call Logs', desc: 'Approve daily call submissions' },
+                  { key: 'view_analytics', label: '📊 Sales & Revenue Analytics', desc: 'Access financial charts & KPI' },
+                  { key: 'export_data', label: '📥 Data & Report Export', desc: 'Export spreadsheets & PDF files' },
+                  { key: 'manage_settings', label: '⚙️ Company Settings', desc: 'Manage policies, holidays & tiers' }
+                ].map((perm) => (
+                  <label
+                    key={perm.key}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '10px',
+                      background: userPermissionsForm[perm.key] ? '#f8fafc' : '#ffffff',
+                      border: userPermissionsForm[perm.key] ? '1px solid #0284c7' : '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      padding: '10px 12px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={Boolean(userPermissionsForm[perm.key])}
+                      onChange={(e) => setUserPermissionsForm({ ...userPermissionsForm, [perm.key]: e.target.checked })}
+                      style={{ marginTop: '3px', accentColor: '#0284c7', width: '16px', height: '16px' }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: '700', fontSize: '0.82rem', color: '#0f172a' }}>{perm.label}</div>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{perm.desc}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+
+              <div className="modal-actions-bar" style={{ marginTop: '18px' }}>
+                <button type="button" className="cancel-btn" onClick={() => setIsPermissionsModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <Save size={16} /> <span>Save Permissions</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: LOCK / UNLOCK USER ACCOUNT
+          ===================================================================== */}
+      {isLockUserOpen && lockUserTarget && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Lock size={22} color={lockUserTarget.isLocked || lockUserTarget.status === 'LOCKED' ? '#16a34a' : '#dc2626'} />
+                <div>
+                  <h3>{lockUserTarget.isLocked || lockUserTarget.status === 'LOCKED' ? 'Unlock Administrator Account' : 'Lock Administrator Account'}</h3>
+                  <p>{lockUserTarget.name} ({lockUserTarget.email})</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsLockUserOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleConfirmLockUser} className="modal-form-body">
+              <div style={{ background: lockUserTarget.isLocked || lockUserTarget.status === 'LOCKED' ? '#f0fdf4' : '#fef2f2', border: lockUserTarget.isLocked || lockUserTarget.status === 'LOCKED' ? '1px solid #bbf7d0' : '1px solid #fecdd3', borderRadius: '8px', padding: '12px', marginBottom: '14px', fontSize: '0.82rem', color: lockUserTarget.isLocked || lockUserTarget.status === 'LOCKED' ? '#166534' : '#991b1b' }}>
+                {lockUserTarget.isLocked || lockUserTarget.status === 'LOCKED'
+                  ? '🔓 Unlocking this account will restore full login access for this administrator immediately.'
+                  : '🔒 Locking this account will immediately block all login attempts and invalidate active sessions.'}
+              </div>
+
+              {!(lockUserTarget.isLocked || lockUserTarget.status === 'LOCKED') && (
+                <div className="form-group">
+                  <label>Lock Reason / Security Audit Note</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Excessive failed logins / Policy violation"
+                    value={lockReasonInput}
+                    onChange={(e) => setLockReasonInput(e.target.value)}
+                    className="form-control"
+                  />
+                </div>
+              )}
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsLockUserOpen(false)}>Cancel</button>
+                <button
+                  type="submit"
+                  className="btn"
+                  style={{
+                    background: lockUserTarget.isLocked || lockUserTarget.status === 'LOCKED' ? '#16a34a' : '#dc2626',
+                    color: '#ffffff'
+                  }}
+                >
+                  <Lock size={16} /> <span>{lockUserTarget.isLocked || lockUserTarget.status === 'LOCKED' ? 'Confirm & Unlock Account' : 'Confirm & Lock Account'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: VIEW ADMIN ACTIVITY AUDIT TRAIL
+          ===================================================================== */}
+      {isUserActivityOpen && activityTargetUser && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '680px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Activity size={22} color="#059669" />
+                <div>
+                  <h3>Administrator Activity Log</h3>
+                  <p>Audit trail of operations performed by <strong>{activityTargetUser.name}</strong> ({activityTargetUser.email})</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsUserActivityOpen(false)}>&times;</button>
+            </div>
+
+            <div className="modal-form-body">
+              {isActivitiesLoading ? (
+                <div style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>
+                  <RefreshCw size={24} className="spin-icon" style={{ margin: '0 auto 8px', display: 'block' }} />
+                  Loading activity logs...
+                </div>
+              ) : userActivitiesList.length === 0 ? (
+                <div style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
+                  No recent activities recorded for this administrator.
+                </div>
+              ) : (
+                <div style={{ maxHeight: '380px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {userActivitiesList.map((act, idx) => (
+                    <div
+                      key={act.id || idx}
+                      style={{
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '6px',
+                        padding: '10px 12px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start'
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: '700', fontSize: '0.82rem', color: '#0f172a' }}>
+                          {act.action || act.title || 'ADMIN_ACTION'}
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '2px' }}>
+                          {typeof act.details === 'object' ? JSON.stringify(act.details) : (act.details || act.detail || 'Standard operation executed')}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '0.7rem', color: '#94a3b8', whiteSpace: 'nowrap', marginLeft: '12px' }}>
+                        {new Date(act.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(act.created_at || Date.now()).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="modal-actions-bar" style={{ marginTop: '16px' }}>
+                <button type="button" className="btn btn-primary" onClick={() => setIsUserActivityOpen(false)}>Close Activity Viewer</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: VIEW ADMIN LOGIN HISTORY
+          ===================================================================== */}
+      {isUserLoginHistoryOpen && loginHistoryTargetUser && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '680px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Clock size={22} color="#d97706" />
+                <div>
+                  <h3>Admin Login &amp; Session History</h3>
+                  <p>Recent authentication sessions for <strong>{loginHistoryTargetUser.name}</strong> ({loginHistoryTargetUser.email})</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsUserLoginHistoryOpen(false)}>&times;</button>
+            </div>
+
+            <div className="modal-form-body">
+              {isLoginHistoryLoading ? (
+                <div style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>
+                  <RefreshCw size={24} className="spin-icon" style={{ margin: '0 auto 8px', display: 'block' }} />
+                  Loading login sessions...
+                </div>
+              ) : userLoginHistoryList.length === 0 ? (
+                <div style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
+                  No recorded login history for this user.
+                </div>
+              ) : (
+                <div style={{ maxHeight: '380px', overflowY: 'auto' }}>
+                  <table className="saas-data-table" style={{ fontSize: '0.78rem' }}>
+                    <thead>
+                      <tr>
+                        <th>Timestamp</th>
+                        <th>IP Address</th>
+                        <th>Device / Browser</th>
+                        <th>Location</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {userLoginHistoryList.map((log, idx) => (
+                        <tr key={log.id || idx}>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            {new Date(log.created_at || Date.now()).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td style={{ fontFamily: 'monospace', fontWeight: '700' }}>{log.ip_address || '127.0.0.1'}</td>
+                          <td>{log.device_info || 'Chrome / Web Portal'}</td>
+                          <td>{log.location || 'Global Cloud'}</td>
+                          <td>
+                            <span className={`status-tag status-${(log.status || 'SUCCESS').toLowerCase() === 'success' ? 'active' : 'suspended'}`}>
+                              {log.status || 'SUCCESS'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="modal-actions-bar" style={{ marginTop: '16px' }}>
+                <button type="button" className="btn btn-primary" onClick={() => setIsUserLoginHistoryOpen(false)}>Close Session Viewer</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
           MODAL: ADD SOVEREIGN COUNTRY
           ===================================================================== */}
       {isCreateCountryOpen && (
@@ -4617,6 +5617,652 @@ export default function SuperAdminDashboard({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: CREATE SAAS PLAN
+          ===================================================================== */}
+      {isCreatePlanOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '620px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <CreditCard size={22} color="#0284c7" />
+                <div>
+                  <h3>Create SaaS Subscription Plan</h3>
+                  <p>Define a new monetization tier, pricing, trial length &amp; grace period.</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsCreatePlanOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleCreatePlan} className="modal-form-body">
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Plan Code (Unique ID) *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. GROWTH_PLUS"
+                    value={newPlanForm.code}
+                    onChange={(e) => setNewPlanForm({ ...newPlanForm, code: e.target.value.toUpperCase() })}
+                    className="form-control"
+                    style={{ fontFamily: 'monospace', fontWeight: '700' }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Plan Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Growth Plus Tier"
+                    value={newPlanForm.name}
+                    onChange={(e) => setNewPlanForm({ ...newPlanForm, name: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Description</label>
+                <input
+                  type="text"
+                  placeholder="Summary of target pharma companies and scale..."
+                  value={newPlanForm.description}
+                  onChange={(e) => setNewPlanForm({ ...newPlanForm, description: e.target.value })}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Monthly Price ($ USD) *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    placeholder="e.g. 500"
+                    value={newPlanForm.priceMonthly}
+                    onChange={(e) => setNewPlanForm({ ...newPlanForm, priceMonthly: Number(e.target.value) })}
+                    className="form-control"
+                    style={{ fontWeight: '700' }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Annual Price ($ USD) *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    placeholder="e.g. 5000"
+                    value={newPlanForm.priceYearly}
+                    onChange={(e) => setNewPlanForm({ ...newPlanForm, priceYearly: Number(e.target.value) })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Default Trial Duration (Days)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newPlanForm.trialDays}
+                    onChange={(e) => setNewPlanForm({ ...newPlanForm, trialDays: Number(e.target.value) })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Grace Period Before Suspend (Days)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newPlanForm.gracePeriodDays}
+                    onChange={(e) => setNewPlanForm({ ...newPlanForm, gracePeriodDays: Number(e.target.value) })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Features &amp; Modules List (1 per line)</label>
+                <textarea
+                  rows={4}
+                  placeholder="Unlimited Field Reps&#10;Core MR Reporting&#10;POB Order Booking"
+                  value={newPlanForm.featuresText}
+                  onChange={(e) => setNewPlanForm({ ...newPlanForm, featuresText: e.target.value })}
+                  className="form-control"
+                  style={{ fontSize: '0.8rem', fontFamily: 'monospace' }}
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsCreatePlanOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <Plus size={16} /> <span>Create &amp; Publish Plan</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: EDIT SAAS PLAN
+          ===================================================================== */}
+      {isEditPlanOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '620px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Edit size={22} color="#0284c7" />
+                <div>
+                  <h3>Edit SaaS Plan: {editingPlanForm.name}</h3>
+                  <p>Modify pricing, limits, trial days, and grace period.</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsEditPlanOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleUpdatePlan} className="modal-form-body">
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Plan Code</label>
+                  <input
+                    type="text"
+                    disabled
+                    value={editingPlanForm.code}
+                    className="form-control disabled-input"
+                    style={{ fontFamily: 'monospace', fontWeight: '700' }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Plan Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingPlanForm.name}
+                    onChange={(e) => setEditingPlanForm({ ...editingPlanForm, name: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Description</label>
+                <input
+                  type="text"
+                  value={editingPlanForm.description}
+                  onChange={(e) => setEditingPlanForm({ ...editingPlanForm, description: e.target.value })}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Monthly Price ($ USD)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editingPlanForm.priceMonthly}
+                    onChange={(e) => setEditingPlanForm({ ...editingPlanForm, priceMonthly: Number(e.target.value) })}
+                    className="form-control"
+                    style={{ fontWeight: '700' }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Annual Price ($ USD)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editingPlanForm.priceYearly}
+                    onChange={(e) => setEditingPlanForm({ ...editingPlanForm, priceYearly: Number(e.target.value) })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Default Trial Duration (Days)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editingPlanForm.trialDays}
+                    onChange={(e) => setEditingPlanForm({ ...editingPlanForm, trialDays: Number(e.target.value) })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Grace Period (Days)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editingPlanForm.gracePeriodDays}
+                    onChange={(e) => setEditingPlanForm({ ...editingPlanForm, gracePeriodDays: Number(e.target.value) })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Features (1 per line)</label>
+                <textarea
+                  rows={4}
+                  value={editingPlanForm.featuresText}
+                  onChange={(e) => setEditingPlanForm({ ...editingPlanForm, featuresText: e.target.value })}
+                  className="form-control"
+                  style={{ fontSize: '0.8rem', fontFamily: 'monospace' }}
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsEditPlanOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <Save size={16} /> <span>Save Plan Changes</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: DELETE SAAS PLAN
+          ===================================================================== */}
+      {isDeletePlanOpen && deletingPlan && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Trash2 size={22} color="#dc2626" />
+                <div>
+                  <h3>Delete Plan: {deletingPlan.name}</h3>
+                  <p>Confirm plan removal from available subscription tiers.</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsDeletePlanOpen(false)}>&times;</button>
+            </div>
+
+            <div className="modal-form-body">
+              <p style={{ fontSize: '0.85rem', color: '#334155', lineHeight: '1.5' }}>
+                Are you sure you want to permanently delete the <strong>{deletingPlan.name} ({deletingPlan.code})</strong> plan?
+                Active companies currently enrolled must be reassigned first.
+              </p>
+
+              <div className="modal-actions-bar" style={{ marginTop: '20px' }}>
+                <button type="button" className="cancel-btn" onClick={() => setIsDeletePlanOpen(false)}>Cancel</button>
+                <button type="button" className="btn btn-primary" style={{ background: '#dc2626' }} onClick={handleConfirmDeletePlan}>
+                  <Trash2 size={16} /> <span>Delete Plan</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: UPGRADE / DOWNGRADE COMPANY PLAN TIER
+          ===================================================================== */}
+      {isUpgradeDowngradeOpen && upgradeTargetCompany && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '560px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <TrendingUp size={22} color="#7c3aed" />
+                <div>
+                  <h3>Upgrade / Downgrade Subscription</h3>
+                  <p>{upgradeTargetCompany.name} (Current: {upgradeTargetCompany.plan})</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsUpgradeDowngradeOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleConfirmUpgradeDowngrade} className="modal-form-body">
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Operation Type</label>
+                  <select
+                    className="form-control"
+                    value={upgradeForm.actionType}
+                    onChange={(e) => setUpgradeForm({ ...upgradeForm, actionType: e.target.value })}
+                  >
+                    <option value="UPGRADE">🚀 Upgrade Plan Tier</option>
+                    <option value="DOWNGRADE">📉 Downgrade Plan Tier</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Target Subscription Tier *</label>
+                  <select
+                    className="form-control"
+                    value={upgradeForm.targetTier}
+                    onChange={(e) => setUpgradeForm({ ...upgradeForm, targetTier: e.target.value })}
+                    style={{ fontWeight: '700' }}
+                  >
+                    <option value="FREE_TRIAL">Free Trial / Demo ($0)</option>
+                    <option value="STARTER">Starter Tier ($100/mo)</option>
+                    <option value="PROFESSIONAL">Professional Tier ($1,000/mo)</option>
+                    <option value="ENTERPRISE">Enterprise Tier ($2,500/mo)</option>
+                    <option value="CUSTOM">Custom Pricing (User Defined)</option>
+                  </select>
+                </div>
+              </div>
+
+              {upgradeForm.targetTier === 'CUSTOM' && (
+                <div className="form-group" style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                  <label>Custom Monthly Rate ($ USD) *</label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="e.g. 3500"
+                    value={upgradeForm.customRate}
+                    onChange={(e) => setUpgradeForm({ ...upgradeForm, customRate: Number(e.target.value) })}
+                    className="form-control"
+                  />
+                </div>
+              )}
+
+              <div className="form-group">
+                <label>Reason / Audit Note</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Client requested enterprise feature expansion"
+                  value={upgradeForm.reason}
+                  onChange={(e) => setUpgradeForm({ ...upgradeForm, reason: e.target.value })}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsUpgradeDowngradeOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ background: '#7c3aed' }}>
+                  <TrendingUp size={16} /> <span>Confirm Tier Change</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: RENEW SUBSCRIPTION
+          ===================================================================== */}
+      {isRenewSubOpen && renewTargetCompany && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '540px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <RefreshCcw size={22} color="#059669" />
+                <div>
+                  <h3>Renew Subscription Validity</h3>
+                  <p>{renewTargetCompany.name} ({renewTargetCompany.plan})</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsRenewSubOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleConfirmRenewSub} className="modal-form-body">
+              <div className="form-group">
+                <label>Renewal Term Preset</label>
+                <select
+                  className="form-control"
+                  value={renewForm.durationMonths}
+                  onChange={(e) => {
+                    const months = Number(e.target.value);
+                    const baseRate = typeof renewTargetCompany.mrr === 'string' && renewTargetCompany.mrr.includes('$')
+                      ? Number(renewTargetCompany.mrr.replace(/[^0-9.]/g, '')) || 100
+                      : (renewTargetCompany.customMRR || 100);
+                    setRenewForm({
+                      ...renewForm,
+                      durationMonths: months,
+                      amountBilled: baseRate * months
+                    });
+                  }}
+                  style={{ fontWeight: '700' }}
+                >
+                  <option value={1}>+1 Month Extension</option>
+                  <option value={3}>+3 Months Extension (Quarterly)</option>
+                  <option value={6}>+6 Months Extension (Semi-Annual)</option>
+                  <option value={12}>+12 Months Extension (Annual Renewal)</option>
+                  <option value={24}>+24 Months Extension (2-Year Enterprise)</option>
+                </select>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Renewal Amount ($ USD)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={renewForm.amountBilled}
+                    onChange={(e) => setRenewForm({ ...renewForm, amountBilled: Number(e.target.value) })}
+                    className="form-control"
+                    style={{ fontWeight: '700' }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Additional Grace Days (Optional)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={renewForm.additionalDays}
+                    onChange={(e) => setRenewForm({ ...renewForm, additionalDays: Number(e.target.value) })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Renewal Notes / Invoice Reference</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Wire transfer PO #49102"
+                  value={renewForm.notes}
+                  onChange={(e) => setRenewForm({ ...renewForm, notes: e.target.value })}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsRenewSubOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ background: '#059669' }}>
+                  <RefreshCcw size={16} /> <span>Confirm &amp; Process Renewal</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: CONFIGURE SUBSCRIPTION DATES & GRACE PERIOD
+          ===================================================================== */}
+      {isConfigDatesOpen && configTargetCompany && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '640px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Calendar size={22} color="#b45309" />
+                <div>
+                  <h3>Subscription Dates, Trial &amp; Grace Period</h3>
+                  <p>{configTargetCompany.name} ({configTargetCompany.plan})</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsConfigDatesOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleConfirmConfigDates} className="modal-form-body">
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Subscription Start Date &amp; Time *</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={configDatesForm.subscriptionStartAt}
+                    onChange={(e) => setConfigDatesForm({ ...configDatesForm, subscriptionStartAt: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Subscription Expiry Date &amp; Time *</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={configDatesForm.subscriptionEndAt}
+                    onChange={(e) => setConfigDatesForm({ ...configDatesForm, subscriptionEndAt: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Trial Start Date &amp; Time</label>
+                  <input
+                    type="datetime-local"
+                    value={configDatesForm.trialStartAt}
+                    onChange={(e) => setConfigDatesForm({ ...configDatesForm, trialStartAt: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Trial Expiry Date &amp; Time</label>
+                  <input
+                    type="datetime-local"
+                    value={configDatesForm.trialEndAt}
+                    onChange={(e) => setConfigDatesForm({ ...configDatesForm, trialEndAt: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Grace Period Allowed (Days)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="90"
+                    value={configDatesForm.gracePeriodDays}
+                    onChange={(e) => setConfigDatesForm({ ...configDatesForm, gracePeriodDays: Number(e.target.value) })}
+                    className="form-control"
+                    style={{ fontWeight: '700' }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Account Status</label>
+                  <select
+                    className="form-control"
+                    value={configDatesForm.status}
+                    onChange={(e) => setConfigDatesForm({ ...configDatesForm, status: e.target.value })}
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="TRIAL">Trial</option>
+                    <option value="SUSPENDED">Suspended</option>
+                    <option value="INACTIVE">Inactive</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', margin: '4px 0 16px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(configDatesForm.autoSuspendAfterGrace)}
+                    onChange={(e) => setConfigDatesForm({ ...configDatesForm, autoSuspendAfterGrace: e.target.checked })}
+                    style={{ accentColor: '#dc2626', width: '18px', height: '18px' }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: '700', fontSize: '0.85rem', color: '#0f172a' }}>
+                      Suspend Account Automatically After Grace Period Expires
+                    </div>
+                    <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                      If enabled, when expiry date + grace period passes, the tenant company status is changed to SUSPENDED.
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsConfigDatesOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ background: '#b45309' }}>
+                  <Save size={16} /> <span>Save Dates &amp; Grace Policy</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: PROCESS SUBSCRIPTION EXPIRIES & GRACE AUDIT
+          ===================================================================== */}
+      {isProcessExpiriesOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '580px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <RefreshCw size={22} color="#0284c7" />
+                <div>
+                  <h3>Subscription Expiry &amp; Grace Period Engine</h3>
+                  <p>Automated policy enforcement across all tenant organizations</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsProcessExpiriesOpen(false)}>&times;</button>
+            </div>
+
+            <div className="modal-form-body">
+              {processExpiriesResult.loading ? (
+                <div style={{ padding: '30px', textAlign: 'center', color: '#0284c7' }}>
+                  <RefreshCw size={32} className="spin" style={{ margin: '0 auto 12px', display: 'block' }} />
+                  <div style={{ fontWeight: '700' }}>Evaluating Tenant Subscription &amp; Grace Schedules...</div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ background: processExpiriesResult.suspendedCount > 0 ? '#fffbeb' : '#f0fdf4', border: processExpiriesResult.suspendedCount > 0 ? '1px solid #fde68a' : '1px solid #bbf7d0', borderRadius: '8px', padding: '14px', marginBottom: '16px' }}>
+                    <div style={{ fontWeight: '800', color: processExpiriesResult.suspendedCount > 0 ? '#92400e' : '#166534', fontSize: '0.92rem' }}>
+                      {processExpiriesResult.message}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: processExpiriesResult.suspendedCount > 0 ? '#b45309' : '#15803d', marginTop: '4px' }}>
+                      Total accounts auto-suspended: <strong>{processExpiriesResult.suspendedCount}</strong>
+                    </div>
+                  </div>
+
+                  {processExpiriesResult.suspendedCompanies && processExpiriesResult.suspendedCompanies.length > 0 && (
+                    <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+                      <table className="saas-data-table" style={{ margin: 0 }}>
+                        <thead>
+                          <tr>
+                            <th>Company</th>
+                            <th>Plan</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {processExpiriesResult.suspendedCompanies.map((sc, i) => (
+                            <tr key={i}>
+                              <td><strong>{sc.name}</strong></td>
+                              <td><span className="plan-pill plan-pro">{sc.plan}</span></td>
+                              <td><span className="status-tag status-suspended">SUSPENDED</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <div className="modal-actions-bar" style={{ marginTop: '20px' }}>
+                    <button type="button" className="btn btn-primary" onClick={() => setIsProcessExpiriesOpen(false)}>
+                      Close Summary
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

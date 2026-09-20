@@ -94,6 +94,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/sovereign-countries', countryRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
+app.use('/api/plans', subscriptionRoutes);
 app.use('/api', auditRoutes);
 app.use('/api', tenantRoutes);
 

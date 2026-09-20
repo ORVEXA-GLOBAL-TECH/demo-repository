@@ -40,7 +40,40 @@ CREATE TABLE sovereign_countries (
 );
 
 -- ==============================================================================
--- 2. TENANTS / PHARMA COMPANIES
+-- 4. SAAS SUBSCRIPTION PLANS (Super Admin Configurable Tiers)
+-- ==============================================================================
+CREATE TABLE subscription_plans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    tier VARCHAR(50) NOT NULL DEFAULT 'STARTER',
+    price_monthly NUMERIC(12,2) NOT NULL DEFAULT 100.00,
+    price_yearly NUMERIC(12,2) DEFAULT 1000.00,
+    trial_days INT DEFAULT 14,
+    grace_period_days INT DEFAULT 7,
+    features JSONB DEFAULT '[]'::jsonb,
+    is_active BOOLEAN DEFAULT true,
+    is_custom BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_plans_code ON subscription_plans(code);
+CREATE INDEX idx_plans_tier ON subscription_plans(tier);
+
+-- Seed Default Enterprise Plans
+INSERT INTO subscription_plans (id, code, name, description, tier, price_monthly, price_yearly, trial_days, grace_period_days, features, is_active, is_custom)
+VALUES 
+('00000000-0000-0000-0000-000000000101', 'FREE_TRIAL', 'Free Trial / Demo', 'Pilot evaluation with full feature access for a configurable trial period.', 'FREE_TRIAL', 0.00, 0.00, 14, 7, '["Unlimited Users & Admins", "Field DCR & GPS Tracking", "Chemist & Doctor Directories", "Configurable Start & End Dates", "Full Analytics Suite"]'::jsonb, true, false),
+('00000000-0000-0000-0000-000000000102', 'STARTER', 'Starter Tier', 'Entry-level pharma distribution for growing teams and regional distributors.', 'STARTER', 100.00, 1000.00, 14, 7, '["Unlimited Field Users & Admins", "Core MR Daily Call Reports", "Chemist Order Booking (POB)", "Product Catalog & Samples", "Email Support"]'::jsonb, true, false),
+('00000000-0000-0000-0000-000000000103', 'PROFESSIONAL', 'Professional Tier', 'Complete operational powerhouse for regional pharma manufacturers.', 'PROFESSIONAL', 1000.00, 10000.00, 14, 7, '["Unlimited Field Reps & Managers", "Tour Plans (MTP) & Approvals", "TA / DA Smart Expense Claims", "Statutory Payroll & Compliance", "Live Geo-Tracking & Hierarchy"]'::jsonb, true, false),
+('00000000-0000-0000-0000-000000000104', 'ENTERPRISE', 'Enterprise Tier', 'For multinational pharmaceutical conglomerates requiring sovereign multi-region compliance.', 'ENTERPRISE', 2500.00, 25000.00, 30, 14, '["Unlimited Field Reps & Executive GMs", "Multi-Country Sovereign Isolation", "AI Prescription OCR & Studio", "Automated SAP/Oracle ERP Sync", "24/7 Dedicated SLA Support"]'::jsonb, true, false),
+('00000000-0000-0000-0000-000000000105', 'CUSTOM', 'Custom Enterprise Tier', 'Tailored contract terms, bespoke pricing, and custom SLAs as per client requirements.', 'CUSTOM', 0.00, 0.00, 14, 14, '["Unlimited Users & Custom Limits", "Custom USD Rate & Contract Terms", "Flexible Billing Schedules", "Bespoke ERP Integration & On-Premises Option", "Dedicated Solutions Architect"]'::jsonb, true, true)
+ON CONFLICT (code) DO NOTHING;
+
+-- ==============================================================================
+-- 5. TENANTS / PHARMA COMPANIES
 -- ==============================================================================
 CREATE TABLE tenants_companies (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -60,6 +93,10 @@ CREATE TABLE tenants_companies (
     trial_end_at TIMESTAMP WITH TIME ZONE,
     subscription_start_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     subscription_end_at TIMESTAMP WITH TIME ZONE,
+    grace_period_days INT DEFAULT 7,
+    auto_suspend_after_grace BOOLEAN DEFAULT true,
+    last_renewed_at TIMESTAMP WITH TIME ZONE,
+    renewal_count INT DEFAULT 0,
     contact_email VARCHAR(255) NOT NULL,
     contact_phone VARCHAR(50),
     settings JSONB DEFAULT '{}'::jsonb,
@@ -71,7 +108,7 @@ CREATE INDEX idx_tenants_country ON tenants_companies(country_code);
 CREATE INDEX idx_tenants_status ON tenants_companies(status);
 
 -- ==============================================================================
--- 5. TENANT SUBSCRIPTIONS
+-- 6. TENANT SUBSCRIPTIONS & LEDGER
 -- ==============================================================================
 CREATE TABLE tenant_subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -82,6 +119,10 @@ CREATE TABLE tenant_subscriptions (
     expiry_date DATE NOT NULL,
     start_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     end_at TIMESTAMP WITH TIME ZONE,
+    grace_period_days INT DEFAULT 7,
+    auto_suspend_after_grace BOOLEAN DEFAULT true,
+    is_trial BOOLEAN DEFAULT false,
+    renewed_at TIMESTAMP WITH TIME ZONE,
     auto_renew BOOLEAN DEFAULT true,
     invoice_currency VARCHAR(5) NOT NULL DEFAULT 'USD',
     amount_billed NUMERIC(12,2) NOT NULL DEFAULT 0.00,
@@ -107,6 +148,10 @@ CREATE TABLE users (
     phone VARCHAR(50),
     country_code VARCHAR(3) REFERENCES sovereign_countries(code),
     status VARCHAR(30) NOT NULL DEFAULT 'Active',
+    is_locked BOOLEAN DEFAULT false,
+    lock_reason TEXT,
+    token_version INT DEFAULT 0,
+    permissions JSONB DEFAULT '{"manage_users": true, "manage_products": true, "manage_orders": true, "manage_doctors": true, "manage_dcr": true, "view_analytics": true, "export_data": true, "system_settings": false}'::jsonb,
     avatar_url TEXT,
     preferences JSONB DEFAULT '{}'::jsonb,
     last_login_at TIMESTAMP WITH TIME ZONE,
@@ -441,7 +486,26 @@ CREATE TABLE system_alerts (
 CREATE INDEX idx_alerts_tenant_unread ON system_alerts(tenant_id, is_read, created_at DESC);
 
 -- ==============================================================================
--- 20. MASTER SUPER ADMIN: Akshyatraj Pati (Single User)
+-- 20. ADMIN LOGIN HISTORY & SECURITY ACCESS AUDIT
+-- ==============================================================================
+CREATE TABLE admin_login_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    email VARCHAR(255) NOT NULL,
+    ip_address VARCHAR(64),
+    user_agent TEXT,
+    device_info VARCHAR(255),
+    location VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'Success',
+    failure_reason TEXT,
+    logged_in_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_login_history_user_time ON admin_login_history(user_id, logged_in_at DESC);
+CREATE INDEX idx_login_history_email ON admin_login_history(email);
+
+-- ==============================================================================
+-- 21. MASTER SUPER ADMIN: Akshyatraj Pati (Single User)
 -- Password: SuperAdmin@2026! (Cryptographically Verified Bcrypt Hash)
 -- ==============================================================================
 INSERT INTO users (
@@ -492,6 +556,8 @@ ALTER TABLE attendance_logs DISABLE ROW LEVEL SECURITY;
 ALTER TABLE gps_tracking_pings DISABLE ROW LEVEL SECURITY;
 ALTER TABLE platform_audit_logs DISABLE ROW LEVEL SECURITY;
 ALTER TABLE system_alerts DISABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_login_history DISABLE ROW LEVEL SECURITY;
+ALTER TABLE subscription_plans DISABLE ROW LEVEL SECURITY;
 
 -- 22. CONFIRMATION & VERIFICATION OUTPUT
 SELECT '🎉 Complete Supabase database schema and Super Admin provisioned!' as status,
