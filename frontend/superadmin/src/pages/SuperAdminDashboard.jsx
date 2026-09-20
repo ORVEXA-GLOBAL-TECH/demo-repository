@@ -119,7 +119,7 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
     code: 'KH',
     name: 'Cambodia',
     flag: '🇰🇭',
-    currencyCode: 'USD / KHR',
+    currencyCode: 'USD',
     currencySymbol: '$ / ៛',
     currencyName: 'US Dollar / Cambodian Riel',
     fxRateToUSD: 4100.0,

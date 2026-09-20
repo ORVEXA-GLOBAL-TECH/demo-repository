@@ -26,7 +26,7 @@ CREATE TABLE sovereign_countries (
     code VARCHAR(3) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     native_name VARCHAR(100),
-    currency_code VARCHAR(5) NOT NULL,
+    currency_code VARCHAR(20) NOT NULL,
     currency_symbol VARCHAR(10) NOT NULL,
     primary_timezone VARCHAR(64) NOT NULL,
     calling_code VARCHAR(10) NOT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE sovereign_countries (
 );
 
 -- ==============================================================================
--- 4. TENANTS / PHARMA COMPANIES
+-- 2. TENANTS / PHARMA COMPANIES
 -- ==============================================================================
 CREATE TABLE tenants_companies (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -48,7 +48,7 @@ CREATE TABLE tenants_companies (
     legal_name VARCHAR(255),
     country_code VARCHAR(3) REFERENCES sovereign_countries(code),
     default_timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
-    currency_code VARCHAR(5) NOT NULL DEFAULT 'USD',
+    currency_code VARCHAR(20) NOT NULL DEFAULT 'USD',
     plan VARCHAR(50) NOT NULL DEFAULT 'STARTER',
     status VARCHAR(30) NOT NULL DEFAULT 'Active',
     max_mrs INT NOT NULL DEFAULT 50,

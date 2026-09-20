@@ -123,6 +123,11 @@ router.post('/tenants', async (req, res) => {
   const isTrial = normalizedPlan === 'FREE_TRIAL' || normalizedPlan === 'TRIAL';
   const isCustom = normalizedPlan === 'CUSTOM' || isCustomPricing;
 
+  // Sanitize currencyCode to prevent DB column overflow (e.g. 'USD / KHR' -> 'USD')
+  const cleanCurrencyCode = currencyCode 
+    ? String(currencyCode).split(/[\s/()]/)[0].toUpperCase().slice(0, 5) || 'USD'
+    : 'USD';
+
   let calculatedRate = 0;
   if (isTrial) {
     calculatedRate = 0;
@@ -157,9 +162,9 @@ router.post('/tenants', async (req, res) => {
         tenantCode,
         name,
         legalName || name,
-        countryCode || 'VN',
+        countryCode ? String(countryCode).slice(0, 3) : 'VN',
         timezone || 'Asia/Ho_Chi_Minh',
-        currencyCode || 'USD',
+        cleanCurrencyCode,
         normalizedPlan,
         finalStatus,
         maxMrs || 50,
@@ -281,6 +286,10 @@ router.put('/tenants/:id', async (req, res) => {
     settings
   } = req.body;
 
+  const cleanCurrencyCode = currencyCode 
+    ? String(currencyCode).split(/[\s/()]/)[0].toUpperCase().slice(0, 5)
+    : null;
+
   try {
     const dbHealth = await checkDbHealth();
     if (dbHealth.status === 'CONNECTED') {
@@ -315,9 +324,9 @@ router.put('/tenants/:id', async (req, res) => {
       `, [
         name,
         legalName,
-        countryCode,
+        countryCode ? String(countryCode).slice(0, 3) : null,
         timezone,
-        currencyCode,
+        cleanCurrencyCode,
         plan ? plan.toUpperCase() : null,
         status,
         maxMrs,
