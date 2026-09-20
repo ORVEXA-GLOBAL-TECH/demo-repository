@@ -31,6 +31,8 @@ import systemHealthRoutes from './routes/systemHealthRoutes.js';
 import securityRoutes from './routes/securityRoutes.js';
 import dataManagementRoutes from './routes/dataManagementRoutes.js';
 import apiManagementRoutes from './routes/apiManagementRoutes.js';
+import appVersionRoutes from './routes/appVersionRoutes.js';
+import contentRoutes from './routes/contentRoutes.js';
 
 const app = express();
 
@@ -105,6 +107,8 @@ app.use('/api/system-health', systemHealthRoutes);
 app.use('/api/security', securityRoutes);
 app.use('/api/data-management', dataManagementRoutes);
 app.use('/api/api-management', apiManagementRoutes);
+app.use('/api/app-versions', appVersionRoutes);
+app.use('/api/content', contentRoutes);
 app.use('/api', auditRoutes);
 app.use('/api', tenantRoutes);
 

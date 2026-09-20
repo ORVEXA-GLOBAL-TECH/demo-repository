@@ -40,7 +40,7 @@ export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
         { id: 'settings', label: 'Global Settings', icon: Settings },
         { id: 'roles', label: 'Role Templates', icon: ShieldCheck },
         { id: 'integrations', label: 'API & Integrations', icon: Radio },
-        { id: 'app-management', label: 'App Version Control', icon: Smartphone }
+        { id: 'app-management', label: 'Mobile App Version Control', icon: Smartphone }
       ]
     },
     {
@@ -50,7 +50,7 @@ export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
         { id: 'security', label: 'Security & Audit Logs', icon: Lock },
         { id: 'system-health', label: 'System Health & Telemetry', icon: Server },
         { id: 'data-management', label: 'Data Management & Backups', icon: Database },
-        { id: 'support', label: 'Support Desk', icon: LifeBuoy },
+        { id: 'support', label: 'Platform Content & Support CMS', icon: LifeBuoy },
         { id: 'communications', label: 'Notification & Announcements', icon: Megaphone }
       ]
     },

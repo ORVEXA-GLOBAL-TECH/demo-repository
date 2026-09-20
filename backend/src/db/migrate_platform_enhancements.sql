@@ -524,7 +524,84 @@ CREATE INDEX IF NOT EXISTS idx_ack_announcement ON announcement_acknowledgments(
 CREATE INDEX IF NOT EXISTS idx_ack_tenant ON announcement_acknowledgments(tenant_id);
 
 -- ==============================================================================
--- 18. GRANT ACCESS & DISABLE RLS FOR FRONTEND/SUPABASE COMPATIBILITY
+-- 18. MOBILE APP VERSION MANAGEMENT & DEVICE ADOPTION
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS mobile_app_versions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    version_string VARCHAR(50) NOT NULL, -- e.g. v3.4.1
+    build_number INT NOT NULL, -- e.g. 184
+    platform VARCHAR(20) NOT NULL DEFAULT 'ALL', -- ANDROID | IOS | ALL
+    release_type VARCHAR(50) DEFAULT 'STABLE_PRODUCTION', -- STABLE_PRODUCTION | BETA_TESTING | HOTFIX_PATCH
+    release_notes TEXT NOT NULL,
+    min_os_version VARCHAR(50) DEFAULT 'Android 10.0+ / iOS 15.0+',
+    is_force_update BOOLEAN DEFAULT false,
+    is_disabled BOOLEAN DEFAULT false,
+    rollout_percentage INT DEFAULT 100,
+    download_url TEXT,
+    status VARCHAR(50) DEFAULT 'ACTIVE', -- ACTIVE | DEPRECATED | DISABLED | ROLLING_OUT
+    active_users_count INT DEFAULT 0,
+    adoption_rate_pct NUMERIC(5,2) DEFAULT 0.00,
+    released_by VARCHAR(255) NOT NULL DEFAULT 'Akshyatraj Pati (Super Admin)',
+    released_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_platform_build UNIQUE (platform, build_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_app_versions_platform ON mobile_app_versions(platform);
+CREATE INDEX IF NOT EXISTS idx_app_versions_status ON mobile_app_versions(status);
+CREATE INDEX IF NOT EXISTS idx_app_versions_force ON mobile_app_versions(is_force_update);
+
+CREATE TABLE IF NOT EXISTS mobile_app_user_devices (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    user_name VARCHAR(255) NOT NULL,
+    user_email VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'MEDICAL_REP',
+    tenant_id UUID REFERENCES tenants_companies(id) ON DELETE CASCADE,
+    company_name VARCHAR(255) NOT NULL,
+    app_version VARCHAR(50) NOT NULL,
+    build_number INT NOT NULL,
+    platform VARCHAR(20) NOT NULL, -- ANDROID | IOS
+    device_model VARCHAR(100),
+    os_version VARCHAR(50),
+    is_outdated BOOLEAN DEFAULT false,
+    is_blocked BOOLEAN DEFAULT false,
+    last_active_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    fcm_token VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_user_device UNIQUE (user_email, device_model)
+);
+
+CREATE INDEX IF NOT EXISTS idx_device_outdated ON mobile_app_user_devices(is_outdated);
+CREATE INDEX IF NOT EXISTS idx_device_tenant ON mobile_app_user_devices(tenant_id);
+
+-- ==============================================================================
+-- 19. PLATFORM CONTENT MANAGEMENT (HELP CENTER, CMS, LEGAL POLICIES, SUPPORT)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS platform_content_articles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    content_type VARCHAR(50) NOT NULL, -- HELP_CENTER | APP_ANNOUNCEMENT | PRIVACY_POLICY | TERMS_CONDITIONS | SUPPORT_INFO
+    category VARCHAR(100) DEFAULT 'GENERAL', -- GETTING_STARTED | DCR_REPORTING | ORDERS_POB | BILLING | SECURITY | LEGAL
+    title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) UNIQUE NOT NULL,
+    content TEXT NOT NULL,
+    summary TEXT,
+    version VARCHAR(50) DEFAULT '1.0.0',
+    target_audience VARCHAR(50) DEFAULT 'ALL', -- ALL | ADMINS | FIELD_REPS | PUBLIC
+    status VARCHAR(50) DEFAULT 'PUBLISHED', -- PUBLISHED | DRAFT | ARCHIVED
+    views_count INT DEFAULT 0,
+    helpful_votes INT DEFAULT 0,
+    author VARCHAR(255) DEFAULT 'Orvexa Global Super Admin HQ',
+    published_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_content_type ON platform_content_articles(content_type);
+CREATE INDEX IF NOT EXISTS idx_content_category ON platform_content_articles(category);
+CREATE INDEX IF NOT EXISTS idx_content_status ON platform_content_articles(status);
+
+-- ==============================================================================
+-- 20. GRANT ACCESS & DISABLE RLS FOR FRONTEND/SUPABASE COMPATIBILITY
 -- ==============================================================================
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, postgres, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, postgres, service_role;
@@ -550,13 +627,17 @@ ALTER TABLE IF EXISTS platform_webhooks DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS platform_api_failed_requests DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS platform_global_announcements DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS announcement_acknowledgments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS mobile_app_versions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS mobile_app_user_devices DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS platform_content_articles DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS tenants_companies DISABLE ROW LEVEL SECURITY;
 
 -- ==============================================================================
--- 19. VERIFICATION QUERY OUTPUT
+-- 21. VERIFICATION QUERY OUTPUT
 -- ==============================================================================
-SELECT '🎉 Database successfully updated with all Global Configuration, RBAC, User Management, System Health, Security Governance, Data Management, API Management, and Global Notification Announcement schemas!' as migration_status;
+SELECT '🎉 Database successfully updated with all Global Configuration, RBAC, User Management, System Health, Security Governance, Data Management, API Management, Global Notifications, Mobile App Version Control, and Platform Content CMS schemas!' as migration_status;
+
 
 
 

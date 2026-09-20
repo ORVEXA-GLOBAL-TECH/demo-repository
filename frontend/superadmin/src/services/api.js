@@ -2777,6 +2777,397 @@ export const acknowledgeAnnouncement = async (id, ackPayload = {}) => {
   return res.data || res;
 };
 
+// ==============================================================================
+// 13. MOBILE APP VERSION MANAGEMENT & DEVICE ADOPTION
+// ==============================================================================
+export const getAppVersionsOverview = async () => {
+  try {
+    const res = await fetchWithAuth('/app-versions/overview');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading app versions overview:', err);
+  }
+  return {
+    latestAndroidVersion: 'v3.4.1',
+    latestAndroidBuild: 184,
+    latestIosVersion: 'v3.4.1',
+    latestIosBuild: 184,
+    minimumSupportedBuild: 180,
+    totalActiveMobileUsers: 13200,
+    outdatedDevicesCount: 680,
+    blockedDevicesCount: 420,
+    totalReleasesCount: 6,
+    platformAdoption: {
+      v3_4_1: { percentage: 64.2, count: 8474, status: 'LATEST' },
+      v3_4_0: { percentage: 29.3, count: 3867, status: 'SUPPORTED' },
+      v3_3_0: { percentage: 6.5, count: 859, status: 'BLOCKED_FORCE_UPDATE' }
+    }
+  };
+};
+
+export const getAppVersions = async (platform = 'ALL') => {
+  try {
+    const res = await fetchWithAuth(`/app-versions?platform=${platform}`);
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading app versions:', err);
+  }
+  return [
+    {
+      id: 'ver-and-341',
+      versionString: 'v3.4.1',
+      buildNumber: 184,
+      platform: 'ANDROID',
+      releaseType: 'STABLE_PRODUCTION',
+      releaseNotes: 'Fixed intermittent background GPS telemetry drift on Android 14. Optimized SQLite local catalog cache for >50,000 SKUs.',
+      minOsVersion: 'Android 10.0+ (API 29)',
+      isForceUpdate: false,
+      isDisabled: false,
+      rolloutPercentage: 100,
+      downloadUrl: 'https://play.google.com/store/apps/details?id=com.orvexa.sfa',
+      status: 'ACTIVE',
+      activeUsersCount: 8420,
+      adoptionRatePct: 63.8,
+      releasedBy: 'Akshyatraj Pati (Super Admin)',
+      releasedAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString()
+    },
+    {
+      id: 'ver-ios-341',
+      versionString: 'v3.4.1',
+      buildNumber: 184,
+      platform: 'IOS',
+      releaseType: 'STABLE_PRODUCTION',
+      releaseNotes: 'iOS 18 compatibility enhancements, FaceID biometrics unlock speedup, and instant chemist geofencing.',
+      minOsVersion: 'iOS 15.0+',
+      isForceUpdate: false,
+      isDisabled: false,
+      rolloutPercentage: 100,
+      downloadUrl: 'https://apps.apple.com/app/orvexa-pharma-sfa/id162849102',
+      status: 'ACTIVE',
+      activeUsersCount: 3120,
+      adoptionRatePct: 65.0,
+      releasedBy: 'Akshyatraj Pati (Super Admin)',
+      releasedAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString()
+    },
+    {
+      id: 'ver-and-340',
+      versionString: 'v3.4.0',
+      buildNumber: 180,
+      platform: 'ANDROID',
+      releaseType: 'STABLE_PRODUCTION',
+      releaseNotes: 'Introduced chemist POB credit validation, offline optical doctor prescription scanner, and expense receipts upload.',
+      minOsVersion: 'Android 9.0+ (API 28)',
+      isForceUpdate: false,
+      isDisabled: false,
+      rolloutPercentage: 100,
+      downloadUrl: 'https://play.google.com/store/apps/details?id=com.orvexa.sfa',
+      status: 'ACTIVE',
+      activeUsersCount: 3840,
+      adoptionRatePct: 29.1,
+      releasedBy: 'Akshyatraj Pati (Super Admin)',
+      releasedAt: new Date(Date.now() - 25 * 86400 * 1000).toISOString()
+    },
+    {
+      id: 'ver-ios-340',
+      versionString: 'v3.4.0',
+      buildNumber: 180,
+      platform: 'IOS',
+      releaseType: 'STABLE_PRODUCTION',
+      releaseNotes: 'Chemist POB credit checks and CoreML visual product detailer aid for field calls.',
+      minOsVersion: 'iOS 14.0+',
+      isForceUpdate: false,
+      isDisabled: false,
+      rolloutPercentage: 100,
+      downloadUrl: 'https://apps.apple.com/app/orvexa-pharma-sfa/id162849102',
+      status: 'ACTIVE',
+      activeUsersCount: 1420,
+      adoptionRatePct: 29.6,
+      releasedBy: 'Akshyatraj Pati (Super Admin)',
+      releasedAt: new Date(Date.now() - 25 * 86400 * 1000).toISOString()
+    },
+    {
+      id: 'ver-and-330',
+      versionString: 'v3.3.0',
+      buildNumber: 165,
+      platform: 'ANDROID',
+      releaseType: 'STABLE_PRODUCTION',
+      releaseNotes: 'Legacy build. Missing new offline encryption headers.',
+      minOsVersion: 'Android 8.0+ (API 26)',
+      isForceUpdate: true,
+      isDisabled: true,
+      rolloutPercentage: 100,
+      downloadUrl: 'https://play.google.com/store/apps/details?id=com.orvexa.sfa',
+      status: 'DISABLED',
+      activeUsersCount: 420,
+      adoptionRatePct: 3.2,
+      releasedBy: 'Akshyatraj Pati (Super Admin)',
+      releasedAt: new Date(Date.now() - 90 * 86400 * 1000).toISOString()
+    },
+    {
+      id: 'ver-ios-330',
+      versionString: 'v3.3.0',
+      buildNumber: 165,
+      platform: 'IOS',
+      releaseType: 'STABLE_PRODUCTION',
+      releaseNotes: 'Legacy build. Deprecated TLS cipher suites.',
+      minOsVersion: 'iOS 13.0+',
+      isForceUpdate: true,
+      isDisabled: true,
+      rolloutPercentage: 100,
+      downloadUrl: 'https://apps.apple.com/app/orvexa-pharma-sfa/id162849102',
+      status: 'DISABLED',
+      activeUsersCount: 260,
+      adoptionRatePct: 5.4,
+      releasedBy: 'Akshyatraj Pati (Super Admin)',
+      releasedAt: new Date(Date.now() - 90 * 86400 * 1000).toISOString()
+    }
+  ];
+};
+
+export const releaseAppVersion = async (versionData) => {
+  const res = await fetchWithAuth('/app-versions', {
+    method: 'POST',
+    body: JSON.stringify(versionData)
+  });
+  return res.data || res;
+};
+
+export const toggleForceUpdateVersion = async (versionId) => {
+  const res = await fetchWithAuth(`/app-versions/${versionId}/force-update`, {
+    method: 'PATCH'
+  });
+  return res;
+};
+
+export const disableAppVersion = async (versionId) => {
+  const res = await fetchWithAuth(`/app-versions/${versionId}/disable`, {
+    method: 'PATCH'
+  });
+  return res.data || res;
+};
+
+export const getUsersOnOldAppVersions = async () => {
+  try {
+    const res = await fetchWithAuth('/app-versions/users-on-old-versions');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading users on old app versions:', err);
+  }
+  return [
+    {
+      id: 'dev-001',
+      userName: 'Ramesh Patel',
+      userEmail: 'ramesh.p@pfizerbiopharma.com',
+      role: 'MEDICAL_REP',
+      companyName: 'Pfizer BioPharma Ltd',
+      appVersion: 'v3.3.0',
+      buildNumber: 165,
+      platform: 'ANDROID',
+      deviceModel: 'Samsung Galaxy A51',
+      osVersion: 'Android 11',
+      isOutdated: true,
+      isBlocked: true,
+      lastActiveAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString()
+    },
+    {
+      id: 'dev-002',
+      userName: 'Suresh Raina',
+      userEmail: 'suresh.r@pfizerbiopharma.com',
+      role: 'MEDICAL_REP',
+      companyName: 'Pfizer BioPharma Ltd',
+      appVersion: 'v3.3.0',
+      buildNumber: 165,
+      platform: 'ANDROID',
+      deviceModel: 'Xiaomi Redmi Note 10',
+      osVersion: 'Android 12',
+      isOutdated: true,
+      isBlocked: true,
+      lastActiveAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString()
+    },
+    {
+      id: 'dev-003',
+      userName: 'Ananya Deshmukh',
+      userEmail: 'ananya.d@novartispharma.com',
+      role: 'AREA_MANAGER',
+      companyName: 'Novartis Pharma Global',
+      appVersion: 'v3.3.0',
+      buildNumber: 165,
+      platform: 'IOS',
+      deviceModel: 'iPhone 11 Pro',
+      osVersion: 'iOS 15.4',
+      isOutdated: true,
+      isBlocked: true,
+      lastActiveAt: new Date(Date.now() - 6 * 3600 * 1000).toISOString()
+    },
+    {
+      id: 'dev-004',
+      userName: 'Tariq Al-Mansoor',
+      userEmail: 'tariq.m@astrazeneca.com',
+      role: 'MEDICAL_REP',
+      companyName: 'AstraZeneca Healthcare',
+      appVersion: 'v3.4.0',
+      buildNumber: 180,
+      platform: 'ANDROID',
+      deviceModel: 'OnePlus Nord CE',
+      osVersion: 'Android 13',
+      isOutdated: true,
+      isBlocked: false,
+      lastActiveAt: new Date(Date.now() - 15 * 60 * 1000).toISOString()
+    },
+    {
+      id: 'dev-005',
+      userName: 'David Miller',
+      userEmail: 'david.m@sanofi.com',
+      role: 'MEDICAL_REP',
+      companyName: 'Sanofi Healthcare Ltd',
+      appVersion: 'v3.4.0',
+      buildNumber: 180,
+      platform: 'IOS',
+      deviceModel: 'iPhone 13',
+      osVersion: 'iOS 16.6',
+      isOutdated: true,
+      isBlocked: false,
+      lastActiveAt: new Date(Date.now() - 45 * 60 * 1000).toISOString()
+    }
+  ];
+};
+
+export const sendUpgradeReminderPush = async (payload) => {
+  const res = await fetchWithAuth('/app-versions/send-upgrade-reminder', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+  return res;
+};
+
+// ==============================================================================
+// 14. PLATFORM CONTENT MANAGEMENT (HELP CENTER, CMS, LEGAL POLICIES, SUPPORT)
+// ==============================================================================
+export const getContentOverview = async () => {
+  try {
+    const res = await fetchWithAuth('/content/overview');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading content overview:', err);
+  }
+  return {
+    totalHelpArticles: 5,
+    totalAppAnnouncements: 2,
+    privacyPolicyVersion: 'v4.2 (2026 Statutory Revision)',
+    privacyPolicyEffectiveDate: '2026-09-01',
+    termsConditionsVersion: 'v2026.3',
+    termsEffectiveDate: '2026-09-01',
+    supportTiersCount: 3,
+    totalViewsAcrossArticles: 14870
+  };
+};
+
+export const getContentArticles = async (params = {}) => {
+  try {
+    const query = new URLSearchParams(params).toString();
+    const res = await fetchWithAuth(`/content/articles${query ? `?${query}` : ''}`);
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading content articles:', err);
+  }
+  return [
+    {
+      id: 'art-001',
+      contentType: 'HELP_CENTER',
+      category: 'DCR_REPORTING',
+      title: 'How to Submit Daily Call Reports (DCR) with Geofenced Doctor Verification',
+      slug: 'submitting-dcr-with-geofence-verification',
+      summary: 'Step-by-step guide for Medical Representatives to log doctor calls, take chemist POB orders, and verify within the hospital perimeter.',
+      content: 'Medical Representatives can record doctor visits, chemist meetings, and stockist interactions in 4 simple steps.',
+      version: '1.2.0',
+      targetAudience: 'FIELD_REPS',
+      status: 'PUBLISHED',
+      viewsCount: 4820,
+      helpfulVotes: 395,
+      author: 'Orvexa Product & Clinical Training Team',
+      publishedAt: new Date(Date.now() - 30 * 86400 * 1000).toISOString()
+    },
+    {
+      id: 'art-002',
+      contentType: 'HELP_CENTER',
+      category: 'ORDERS_POB',
+      title: 'Booking Chemist POB Orders & Stockist Credit Verification Guidelines',
+      slug: 'chemist-pob-orders-and-stockist-credit-checks',
+      summary: 'Guide for booking Chemist orders, calculating promotional slab discounts, and real-time stockist credit line checks.',
+      content: 'When booking Primary Order Bookings (POB) at retail chemist counters.',
+      version: '1.1.0',
+      targetAudience: 'FIELD_REPS',
+      status: 'PUBLISHED',
+      viewsCount: 3210,
+      helpfulVotes: 280,
+      author: 'Commercial Operations Team',
+      publishedAt: new Date(Date.now() - 45 * 86400 * 1000).toISOString()
+    },
+    {
+      id: 'art-003',
+      contentType: 'APP_ANNOUNCEMENT',
+      category: 'PRODUCT_SPOTLIGHT',
+      title: 'Spotlight: AI-Powered Smart Route Optimization & Doctor Priority Planner',
+      slug: 'ai-smart-route-optimization-spotlight',
+      summary: 'Learn how the new AI engine reduces field travel time by up to 28% through cluster-based visit scheduling.',
+      content: 'Our latest v4.2 update introduces machine-learning route sequencing.',
+      version: '1.0.0',
+      targetAudience: 'ALL',
+      status: 'PUBLISHED',
+      viewsCount: 6840,
+      helpfulVotes: 512,
+      author: 'AI Innovation Lab',
+      publishedAt: new Date(Date.now() - 5 * 86400 * 1000).toISOString()
+    }
+  ];
+};
+
+export const createContentArticle = async (articleData) => {
+  const res = await fetchWithAuth('/content/articles', {
+    method: 'POST',
+    body: JSON.stringify(articleData)
+  });
+  return res.data || res;
+};
+
+export const updateContentArticle = async (id, articleData) => {
+  const res = await fetchWithAuth(`/content/articles/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(articleData)
+  });
+  return res.data || res;
+};
+
+export const deleteContentArticle = async (id) => {
+  const res = await fetchWithAuth(`/content/articles/${id}`, {
+    method: 'DELETE'
+  });
+  return res.data || res;
+};
+
+export const getLegalPolicy = async (policyType) => {
+  try {
+    const res = await fetchWithAuth(`/content/policy/${policyType}`);
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading legal policy:', err);
+  }
+  return {
+    title: policyType === 'privacy-policy' ? 'Platform Master Privacy Policy' : (policyType === 'terms-conditions' ? 'Master Subscription Agreement & Terms of Service' : 'Technical Support Directory'),
+    version: 'v4.2 (2026)',
+    content: 'Platform legal governance and compliance terms.'
+  };
+};
+
+export const updateLegalPolicy = async (policyType, payload) => {
+  const res = await fetchWithAuth(`/content/policy/${policyType}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  });
+  return res.data || res;
+};
+
+
 
 
 
