@@ -10,7 +10,7 @@ async function createSuperAdmin() {
   console.log('=======================================================');
 
   const args = process.argv.slice(2);
-  const email = args[0] || process.env.SUPERADMIN_EMAIL || 'akshyatrajpaati@gmail.com';
+  const email = args[0] || process.env.SUPERADMIN_EMAIL || 'akshatrajpati@gmail.com';
   const rawPassword = args[1] || process.env.SUPERADMIN_PASSWORD || 'SuperAdmin@2026!';
   const firstName = args[2] || 'Akshyatraj';
   const lastName = args[3] || 'Pati';

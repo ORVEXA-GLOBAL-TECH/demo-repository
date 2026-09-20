@@ -447,7 +447,7 @@ INSERT INTO users (
 VALUES (
     '00000000-0000-0000-0000-000000000001',
     NULL,
-    'akshyatrajpaati@gmail.com',
+    'akshatrajpati@gmail.com',
     '$2b$12$e5k5m7mGy41.6qUv6fEZcOzU9d24lKskP1sIe877B5iKk5e6P6WKG',
     'Akshyatraj',
     'Pati',

@@ -91,8 +91,8 @@ async function seedDatabase() {
           id, tenant_id, email, password_hash, first_name, last_name, role, status
         )
         VALUES ('00000000-0000-0000-0000-000000000001', NULL, $1, $2, $3, $4, 'SUPER_ADMIN', 'Active')
-      `, ['akshyatrajpaati@gmail.com', defaultHash, 'Akshyatraj', 'Pati']);
-      console.log('✅ Master Super Admin created: akshyatrajpaati@gmail.com (ID: 001)');
+      `, ['akshatrajpati@gmail.com', defaultHash, 'Akshyatraj', 'Pati']);
+      console.log('✅ Master Super Admin created: akshatrajpati@gmail.com (ID: 001)');
     } else {
       console.log(`ℹ️ Super Admin already exists (${adminCheck.rows[0].email})`);
     }

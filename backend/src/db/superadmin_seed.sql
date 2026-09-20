@@ -4,7 +4,7 @@
 -- ==============================================================================
 
 -- 1. Create / Upsert Master Super Admin User: Akshyatraj Pati
--- Email: akshyatrajpaati@gmail.com
+-- Email: akshatrajpati@gmail.com
 -- Default Password: SuperAdmin@2026! (Bcrypt 12 Rounds)
 INSERT INTO users (
     id,
@@ -20,7 +20,7 @@ INSERT INTO users (
 VALUES (
     '00000000-0000-0000-0000-000000000001',
     NULL,
-    'akshyatrajpaati@gmail.com',
+    'akshatrajpati@gmail.com',
     '$2b$12$e5k5m7mGy41.6qUv6fEZcOzU9d24lKskP1sIe877B5iKk5e6P6WKG',
     'Akshyatraj',
     'Pati',
@@ -47,7 +47,7 @@ INSERT INTO platform_audit_logs (
     details
 )
 VALUES (
-    'akshyatrajpaati@gmail.com',
+    'akshatrajpati@gmail.com',
     'SUPER_ADMIN',
     'SUPERADMIN_INITIALIZED',
     'users',
@@ -58,4 +58,4 @@ VALUES (
 -- 3. Verify Super Admin Record
 SELECT id, email, first_name, last_name, role, status, created_at 
 FROM users 
-WHERE email = 'akshyatrajpaati@gmail.com';
+WHERE email = 'akshatrajpati@gmail.com';
