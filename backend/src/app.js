@@ -21,6 +21,7 @@ import analyticsRoutes from './routes/analyticsRoutes.js';
 import trackingRoutes from './routes/trackingRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import tenantRoutes from './routes/tenantRoutes.js';
 
 const app = express();
 
@@ -46,6 +47,8 @@ app.use(morgan('dev'));
 // OpenAPI / Swagger Documentation endpoint
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
+import { checkDbHealth } from './config/db.js';
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
@@ -55,6 +58,22 @@ app.get('/api/health', (req, res) => {
     swaggerDocs: '/api/docs',
     timestamp: new Date().toISOString()
   });
+});
+
+// Database Health & Telemetry endpoint
+app.get('/api/health/db', async (req, res) => {
+  try {
+    const dbStatus = await checkDbHealth();
+    res.status(dbStatus.status === 'CONNECTED' ? 200 : 503).json({
+      success: dbStatus.status === 'CONNECTED',
+      database: dbStatus
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 // API Routes
@@ -71,6 +90,7 @@ app.use('/api/tracking', trackingRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api', tenantRoutes);
 
 // 404 handler
 app.use((req, res, next) => {
