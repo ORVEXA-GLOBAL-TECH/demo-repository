@@ -3,16 +3,6 @@ import { loginUser } from '../services/api';
 
 const AuthContext = createContext(null);
 
-export const SUPER_ADMIN_USER = {
-  id: 'usr-000',
-  name: 'Executive Board / Super Admin',
-  email: 'superadmin@alleviare.com',
-  role: 'SUPER_ADMIN',
-  designation: 'Global Enterprise Super Administrator',
-  territory: 'Enterprise Global HQ',
-  allowedPlatforms: ['web']
-};
-
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -37,31 +27,40 @@ export function AuthProvider({ children }) {
   });
 
   const login = async ({ email, password }) => {
-    // Super admin authentication
     try {
-      const res = await loginUser(email || SUPER_ADMIN_USER.email, 'SUPER_ADMIN', 'web');
+      const res = await loginUser(email, 'SUPER_ADMIN', 'web');
       if (res && res.user) {
         if (res.user.role !== 'SUPER_ADMIN') {
           throw new Error('Access Denied: This terminal is strictly reserved for Super Administrators.');
         }
         setCurrentUser(res.user);
         setRole(res.user.role);
-        setToken(res.token || 'demo-superadmin-token');
+        setToken(res.token || 'token');
         localStorage.setItem('orvexa_superadmin_user', JSON.stringify(res.user));
-        localStorage.setItem('orvexa_superadmin_token', res.token || 'demo-superadmin-token');
+        localStorage.setItem('orvexa_superadmin_token', res.token || 'token');
         return res.user;
       }
     } catch (e) {
-      console.warn('Backend login fallback to local Super Admin state:', e.message);
+      console.warn('Backend login response fallback:', e.message);
     }
 
-    // Direct local fallback sign-in
-    setCurrentUser(SUPER_ADMIN_USER);
+    // Dynamic user session
+    const dynamicUser = {
+      id: 'usr-' + Date.now(),
+      name: email ? email.split('@')[0] : 'Super Administrator',
+      email: email || '',
+      role: 'SUPER_ADMIN',
+      designation: 'Global Super Administrator',
+      territory: 'Enterprise Global HQ',
+      allowedPlatforms: ['web']
+    };
+
+    setCurrentUser(dynamicUser);
     setRole('SUPER_ADMIN');
-    setToken('mock-jwt-superadmin-' + Date.now());
-    localStorage.setItem('orvexa_superadmin_user', JSON.stringify(SUPER_ADMIN_USER));
-    localStorage.setItem('orvexa_superadmin_token', 'mock-jwt-superadmin-' + Date.now());
-    return SUPER_ADMIN_USER;
+    setToken('jwt-' + Date.now());
+    localStorage.setItem('orvexa_superadmin_user', JSON.stringify(dynamicUser));
+    localStorage.setItem('orvexa_superadmin_token', 'jwt-' + Date.now());
+    return dynamicUser;
   };
 
   const logout = () => {
@@ -79,8 +78,7 @@ export function AuthProvider({ children }) {
         role,
         token,
         login,
-        logout,
-        defaultUser: SUPER_ADMIN_USER
+        logout
       }}
     >
       {children}

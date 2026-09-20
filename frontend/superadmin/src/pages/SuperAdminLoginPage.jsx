@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function SuperAdminLoginPage() {
   const { login } = useAuth();
-  const [email, setEmail] = useState('superadmin@alleviare.com');
-  const [password, setPassword] = useState('SuperAdmin@2026!GlobalHQ');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -25,14 +25,6 @@ export default function SuperAdminLoginPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleOneClickSuperAdmin = () => {
-    setEmail('superadmin@alleviare.com');
-    setPassword('SuperAdmin@2026!GlobalHQ');
-    setTimeout(() => {
-      handleLogin();
-    }, 100);
   };
 
   return (
@@ -65,16 +57,16 @@ export default function SuperAdminLoginPage() {
           <div className="left-hero-text">
             <h1 className="hero-main-greeting">
               Hello<br />
-              <span>Orvexa SuperAdmin!</span> <span className="wave-emoji">👋</span>
+              <span>SuperAdmin!</span> <span className="wave-emoji">👋</span>
             </h1>
             <p className="hero-subtext">
-              Centralized SaaS multi-tenant governance, sovereign compliance, and enterprise automation. Get highly productive and save tons of time!
+              Centralized multi-tenant governance, sovereign compliance, and enterprise automation.
             </p>
           </div>
 
           {/* Left Footer Copyright */}
           <div className="left-panel-footer">
-            &copy; 2026 Orvexa Global Tech. All rights reserved.
+            &copy; {new Date().getFullYear()} Platform HQ. All rights reserved.
           </div>
         </div>
       </div>
@@ -84,14 +76,14 @@ export default function SuperAdminLoginPage() {
         <div className="right-panel-inner">
           {/* Brand Header */}
           <div className="brand-title-row">
-            <h2 className="brand-logo-text">Orvexa</h2>
+            <h2 className="brand-logo-text">Console</h2>
           </div>
 
           {/* Welcome Back Header */}
           <div className="welcome-header-group">
             <h1 className="welcome-heading">Welcome Back!</h1>
             <p className="welcome-subtext">
-              Don't have an account? <a href="#contact-hq" onClick={(e) => e.preventDefault()} className="create-account-link">Request new tenant access</a>. It takes less than a minute.
+              Enter your authorized Super Administrator credentials to proceed.
             </p>
           </div>
 
@@ -146,25 +138,13 @@ export default function SuperAdminLoginPage() {
             </button>
           </form>
 
-          {/* Quick 1-Click Evaluation Bar */}
-          <div className="quick-access-chip-row">
-            <button
-              type="button"
-              className="quick-eval-pill"
-              onClick={handleOneClickSuperAdmin}
-            >
-              <CheckCircle2 size={15} color="#10b981" />
-              <span>1-Click Super Admin Auto Fill &amp; Login</span>
-            </button>
-          </div>
-
           {/* Forget Password */}
           <div className="forget-password-row">
-            <span>Forget password? </span>
+            <span>Forgot password? </span>
             <button
               type="button"
               className="forget-link-btn"
-              onClick={() => alert('Please contact global infrastructure security team at security@orvexa.com')}
+              onClick={() => alert('Please contact global infrastructure security team for password resets.')}
             >
               Click here
             </button>
