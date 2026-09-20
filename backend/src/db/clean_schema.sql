@@ -45,14 +45,20 @@ CREATE TABLE tenants_companies (
     country_code VARCHAR(3) REFERENCES sovereign_countries(code),
     default_timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
     currency_code VARCHAR(5) NOT NULL DEFAULT 'USD',
-    plan VARCHAR(50) NOT NULL DEFAULT 'Enterprise',
+    plan VARCHAR(50) NOT NULL DEFAULT 'STARTER',
     status VARCHAR(30) NOT NULL DEFAULT 'Active',
     max_mrs INT NOT NULL DEFAULT 50,
     max_admins INT NOT NULL DEFAULT 5,
     max_doctors INT NOT NULL DEFAULT 5000,
     max_storage_gb NUMERIC(8,2) NOT NULL DEFAULT 50.0,
     billing_cycle VARCHAR(20) NOT NULL DEFAULT 'Monthly',
-    monthly_rate NUMERIC(12,2) DEFAULT 0.00,
+    monthly_rate NUMERIC(12,2) DEFAULT 100.00,
+    is_custom_pricing BOOLEAN DEFAULT false,
+    custom_rate NUMERIC(12,2) DEFAULT 0.00,
+    trial_start_at TIMESTAMP WITH TIME ZONE,
+    trial_end_at TIMESTAMP WITH TIME ZONE,
+    subscription_start_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    subscription_end_at TIMESTAMP WITH TIME ZONE,
     contact_email VARCHAR(255) NOT NULL,
     contact_phone VARCHAR(50),
     settings JSONB DEFAULT '{}'::jsonb,
@@ -63,9 +69,7 @@ CREATE TABLE tenants_companies (
 CREATE INDEX idx_tenants_country ON tenants_companies(country_code);
 CREATE INDEX idx_tenants_status ON tenants_companies(status);
 
--- ==============================================================================
--- 3. TENANT SUBSCRIPTIONS & LICENSES
--- ==============================================================================
+-- 5. TENANT SUBSCRIPTIONS
 CREATE TABLE tenant_subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants_companies(id) ON DELETE CASCADE,
@@ -73,6 +77,8 @@ CREATE TABLE tenant_subscriptions (
     status VARCHAR(30) NOT NULL DEFAULT 'Active',
     start_date DATE NOT NULL,
     expiry_date DATE NOT NULL,
+    start_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    end_at TIMESTAMP WITH TIME ZONE,
     auto_renew BOOLEAN DEFAULT true,
     invoice_currency VARCHAR(5) NOT NULL DEFAULT 'USD',
     amount_billed NUMERIC(12,2) NOT NULL DEFAULT 0.00,

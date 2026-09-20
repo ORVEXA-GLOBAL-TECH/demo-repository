@@ -93,13 +93,20 @@ router.post('/tenants', async (req, res) => {
     countryCode,
     timezone,
     currencyCode,
-    plan,
+    plan = 'STARTER',
+    status,
     maxMrs,
     maxAdmins,
     maxDoctors,
     maxStorageGb,
     billingCycle,
     monthlyRate,
+    isCustomPricing,
+    customRate,
+    trialStartAt,
+    trialEndAt,
+    subscriptionStartAt,
+    subscriptionEndAt,
     contactEmail,
     contactPhone,
     adminName,
@@ -112,6 +119,26 @@ router.post('/tenants', async (req, res) => {
   }
 
   const tenantCode = code || name.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30);
+  const normalizedPlan = (plan || 'STARTER').toUpperCase();
+  const isTrial = normalizedPlan === 'FREE_TRIAL' || normalizedPlan === 'TRIAL';
+  const isCustom = normalizedPlan === 'CUSTOM' || isCustomPricing;
+
+  let calculatedRate = 0;
+  if (isTrial) {
+    calculatedRate = 0;
+  } else if (isCustom) {
+    calculatedRate = customRate !== undefined ? Number(customRate) : (monthlyRate !== undefined ? Number(monthlyRate) : 0);
+  } else if (normalizedPlan === 'STARTER' || normalizedPlan === 'BASIC') {
+    calculatedRate = 100;
+  } else if (normalizedPlan === 'PROFESSIONAL' || normalizedPlan === 'PRO') {
+    calculatedRate = 1000;
+  } else if (normalizedPlan === 'ENTERPRISE') {
+    calculatedRate = 2500;
+  } else {
+    calculatedRate = Number(monthlyRate) || 100;
+  }
+
+  const finalStatus = status || (isTrial ? 'Trial' : 'Active');
 
   try {
     const dbHealth = await checkDbHealth();
@@ -119,10 +146,12 @@ router.post('/tenants', async (req, res) => {
       const insertRes = await query(`
         INSERT INTO tenants_companies (
           code, name, legal_name, country_code, default_timezone,
-          currency_code, plan, max_mrs, max_admins, max_doctors,
-          max_storage_gb, billing_cycle, monthly_rate, contact_email, contact_phone, settings
+          currency_code, plan, status, max_mrs, max_admins, max_doctors,
+          max_storage_gb, billing_cycle, monthly_rate, is_custom_pricing, custom_rate,
+          trial_start_at, trial_end_at, subscription_start_at, subscription_end_at,
+          contact_email, contact_phone, settings
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
         RETURNING *;
       `, [
         tenantCode,
@@ -130,14 +159,21 @@ router.post('/tenants', async (req, res) => {
         legalName || name,
         countryCode || 'VN',
         timezone || 'Asia/Ho_Chi_Minh',
-        currencyCode || 'VND',
-        plan || 'Enterprise',
+        currencyCode || 'USD',
+        normalizedPlan,
+        finalStatus,
         maxMrs || 50,
         maxAdmins || 5,
         maxDoctors || 5000,
         maxStorageGb || 50.0,
         billingCycle || 'Monthly',
-        monthlyRate || 0.0,
+        calculatedRate,
+        isCustom || false,
+        isCustom ? calculatedRate : 0,
+        trialStartAt || (isTrial ? new Date().toISOString() : null),
+        trialEndAt || (isTrial ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() : null),
+        subscriptionStartAt || (!isTrial ? new Date().toISOString() : null),
+        subscriptionEndAt || (!isTrial ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() : null),
         contactEmail,
         contactPhone || '',
         JSON.stringify(settings || {
@@ -153,7 +189,7 @@ router.post('/tenants', async (req, res) => {
             orderManagement: true,
             sampleManagement: false,
             analytics: true,
-            aiStudio: plan === 'Enterprise' || plan === 'ENTERPRISE'
+            aiStudio: normalizedPlan === 'ENTERPRISE'
           }
         })
       ]);
@@ -197,7 +233,7 @@ router.post('/tenants', async (req, res) => {
         'TENANT_PROVISIONED',
         'tenants_companies',
         newTenant.id,
-        JSON.stringify({ tenantName: name, code: tenantCode, country: countryCode, plan })
+        JSON.stringify({ tenantName: name, code: tenantCode, country: countryCode, plan: normalizedPlan, monthlyRate: calculatedRate })
       ]);
 
       return res.status(201).json({
@@ -210,7 +246,7 @@ router.post('/tenants', async (req, res) => {
     return res.status(201).json({
       success: true,
       message: 'Tenant accepted in demo mode (PostgreSQL offline).',
-      data: { id: 'temp-' + Date.now(), name, code: tenantCode, countryCode, plan, status: 'Active' }
+      data: { id: 'temp-' + Date.now(), name, code: tenantCode, countryCode, plan: normalizedPlan, status: finalStatus }
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -234,6 +270,12 @@ router.put('/tenants/:id', async (req, res) => {
     maxStorageGb,
     billingCycle,
     monthlyRate,
+    isCustomPricing,
+    customRate,
+    trialStartAt,
+    trialEndAt,
+    subscriptionStartAt,
+    subscriptionEndAt,
     contactEmail,
     contactPhone,
     settings
@@ -258,11 +300,17 @@ router.put('/tenants/:id', async (req, res) => {
           max_storage_gb = COALESCE($11, max_storage_gb),
           billing_cycle = COALESCE($12, billing_cycle),
           monthly_rate = COALESCE($13, monthly_rate),
-          contact_email = COALESCE($14, contact_email),
-          contact_phone = COALESCE($15, contact_phone),
-          settings = COALESCE($16, settings),
+          is_custom_pricing = COALESCE($14, is_custom_pricing),
+          custom_rate = COALESCE($15, custom_rate),
+          trial_start_at = COALESCE($16, trial_start_at),
+          trial_end_at = COALESCE($17, trial_end_at),
+          subscription_start_at = COALESCE($18, subscription_start_at),
+          subscription_end_at = COALESCE($19, subscription_end_at),
+          contact_email = COALESCE($20, contact_email),
+          contact_phone = COALESCE($21, contact_phone),
+          settings = COALESCE($22, settings),
           updated_at = CURRENT_TIMESTAMP
-        WHERE id = $17
+        WHERE id = $23
         RETURNING *;
       `, [
         name,
@@ -270,7 +318,7 @@ router.put('/tenants/:id', async (req, res) => {
         countryCode,
         timezone,
         currencyCode,
-        plan,
+        plan ? plan.toUpperCase() : null,
         status,
         maxMrs,
         maxAdmins,
@@ -278,6 +326,12 @@ router.put('/tenants/:id', async (req, res) => {
         maxStorageGb,
         billingCycle,
         monthlyRate,
+        isCustomPricing,
+        customRate,
+        trialStartAt,
+        trialEndAt,
+        subscriptionStartAt,
+        subscriptionEndAt,
         contactEmail,
         contactPhone,
         settings ? JSON.stringify(settings) : null,

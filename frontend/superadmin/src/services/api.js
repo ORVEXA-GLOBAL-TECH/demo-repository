@@ -604,6 +604,16 @@ export const deleteCountry = async (code) => {
 // ----------------------------------------------------------------------------
 // SUBSCRIPTIONS & INVOICES CRUD
 // ----------------------------------------------------------------------------
+export const getRevenueMetrics = async () => {
+  try {
+    const res = await fetchWithAuth('/subscriptions/revenue-metrics');
+    if (res.success && res.data) return res.data;
+  } catch (err) {
+    console.warn('API error fetching revenue metrics, fallback to local calculation...');
+  }
+  return null;
+};
+
 export const getSubscriptions = async () => {
   try {
     const res = await fetchWithAuth('/subscriptions');

@@ -508,6 +508,15 @@ const DEFAULT_SOVEREIGN_REGISTRY = [
   }
 ];
 
+// Helper to format ISO datetime to local input string (YYYY-MM-DDTHH:mm)
+const toLocalInputDateTime = (dateObj) => {
+  const d = dateObj ? new Date(dateObj) : new Date();
+  if (isNaN(d.getTime())) return new Date().toISOString().slice(0, 16);
+  const offset = d.getTimezoneOffset() * 60000;
+  const local = new Date(d.getTime() - offset);
+  return local.toISOString().slice(0, 16);
+};
+
 export default function SuperAdminDashboard({
   activeTab = 'dashboard',
   setActiveTab,
@@ -564,7 +573,16 @@ export default function SuperAdminDashboard({
       if (tenantsRes.status === 'fulfilled' && Array.isArray(tenantsRes.value)) {
         const mappedCompanies = tenantsRes.value.map(t => {
           const matchedCountry = sovereignRegistry.find(c => c.code === t.country_code) || DEFAULT_SOVEREIGN_REGISTRY[0];
-          const planRate = t.plan === 'ENTERPRISE' ? 2000 : t.plan === 'PRO' ? 1000 : 100;
+          const isTrial = t.plan === 'FREE_TRIAL' || t.plan === 'TRIAL' || t.status === 'TRIAL' || t.status === 'Trial';
+          const isCustom = t.plan === 'CUSTOM' || t.is_custom_pricing;
+          
+          let planRate = 100;
+          if (isTrial) planRate = 0;
+          else if (isCustom) planRate = Number(t.custom_rate) || Number(t.monthly_rate) || 0;
+          else if (t.plan === 'ENTERPRISE') planRate = 2500;
+          else if (t.plan === 'PROFESSIONAL' || t.plan === 'PRO') planRate = 1000;
+          else planRate = 100;
+
           return {
             id: t.id,
             code: t.code,
@@ -575,7 +593,7 @@ export default function SuperAdminDashboard({
             flag: matchedCountry.flag || '🌐',
             currency: t.currency_code || 'USD',
             timezone: t.default_timezone || 'UTC',
-            plan: (t.plan || 'PRO').toUpperCase(),
+            plan: (t.plan || 'STARTER').toUpperCase(),
             status: (t.status || 'ACTIVE').toUpperCase(),
             usersCount: t.user_count || 1,
             mrsCount: t.mr_count || 0,
@@ -585,9 +603,15 @@ export default function SuperAdminDashboard({
             storageLimitGB: t.max_storage_gb || 50,
             userLimit: t.max_mrs || 250,
             mrLimit: t.max_mrs || 200,
-            mrr: `$${(t.monthly_rate || planRate).toLocaleString()}`,
-            customMRR: t.monthly_rate || planRate,
-            renewalDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            mrr: isTrial ? '$0 (Free Trial)' : `$${(t.monthly_rate || planRate).toLocaleString()}`,
+            customMRR: isTrial ? 0 : (t.monthly_rate || planRate),
+            isCustomPricing: isCustom,
+            customRate: t.custom_rate || 0,
+            trialStartAt: t.trial_start_at,
+            trialEndAt: t.trial_end_at,
+            subscriptionStartAt: t.subscription_start_at,
+            subscriptionEndAt: t.subscription_end_at,
+            renewalDate: t.subscription_end_at ? new Date(t.subscription_end_at).toISOString().split('T')[0] : (t.trial_end_at ? new Date(t.trial_end_at).toISOString().split('T')[0] : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
             modules: t.settings?.modules || {
               mrReporting: true,
               dcr: true,
@@ -629,7 +653,6 @@ export default function SuperAdminDashboard({
       }
 
       if (countriesRes.status === 'fulfilled' && Array.isArray(countriesRes.value) && countriesRes.value.length > 0) {
-        // Merge with existing full flags
         const merged = DEFAULT_SOVEREIGN_REGISTRY.map(dc => {
           const dbMatch = countriesRes.value.find(c => c.code === dc.code);
           return dbMatch ? { ...dc, ...dbMatch } : dc;
@@ -641,8 +664,8 @@ export default function SuperAdminDashboard({
         const mappedInvoices = subsRes.value.map(s => ({
           id: `INV-${s.id.slice(0, 6).toUpperCase()}`,
           company: s.tenant_name || s.tenants_companies?.name || 'Pharma Tenant',
-          tier: s.plan_tier || 'PRO',
-          amount: `$${Number(s.amount_billed || 1000).toLocaleString()}`,
+          tier: s.plan_tier || 'STARTER',
+          amount: `$${Number(s.amount_billed || 100).toLocaleString()}`,
           status: s.status || 'Active',
           date: s.expiry_date || new Date().toISOString().split('T')[0]
         }));
@@ -731,7 +754,7 @@ export default function SuperAdminDashboard({
   const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = useState(false);
   const [isNewTicketOpen, setIsNewTicketOpen] = useState(false);
 
-  // Form states
+  // Form states with precise Start & End Times
   const [newCompanyForm, setNewCompanyForm] = useState({
     name: '',
     legalName: '',
@@ -743,25 +766,29 @@ export default function SuperAdminDashboard({
     adminName: '',
     adminEmail: '',
     adminPhone: '',
-    plan: 'PRO',
+    plan: 'FREE_TRIAL',
+    customRate: 0,
+    startAt: toLocalInputDateTime(new Date()),
+    endAt: toLocalInputDateTime(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)),
     userLimit: 250,
     mrLimit: 200,
     storageLimitGB: 50,
-    billingCycle: 'Monthly',
-    monthlyRate: 1000
+    billingCycle: 'Monthly'
   });
 
   const [editCompanyForm, setEditCompanyForm] = useState({
     name: '',
     legalName: '',
-    plan: 'PRO',
+    plan: 'STARTER',
+    customRate: 0,
+    startAt: toLocalInputDateTime(new Date()),
+    endAt: toLocalInputDateTime(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)),
     userLimit: 250,
     mrLimit: 200,
     storageLimitGB: 50,
     contactEmail: '',
     contactPhone: '',
     billingCycle: 'Monthly',
-    monthlyRate: 1000,
     status: 'ACTIVE'
   });
 
@@ -810,10 +837,12 @@ export default function SuperAdminDashboard({
   });
 
   const [subModalForm, setSubModalForm] = useState({
-    planTier: 'PRO',
-    amountBilled: 1000,
-    billingInterval: 'Monthly',
-    expiryDate: ''
+    planTier: 'STARTER',
+    customRate: 0,
+    amountBilled: 100,
+    startAt: toLocalInputDateTime(new Date()),
+    endAt: toLocalInputDateTime(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)),
+    billingInterval: 'Monthly'
   });
 
   const [newAnnouncement, setNewAnnouncement] = useState({
@@ -832,11 +861,11 @@ export default function SuperAdminDashboard({
   });
 
   // --------------------------------------------------------------------------
-  // DYNAMIC COMPUTED METRICS
+  // DYNAMIC COMPUTED METRICS & LIVE REVENUE ENGINE
   // --------------------------------------------------------------------------
   const totalCompanies = companies.length;
   const activeCompanies = companies.filter(c => c.status === 'ACTIVE').length;
-  const trialCompanies = companies.filter(c => c.status === 'TRIAL').length;
+  const trialCompanies = companies.filter(c => c.status === 'TRIAL' || c.plan === 'FREE_TRIAL' || c.plan === 'TRIAL').length;
   const suspendedCompanies = companies.filter(c => c.status === 'SUSPENDED').length;
 
   const totalUsers = platformUsers.length || companies.reduce((acc, c) => acc + (Number(c.usersCount) || 0), 0);
@@ -846,9 +875,14 @@ export default function SuperAdminDashboard({
   const totalStorageGB = companies.reduce((acc, c) => acc + (Number(c.storageUsedGB) || 0), 0);
   const totalStorageTB = (totalStorageGB / 1024).toFixed(2);
 
+  // Live Real-Time Monthly & Annual Recurring Revenue
   const totalMRR_USD = companies.reduce((acc, c) => {
     if (c.status !== 'ACTIVE') return acc;
-    const planRate = c.plan === 'ENTERPRISE' ? 2000 : c.plan === 'PRO' ? 1000 : 100;
+    if (c.plan === 'FREE_TRIAL' || c.plan === 'TRIAL') return acc;
+    if (c.plan === 'CUSTOM' || c.isCustomPricing) {
+      return acc + (Number(c.customRate) || Number(c.customMRR) || 0);
+    }
+    const planRate = c.plan === 'ENTERPRISE' ? 2500 : (c.plan === 'PROFESSIONAL' || c.plan === 'PRO') ? 1000 : 100;
     return acc + (Number(c.customMRR) || planRate);
   }, 0);
   const totalARR_USD = totalMRR_USD * 12;
@@ -910,7 +944,7 @@ export default function SuperAdminDashboard({
   };
 
   // --------------------------------------------------------------------------
-  // 1. TENANT CRUD HANDLERS
+  // 1. TENANT CRUD HANDLERS WITH START & END TIMESTAMPS
   // --------------------------------------------------------------------------
   const handleCountrySelectionChange = (countryName) => {
     const matched = sovereignRegistry.find(c => c.name === countryName);
@@ -925,6 +959,17 @@ export default function SuperAdminDashboard({
     }
   };
 
+  // Helper function to calculate duration presets for Start/End times
+  const applyDurationPreset = (setter, baseStart, daysToAdd) => {
+    const start = baseStart ? new Date(baseStart) : new Date();
+    const end = new Date(start.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+    setter(prev => ({
+      ...prev,
+      startAt: toLocalInputDateTime(start),
+      endAt: toLocalInputDateTime(end)
+    }));
+  };
+
   const handleCreateCompany = async (e) => {
     e.preventDefault();
     if (!newCompanyForm.name.trim() || !newCompanyForm.adminEmail.trim()) {
@@ -933,7 +978,16 @@ export default function SuperAdminDashboard({
     }
 
     try {
-      const planRate = newCompanyForm.plan === 'ENTERPRISE' ? 2000 : newCompanyForm.plan === 'PRO' ? 1000 : 100;
+      const isTrial = newCompanyForm.plan === 'FREE_TRIAL' || newCompanyForm.plan === 'TRIAL';
+      const isCustom = newCompanyForm.plan === 'CUSTOM';
+
+      let calculatedRate = 0;
+      if (isTrial) calculatedRate = 0;
+      else if (isCustom) calculatedRate = Number(newCompanyForm.customRate) || 0;
+      else if (newCompanyForm.plan === 'STARTER' || newCompanyForm.plan === 'BASIC') calculatedRate = 100;
+      else if (newCompanyForm.plan === 'PROFESSIONAL' || newCompanyForm.plan === 'PRO') calculatedRate = 1000;
+      else if (newCompanyForm.plan === 'ENTERPRISE') calculatedRate = 2500;
+
       const payload = {
         name: newCompanyForm.name,
         legalName: newCompanyForm.legalName || newCompanyForm.name,
@@ -942,20 +996,27 @@ export default function SuperAdminDashboard({
         currencyCode: newCompanyForm.currency,
         timezone: newCompanyForm.timezone,
         plan: newCompanyForm.plan,
+        status: isTrial ? 'Trial' : 'Active',
+        isCustomPricing: isCustom,
+        customRate: isCustom ? calculatedRate : 0,
+        monthlyRate: calculatedRate,
+        trialStartAt: isTrial ? new Date(newCompanyForm.startAt).toISOString() : null,
+        trialEndAt: isTrial ? new Date(newCompanyForm.endAt).toISOString() : null,
+        subscriptionStartAt: !isTrial ? new Date(newCompanyForm.startAt).toISOString() : null,
+        subscriptionEndAt: !isTrial ? new Date(newCompanyForm.endAt).toISOString() : null,
         maxMrs: Number(newCompanyForm.mrLimit) || 200,
         maxAdmins: 5,
         maxDoctors: 5000,
         maxStorageGb: Number(newCompanyForm.storageLimitGB) || 50,
         billingCycle: newCompanyForm.billingCycle || 'Monthly',
-        monthlyRate: planRate,
         contactEmail: newCompanyForm.adminEmail,
         contactPhone: newCompanyForm.adminPhone,
         adminName: newCompanyForm.adminName
       };
 
-      const result = await createTenant(payload);
-      showToast(`Tenant "${newCompanyForm.name}" successfully provisioned!`, 'success');
-      logAudit('TENANT_PROVISIONED', `Created pharma company ${newCompanyForm.name} in ${newCompanyForm.country}`, newCompanyForm.name);
+      await createTenant(payload);
+      showToast(`Tenant "${newCompanyForm.name}" successfully provisioned with ${newCompanyForm.plan} plan!`, 'success');
+      logAudit('TENANT_PROVISIONED', `Created pharma company ${newCompanyForm.name} on ${newCompanyForm.plan} ($${calculatedRate}/mo)`, newCompanyForm.name);
 
       setIsCreateCompanyOpen(false);
       loadAllData();
@@ -970,12 +1031,14 @@ export default function SuperAdminDashboard({
         adminName: '',
         adminEmail: '',
         adminPhone: '',
-        plan: 'PRO',
+        plan: 'FREE_TRIAL',
+        customRate: 0,
+        startAt: toLocalInputDateTime(new Date()),
+        endAt: toLocalInputDateTime(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)),
         userLimit: 250,
         mrLimit: 200,
         storageLimitGB: 50,
-        billingCycle: 'Monthly',
-        monthlyRate: 1000
+        billingCycle: 'Monthly'
       });
     } catch (err) {
       showToast(`Failed to create tenant: ${err.message}`, 'error');
@@ -984,17 +1047,23 @@ export default function SuperAdminDashboard({
 
   const handleOpenEditCompany = (company) => {
     setEditingCompany(company);
+    const isTrial = company.plan === 'FREE_TRIAL' || company.plan === 'TRIAL' || company.status === 'TRIAL';
+    const isCustom = company.plan === 'CUSTOM' || company.isCustomPricing;
+
     setEditCompanyForm({
       name: company.name,
       legalName: company.legalName || company.name,
       plan: company.plan,
+      isCustomPricing: isCustom,
+      customRate: company.customRate || company.customMRR || 0,
+      startAt: toLocalInputDateTime(company.trialStartAt || company.subscriptionStartAt || new Date()),
+      endAt: toLocalInputDateTime(company.trialEndAt || company.subscriptionEndAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)),
       userLimit: company.userLimit || 250,
       mrLimit: company.mrLimit || 200,
       storageLimitGB: company.storageLimitGB || 50,
       contactEmail: company.adminEmail || '',
       contactPhone: '',
       billingCycle: 'Monthly',
-      monthlyRate: company.customMRR || 1000,
       status: company.status
     });
     setIsEditCompanyOpen(true);
@@ -1005,18 +1074,35 @@ export default function SuperAdminDashboard({
     if (!editingCompany) return;
 
     try {
+      const isTrial = editCompanyForm.plan === 'FREE_TRIAL' || editCompanyForm.plan === 'TRIAL';
+      const isCustom = editCompanyForm.plan === 'CUSTOM';
+
+      let calculatedRate = 0;
+      if (isTrial) calculatedRate = 0;
+      else if (isCustom) calculatedRate = Number(editCompanyForm.customRate) || 0;
+      else if (editCompanyForm.plan === 'STARTER' || editCompanyForm.plan === 'BASIC') calculatedRate = 100;
+      else if (editCompanyForm.plan === 'PROFESSIONAL' || editCompanyForm.plan === 'PRO') calculatedRate = 1000;
+      else if (editCompanyForm.plan === 'ENTERPRISE') calculatedRate = 2500;
+
       await updateTenant(editingCompany.id, {
         name: editCompanyForm.name,
         legalName: editCompanyForm.legalName,
         plan: editCompanyForm.plan,
+        status: isTrial ? 'Trial' : editCompanyForm.status,
+        monthlyRate: calculatedRate,
+        isCustomPricing: isCustom,
+        customRate: isCustom ? calculatedRate : 0,
+        trialStartAt: isTrial ? new Date(editCompanyForm.startAt).toISOString() : null,
+        trialEndAt: isTrial ? new Date(editCompanyForm.endAt).toISOString() : null,
+        subscriptionStartAt: !isTrial ? new Date(editCompanyForm.startAt).toISOString() : null,
+        subscriptionEndAt: !isTrial ? new Date(editCompanyForm.endAt).toISOString() : null,
         maxMrs: Number(editCompanyForm.mrLimit),
         maxStorageGb: Number(editCompanyForm.storageLimitGB),
-        contactEmail: editCompanyForm.contactEmail,
-        status: editCompanyForm.status
+        contactEmail: editCompanyForm.contactEmail
       });
 
       showToast(`Company "${editCompanyForm.name}" updated successfully.`, 'success');
-      logAudit('TENANT_UPDATED', `Updated configuration for ${editCompanyForm.name}`, editCompanyForm.name);
+      logAudit('TENANT_UPDATED', `Updated configuration for ${editCompanyForm.name} (${editCompanyForm.plan} - $${calculatedRate}/mo)`, editCompanyForm.name);
       setIsEditCompanyOpen(false);
       loadAllData();
     } catch (err) {
@@ -1301,15 +1387,26 @@ export default function SuperAdminDashboard({
   };
 
   // --------------------------------------------------------------------------
-  // 4. SUBSCRIPTION / BILLING HANDLERS
+  // 4. SUBSCRIPTION / BILLING & TIMESTAMPS HANDLERS
   // --------------------------------------------------------------------------
   const handleOpenSubscriptionModal = (company) => {
     setSubModalTarget(company);
+    const isTrial = company.plan === 'FREE_TRIAL' || company.plan === 'TRIAL';
+    const isCustom = company.plan === 'CUSTOM' || company.isCustomPricing;
+
+    let defaultRate = 100;
+    if (isTrial) defaultRate = 0;
+    else if (isCustom) defaultRate = Number(company.customRate) || Number(company.customMRR) || 0;
+    else if (company.plan === 'ENTERPRISE') defaultRate = 2500;
+    else if (company.plan === 'PROFESSIONAL' || company.plan === 'PRO') defaultRate = 1000;
+
     setSubModalForm({
-      planTier: company.plan || 'PRO',
-      amountBilled: company.plan === 'ENTERPRISE' ? 2000 : company.plan === 'PRO' ? 1000 : 100,
+      planTier: company.plan || 'STARTER',
+      customRate: isCustom ? defaultRate : 0,
+      amountBilled: defaultRate,
       billingInterval: 'Monthly',
-      expiryDate: company.renewalDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      startAt: toLocalInputDateTime(company.trialStartAt || company.subscriptionStartAt || new Date()),
+      endAt: toLocalInputDateTime(company.trialEndAt || company.subscriptionEndAt || new Date(Date.now() + (isTrial ? 14 : 365) * 24 * 60 * 60 * 1000))
     });
     setIsSubscriptionModalOpen(true);
   };
@@ -1319,21 +1416,34 @@ export default function SuperAdminDashboard({
     if (!subModalTarget) return;
 
     try {
+      const isTrial = subModalForm.planTier === 'FREE_TRIAL' || subModalForm.planTier === 'TRIAL';
+      const isCustom = subModalForm.planTier === 'CUSTOM';
+
+      let calculatedAmount = 0;
+      if (isTrial) calculatedAmount = 0;
+      else if (isCustom) calculatedAmount = Number(subModalForm.customRate) || 0;
+      else if (subModalForm.planTier === 'STARTER' || subModalForm.planTier === 'BASIC') calculatedAmount = 100;
+      else if (subModalForm.planTier === 'PROFESSIONAL' || subModalForm.planTier === 'PRO') calculatedAmount = 1000;
+      else if (subModalForm.planTier === 'ENTERPRISE') calculatedAmount = 2500;
+
       await createSubscription({
-        tenant_id: subModalTarget.id,
-        plan_tier: subModalForm.planTier,
-        amount_billed: Number(subModalForm.amountBilled),
-        billing_interval: subModalForm.billingInterval,
-        expiry_date: subModalForm.expiryDate,
-        status: 'Active'
+        tenantId: subModalTarget.id,
+        planTier: subModalForm.planTier,
+        amountBilled: calculatedAmount,
+        customRate: isCustom ? calculatedAmount : 0,
+        isCustomPricing: isCustom,
+        billingInterval: subModalForm.billingInterval,
+        startAt: new Date(subModalForm.startAt).toISOString(),
+        endAt: new Date(subModalForm.endAt).toISOString(),
+        status: isTrial ? 'Trial' : 'Active'
       });
 
-      showToast(`Subscription updated to ${subModalForm.planTier} for ${subModalTarget.name}!`, 'success');
-      logAudit('SUBSCRIPTION_UPDATED', `Upgraded ${subModalTarget.name} to ${subModalForm.planTier}`, subModalTarget.name);
+      showToast(`Subscription plan ${subModalForm.planTier} ($${calculatedAmount}/mo) assigned to ${subModalTarget.name}!`, 'success');
+      logAudit('SUBSCRIPTION_UPDATED', `Assigned ${subModalForm.planTier} to ${subModalTarget.name} (Valid: ${subModalForm.startAt} to ${subModalForm.endAt})`, subModalTarget.name);
       setIsSubscriptionModalOpen(false);
       loadAllData();
     } catch (err) {
-      showToast(`Subscription error: ${err.message}`, 'error');
+      showToast(`Subscription update error: ${err.message}`, 'error');
     }
   };
 
@@ -1454,7 +1564,7 @@ export default function SuperAdminDashboard({
           </div>
           <h1 className="saas-header-title">Super Admin Platform Command Center</h1>
           <p className="saas-header-desc">
-            Global SaaS Sovereign Governance &bull; 24 Market Jurisdictions &bull; Live CRUD Engine &bull; Automated FX
+            Sovereign Governance &bull; Free Trials &amp; Demo Engines &bull; Live Revenue Analytics &bull; Multi-Tier Monetization
           </p>
         </div>
 
@@ -1468,8 +1578,8 @@ export default function SuperAdminDashboard({
             <span className="pill-value text-purple">${totalARR_USD.toLocaleString()}</span>
           </div>
           <div className="header-stat-pill">
-            <span className="pill-label">Active Tenants</span>
-            <span className="pill-value">{activeCompanies} Active</span>
+            <span className="pill-label">Active / Trials</span>
+            <span className="pill-value">{activeCompanies} Paid &bull; {trialCompanies} Trial</span>
           </div>
           <button
             type="button"
@@ -1498,7 +1608,7 @@ export default function SuperAdminDashboard({
               <div className="kpi-number">{totalCompanies}</div>
               <div className="kpi-status-breakdown">
                 <span className="dot-active" style={{ background: '#dcfce7', color: '#166534', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '700' }}>🟢 {activeCompanies} Active</span>
-                <span className="dot-trial" style={{ background: '#f3e8ff', color: '#6b21a8', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '700' }}>🟣 {trialCompanies} Trial</span>
+                <span className="dot-trial" style={{ background: '#f3e8ff', color: '#6b21a8', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '700' }}>🟣 {trialCompanies} Trial / Demo</span>
                 <span className="dot-suspended" style={{ background: '#fef3c7', color: '#92400e', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '700' }}>🟡 {suspendedCompanies} Suspended</span>
               </div>
             </div>
@@ -1535,7 +1645,7 @@ export default function SuperAdminDashboard({
               </div>
               <div className="kpi-number text-green">${totalMRR_USD.toLocaleString()} <span style={{ fontSize: '0.8rem', color: '#64748b' }}>MRR</span></div>
               <div className="kpi-sub">
-                <strong>{activeCompanies} Subscriptions</strong> &bull; ARR: ${totalARR_USD.toLocaleString()}
+                <strong>{activeCompanies} Paid Subscriptions</strong> &bull; ARR: ${totalARR_USD.toLocaleString()}
               </div>
             </div>
           </div>
@@ -1547,7 +1657,7 @@ export default function SuperAdminDashboard({
                 <div className="section-header">
                   <div>
                     <h2 className="section-title">Tenant Companies Overview</h2>
-                    <p className="section-desc">Multi-tenant isolation status, local timezone, and currency tier</p>
+                    <p className="section-desc">Multi-tenant isolation status, subscription duration, and live plan rates</p>
                   </div>
                   <button type="button" className="btn btn-secondary btn-sm" onClick={() => setActiveTab('companies')}>
                     Manage Companies ({totalCompanies}) <ArrowUpRight size={14} />
@@ -1559,7 +1669,7 @@ export default function SuperAdminDashboard({
                     <div style={{ padding: '36px 20px', textAlign: 'center', color: '#64748b' }}>
                       <Inbox size={36} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
                       <div style={{ fontWeight: '700', fontSize: '0.92rem', color: '#334155' }}>No Tenants Enrolled</div>
-                      <p style={{ fontSize: '0.8rem', margin: '4px auto 14px' }}>Get started by provisioning your first isolated pharma tenant.</p>
+                      <p style={{ fontSize: '0.8rem', margin: '4px auto 14px' }}>Get started by provisioning a Free Trial or Paid Pharma Tenant.</p>
                       <button type="button" className="btn btn-primary btn-sm" onClick={() => setIsCreateCompanyOpen(true)}>
                         <Plus size={14} /> Provision Tenant
                       </button>
@@ -1569,10 +1679,10 @@ export default function SuperAdminDashboard({
                       <thead>
                         <tr>
                           <th>Company &amp; Flag</th>
-                          <th>Jurisdiction</th>
-                          <th>Timezone</th>
-                          <th>Plan</th>
+                          <th>Plan Tier</th>
+                          <th>Monthly Rate</th>
                           <th>Status</th>
+                          <th>Start / End Date</th>
                           <th style={{ textAlign: 'right' }}>Actions</th>
                         </tr>
                       </thead>
@@ -1584,25 +1694,31 @@ export default function SuperAdminDashboard({
                                 <span className="comp-flag">{comp.flag}</span>
                                 <div>
                                   <div className="comp-name-text">{comp.name}</div>
-                                  <div className="comp-code-sub">{comp.code}</div>
+                                  <div className="comp-code-sub">{comp.code} &bull; {comp.country}</div>
                                 </div>
                               </div>
                             </td>
-                            <td><strong>{comp.country}</strong></td>
-                            <td><span className="tenant-id-pill">{comp.timezone}</span></td>
-                            <td><span className={`plan-pill plan-${comp.plan.toLowerCase()}`}>{comp.plan}</span></td>
+                            <td>
+                              <span className={`plan-pill plan-${comp.plan.toLowerCase()}`}>
+                                {comp.plan}
+                              </span>
+                            </td>
+                            <td><strong>{comp.mrr}</strong></td>
                             <td>
                               <span className={`status-tag status-${comp.status.toLowerCase()}`}>
-                                {comp.status === 'ACTIVE' ? '🟢 Active' : '🟡 Suspended'}
+                                {comp.status === 'ACTIVE' ? '🟢 Active' : comp.status === 'TRIAL' ? '🟣 Trial' : '🟡 Suspended'}
                               </span>
+                            </td>
+                            <td style={{ fontSize: '0.74rem', color: '#475569' }}>
+                              <div>Expires: <strong>{comp.renewalDate}</strong></div>
                             </td>
                             <td style={{ textAlign: 'right' }}>
                               <div className="actions-cluster">
+                                <button type="button" className="action-pill-btn" onClick={() => handleOpenSubscriptionModal(comp)}>
+                                  Plan
+                                </button>
                                 <button type="button" className="action-pill-btn" onClick={() => handleOpenEditCompany(comp)}>
                                   <Edit size={12} /> Edit
-                                </button>
-                                <button type="button" className="action-pill-btn" onClick={() => handleToggleCompanyStatus(comp.id, comp.status, comp.name)}>
-                                  {comp.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
                                 </button>
                               </div>
                             </td>
@@ -1699,7 +1815,7 @@ export default function SuperAdminDashboard({
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
                   <button type="button" className="btn btn-outline btn-sm" onClick={() => setIsCreateCompanyOpen(true)} style={{ justifyContent: 'flex-start' }}>
-                    <Plus size={14} color="#2563eb" /> Provision New Pharma Tenant
+                    <Plus size={14} color="#2563eb" /> Provision Free Trial / Demo
                   </button>
                   <button type="button" className="btn btn-outline btn-sm" onClick={() => setIsCreateUserOpen(true)} style={{ justifyContent: 'flex-start' }}>
                     <Users size={14} color="#059669" /> Add Platform User
@@ -1718,7 +1834,7 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          2. COMPANIES & TENANTS (FULL CRUD)
+          2. COMPANIES & TENANTS (FULL CRUD & TRIAL TIMERS)
           ===================================================================== */}
       {activeTab === 'companies' && (
         <div className="tab-pane-content">
@@ -1727,7 +1843,10 @@ export default function SuperAdminDashboard({
               All Pharma Companies ({companies.length})
             </button>
             <button type="button" className={`sub-nav-pill ${companySubTab === 'active' ? 'active' : ''}`} onClick={() => setCompanySubTab('active')}>
-              Active ({companies.filter(c => c.status === 'ACTIVE').length})
+              Active Paid ({companies.filter(c => c.status === 'ACTIVE').length})
+            </button>
+            <button type="button" className={`sub-nav-pill ${companySubTab === 'trial' ? 'active' : ''}`} onClick={() => setCompanySubTab('trial')}>
+              Trials &amp; Demos ({companies.filter(c => c.status === 'TRIAL' || c.plan === 'FREE_TRIAL').length})
             </button>
             <button type="button" className={`sub-nav-pill ${companySubTab === 'suspended' ? 'active' : ''}`} onClick={() => setCompanySubTab('suspended')}>
               Suspended ({companies.filter(c => c.status === 'SUSPENDED').length})
@@ -1749,7 +1868,7 @@ export default function SuperAdminDashboard({
               />
             </div>
             <button type="button" className="btn btn-primary" onClick={() => setIsCreateCompanyOpen(true)}>
-              <Plus size={16} /> Create New Pharma Company
+              <Plus size={16} /> Create / Provision Tenant
             </button>
           </div>
 
@@ -1823,28 +1942,34 @@ export default function SuperAdminDashboard({
                   <Building2 size={40} color="#94a3b8" style={{ margin: '0 auto 12px', display: 'block' }} />
                   <div style={{ fontWeight: '800', fontSize: '1rem', color: '#1e293b' }}>No Companies Enrolled Yet</div>
                   <p style={{ fontSize: '0.84rem', margin: '6px auto 16px', color: '#64748b' }}>
-                    Click "Create New Pharma Company" to provision your first tenant in PostgreSQL.
+                    Click "Create / Provision Tenant" to onboard your first organization.
                   </p>
                   <button type="button" className="btn btn-primary" onClick={() => setIsCreateCompanyOpen(true)}>
-                    <Plus size={16} /> Create New Pharma Company
+                    <Plus size={16} /> Create / Provision Tenant
                   </button>
                 </div>
               ) : (
                 <table className="saas-data-table">
                   <thead>
                     <tr>
-                      <th>Company &amp; Jurisdiction</th>
-                      <th>Timezone &amp; Currency</th>
-                      <th>Plan</th>
-                      <th>Quotas (MRs / Storage)</th>
-                      <th>MRR</th>
+                      <th>Company &amp; Code</th>
+                      <th>Country</th>
+                      <th>Plan Tier</th>
+                      <th>Rate</th>
                       <th>Status</th>
+                      <th>Start &amp; End Period</th>
                       <th style={{ textAlign: 'right' }}>CRUD Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {companies
-                      .filter(c => companySubTab === 'all' || c.status.toLowerCase() === companySubTab)
+                      .filter(c => {
+                        if (companySubTab === 'all') return true;
+                        if (companySubTab === 'active') return c.status === 'ACTIVE';
+                        if (companySubTab === 'trial') return c.status === 'TRIAL' || c.plan === 'FREE_TRIAL';
+                        if (companySubTab === 'suspended') return c.status === 'SUSPENDED';
+                        return true;
+                      })
                       .filter(c =>
                         c.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
                         c.country.toLowerCase().includes(globalSearchQuery.toLowerCase())
@@ -1856,31 +1981,31 @@ export default function SuperAdminDashboard({
                               <span className="comp-flag">{company.flag}</span>
                               <div>
                                 <div className="comp-name-text">{company.name}</div>
-                                <div className="comp-code-sub">{company.code} &bull; {company.country}</div>
+                                <div className="comp-code-sub">{company.code}</div>
                               </div>
                             </div>
                           </td>
-                          <td>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <span className="tenant-id-pill" style={{ marginBottom: '2px' }}>{company.timezone}</span>
-                              <strong style={{ fontSize: '0.76rem', color: '#2563eb' }}>{company.currency}</strong>
-                            </div>
-                          </td>
+                          <td><strong>{company.country}</strong></td>
                           <td><span className={`plan-pill plan-${company.plan.toLowerCase()}`}>{company.plan}</span></td>
-                          <td>
-                            <div className="users-breakdown-cell">
-                              <strong>{company.usersCount} / {company.userLimit} Users</strong>
-                              <span>{company.storageLimitGB} GB Quota</span>
-                            </div>
-                          </td>
                           <td><strong>{company.mrr}</strong></td>
                           <td>
                             <span className={`status-tag status-${company.status.toLowerCase()}`}>
-                              {company.status === 'ACTIVE' ? '🟢 Active' : '🟡 Suspended'}
+                              {company.status === 'ACTIVE' ? '🟢 Active' : company.status === 'TRIAL' ? '🟣 Trial' : '🟡 Suspended'}
                             </span>
+                          </td>
+                          <td style={{ fontSize: '0.74rem', color: '#334155' }}>
+                            <div>Expires: <strong>{company.renewalDate}</strong></div>
                           </td>
                           <td style={{ textAlign: 'right' }}>
                             <div className="actions-cluster">
+                              <button
+                                type="button"
+                                className="action-pill-btn primary"
+                                onClick={() => handleOpenSubscriptionModal(company)}
+                                title="Upgrade / Manage Plan with Timestamps"
+                              >
+                                Plan &amp; Dates
+                              </button>
                               <button
                                 type="button"
                                 className="action-pill-btn"
@@ -1888,14 +2013,6 @@ export default function SuperAdminDashboard({
                                 title="Edit Company Details"
                               >
                                 <Edit size={12} /> Edit
-                              </button>
-                              <button
-                                type="button"
-                                className="action-pill-btn"
-                                onClick={() => handleOpenSubscriptionModal(company)}
-                                title="Upgrade / Manage Plan"
-                              >
-                                Plan
                               </button>
                               <button
                                 type="button"
@@ -2214,52 +2331,90 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          5. SUBSCRIPTIONS & MONETIZATION
+          5. SUBSCRIPTIONS & MONETIZATION (5 TIERS: FREE TRIAL, STARTER, PRO, ENTERPRISE, CUSTOM)
           ===================================================================== */}
       {activeTab === 'subscriptions' && (
         <div className="tab-pane-content">
-          <div className="subscription-plans-grid">
+          <div className="subscription-plans-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+            {/* TIER 1: FREE TRIAL / DEMO */}
+            <div className="plan-card" style={{ borderColor: '#8b5cf6' }}>
+              <div className="plan-tier-name" style={{ color: '#7c3aed' }}>FREE TRIAL / DEMO</div>
+              <div className="plan-price">$0 <span>/ demo period</span></div>
+              <p className="plan-limits-desc">For pilot testing &amp; evaluation with custom duration</p>
+              <ul className="plan-perks-list">
+                <li>Full Field DCR &amp; Route Logging</li>
+                <li>Chemist &amp; Doctor Directory</li>
+                <li>Configurable Start &amp; End Dates</li>
+                <li>10 GB Storage Sandbox</li>
+              </ul>
+              <div className="plan-sub-count" style={{ background: '#f5f3ff', color: '#7c3aed' }}>
+                {companies.filter(c => c.plan === 'FREE_TRIAL' || c.plan === 'TRIAL').length} In Trial
+              </div>
+            </div>
+
+            {/* TIER 2: STARTER */}
             <div className="plan-card">
-              <div className="plan-tier-name">BASIC TIER</div>
+              <div className="plan-tier-name">STARTER</div>
               <div className="plan-price">$100 <span>/ month</span></div>
-              <p className="plan-limits-desc">For regional pharma distribution agencies</p>
+              <p className="plan-limits-desc">For small pharma distribution &amp; agencies</p>
               <ul className="plan-perks-list">
                 <li>Up to 250 Field MRs</li>
                 <li>Core MR Reporting &amp; DCR</li>
+                <li>Chemist Order Booking (POB)</li>
                 <li>50 GB Storage Limit</li>
               </ul>
-              <div className="plan-sub-count">{companies.filter(c => c.plan === 'BASIC').length} Enrolled</div>
+              <div className="plan-sub-count">{companies.filter(c => c.plan === 'STARTER' || c.plan === 'BASIC').length} Enrolled</div>
             </div>
 
+            {/* TIER 3: PROFESSIONAL */}
             <div className="plan-card featured-plan">
               <div className="featured-ribbon">POPULAR</div>
-              <div className="plan-tier-name">PRO ENTERPRISE</div>
+              <div className="plan-tier-name">PROFESSIONAL</div>
               <div className="plan-price">$1,000 <span>/ month</span></div>
-              <p className="plan-limits-desc">For pharmaceutical manufacturing corporations</p>
+              <p className="plan-limits-desc">For regional pharmaceutical manufacturers</p>
               <ul className="plan-perks-list">
                 <li>Up to 1,500 Field Reps</li>
                 <li>Full DCR + Tour Plans (MTP)</li>
                 <li>TA / DA Smart Expense Claims</li>
+                <li>Statutory Payroll &amp; NSSF</li>
                 <li>250 GB Storage Limit</li>
               </ul>
-              <div className="plan-sub-count">{companies.filter(c => c.plan === 'PRO').length} Enrolled</div>
+              <div className="plan-sub-count">{companies.filter(c => c.plan === 'PROFESSIONAL' || c.plan === 'PRO').length} Enrolled</div>
             </div>
 
+            {/* TIER 4: ENTERPRISE */}
             <div className="plan-card">
-              <div className="plan-tier-name">GLOBAL PLATINUM</div>
-              <div className="plan-price">$2,000 <span>/ month</span></div>
+              <div className="plan-tier-name">ENTERPRISE</div>
+              <div className="plan-price">$2,500 <span>/ month</span></div>
               <p className="plan-limits-desc">For multinational pharmaceutical conglomerates</p>
               <ul className="plan-perks-list">
                 <li>Unlimited Field Reps &amp; GMs</li>
                 <li>Multi-Country Schema Isolation</li>
                 <li>AI Studio &amp; Prescription OCR</li>
+                <li>1 TB Dedicated Geo-Vault</li>
               </ul>
               <div className="plan-sub-count">{companies.filter(c => c.plan === 'ENTERPRISE').length} Enrolled</div>
+            </div>
+
+            {/* TIER 5: CUSTOM */}
+            <div className="plan-card" style={{ borderColor: '#0f172a' }}>
+              <div className="plan-tier-name" style={{ color: '#0f172a' }}>CUSTOM AS PER USER</div>
+              <div className="plan-price">Custom <span>/ contract</span></div>
+              <p className="plan-limits-desc">Tailored pricing &amp; custom SLAs for clients</p>
+              <ul className="plan-perks-list">
+                <li>Custom Price &amp; User Quota</li>
+                <li>Flexible Contract Start/End Dates</li>
+                <li>Dedicated Virtual Database Vault</li>
+                <li>Bespoke ERP &amp; SAP Integrations</li>
+              </ul>
+              <div className="plan-sub-count" style={{ background: '#f1f5f9', color: '#0f172a' }}>
+                {companies.filter(c => c.plan === 'CUSTOM' || c.isCustomPricing).length} Custom Accounts
+              </div>
             </div>
           </div>
 
           <div className="section-title-sm" style={{ marginTop: '28px' }}>
-            <span>Tenant Billing &amp; Subscriptions</span>
+            <span>Tenant Billing &amp; Subscriptions Overview</span>
           </div>
 
           <div className="saas-table-container">
@@ -2270,7 +2425,7 @@ export default function SuperAdminDashboard({
                   <th>Current Tier</th>
                   <th>Monthly Rate</th>
                   <th>Status</th>
-                  <th>Next Renewal</th>
+                  <th>Start / End Date</th>
                   <th style={{ textAlign: 'right' }}>Manage</th>
                 </tr>
               </thead>
@@ -2280,11 +2435,15 @@ export default function SuperAdminDashboard({
                     <td><strong>{c.name}</strong></td>
                     <td><span className={`plan-pill plan-${c.plan.toLowerCase()}`}>{c.plan}</span></td>
                     <td><strong>{c.mrr}</strong></td>
-                    <td><span className="status-badge-green">{c.status}</span></td>
-                    <td>{c.renewalDate}</td>
+                    <td>
+                      <span className={`status-tag status-${c.status.toLowerCase()}`}>
+                        {c.status}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: '0.76rem' }}>{c.renewalDate}</td>
                     <td style={{ textAlign: 'right' }}>
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleOpenSubscriptionModal(c)}>
-                        Upgrade / Modify Plan
+                        Manage Plan &amp; Dates
                       </button>
                     </td>
                   </tr>
@@ -2433,17 +2592,17 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          MODAL: PROVISION TENANT (CREATE COMPANY)
+          MODAL: PROVISION TENANT (FREE TRIAL, STARTER, PRO, ENTERPRISE, CUSTOM)
           ===================================================================== */}
       {isCreateCompanyOpen && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="modal-content" style={{ maxWidth: '650px' }}>
             <div className="modal-header">
               <div className="modal-title-group">
                 <Building2 size={24} color="#d97706" />
                 <div>
                   <h3>Provision Isolated Pharma Tenant</h3>
-                  <p>Create a dedicated enterprise tenant with sovereign statutory compliance.</p>
+                  <p>Configure Free Trial, Starter, Professional, Enterprise or Custom tier with start/end times.</p>
                 </div>
               </div>
               <button type="button" className="close-modal-btn" onClick={() => setIsCreateCompanyOpen(false)}>&times;</button>
@@ -2456,7 +2615,7 @@ export default function SuperAdminDashboard({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Alleviare Pharma Vietnam Ltd."
+                    placeholder="e.g. Alleviare Pharma Global Ltd."
                     value={newCompanyForm.name}
                     onChange={(e) => setNewCompanyForm({ ...newCompanyForm, name: e.target.value })}
                     className="form-control"
@@ -2466,7 +2625,7 @@ export default function SuperAdminDashboard({
                   <label>Tenant Unique Code</label>
                   <input
                     type="text"
-                    placeholder="e.g. alleviare-vn"
+                    placeholder="e.g. alleviare-global"
                     value={newCompanyForm.code}
                     onChange={(e) => setNewCompanyForm({ ...newCompanyForm, code: e.target.value })}
                     className="form-control"
@@ -2491,16 +2650,78 @@ export default function SuperAdminDashboard({
                 </div>
 
                 <div className="form-group">
-                  <label>Subscription Tier</label>
+                  <label>Subscription Tier *</label>
                   <select
                     value={newCompanyForm.plan}
-                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, plan: e.target.value })}
+                    onChange={(e) => {
+                      const selectedPlan = e.target.value;
+                      if (selectedPlan === 'FREE_TRIAL') {
+                        applyDurationPreset(setNewCompanyForm, newCompanyForm.startAt, 14);
+                      } else {
+                        applyDurationPreset(setNewCompanyForm, newCompanyForm.startAt, 365);
+                      }
+                      setNewCompanyForm(prev => ({ ...prev, plan: selectedPlan }));
+                    }}
                     className="form-control"
+                    style={{ fontWeight: '700' }}
                   >
-                    <option value="BASIC">Basic ($100/mo)</option>
-                    <option value="PRO">Pro Enterprise ($1,000/mo)</option>
-                    <option value="ENTERPRISE">Global Platinum ($2,000/mo)</option>
+                    <option value="FREE_TRIAL">Free Trial / Demo ($0)</option>
+                    <option value="STARTER">Starter Tier ($100/mo)</option>
+                    <option value="PROFESSIONAL">Professional Tier ($1,000/mo)</option>
+                    <option value="ENTERPRISE">Enterprise Tier ($2,500/mo)</option>
+                    <option value="CUSTOM">Custom Pricing (User Defined)</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Custom Pricing Input if CUSTOM is selected */}
+              {newCompanyForm.plan === 'CUSTOM' && (
+                <div className="form-group" style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '10px 14px', borderRadius: '8px' }}>
+                  <label>Custom Monthly Rate ($ USD) *</label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="e.g. 5000"
+                    value={newCompanyForm.customRate}
+                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, customRate: Number(e.target.value) })}
+                    className="form-control"
+                  />
+                </div>
+              )}
+
+              {/* Start & End Date Time Picker with Duration Presets */}
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', margin: '4px 0 14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#0f172a' }}>Subscription / Trial Validity Timestamps:</span>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button type="button" className="action-pill-btn" onClick={() => applyDurationPreset(setNewCompanyForm, newCompanyForm.startAt, 7)}>+7d Trial</button>
+                    <button type="button" className="action-pill-btn" onClick={() => applyDurationPreset(setNewCompanyForm, newCompanyForm.startAt, 14)}>+14d Trial</button>
+                    <button type="button" className="action-pill-btn" onClick={() => applyDurationPreset(setNewCompanyForm, newCompanyForm.startAt, 30)}>+30d Demo</button>
+                    <button type="button" className="action-pill-btn" onClick={() => applyDurationPreset(setNewCompanyForm, newCompanyForm.startAt, 365)}>+1 Year</button>
+                  </div>
+                </div>
+
+                <div className="form-grid-2">
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label style={{ fontSize: '0.72rem' }}>Start Date &amp; Time *</label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={newCompanyForm.startAt}
+                      onChange={(e) => setNewCompanyForm({ ...newCompanyForm, startAt: e.target.value })}
+                      className="form-control"
+                    />
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label style={{ fontSize: '0.72rem' }}>End / Expiry Date &amp; Time *</label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={newCompanyForm.endAt}
+                      onChange={(e) => setNewCompanyForm({ ...newCompanyForm, endAt: e.target.value })}
+                      className="form-control"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -2571,17 +2792,17 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          MODAL: EDIT COMPANY (UPDATE)
+          MODAL: EDIT COMPANY (UPDATE & TRIAL SETTINGS)
           ===================================================================== */}
       {isEditCompanyOpen && editingCompany && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="modal-content" style={{ maxWidth: '640px' }}>
             <div className="modal-header">
               <div className="modal-title-group">
                 <Edit size={22} color="#2563eb" />
                 <div>
                   <h3>Edit Pharma Company</h3>
-                  <p>Update tenant details, quotas, and subscription configuration.</p>
+                  <p>Update tenant details, quotas, and subscription start/end timestamps.</p>
                 </div>
               </div>
               <button type="button" className="close-modal-btn" onClick={() => setIsEditCompanyOpen(false)}>&times;</button>
@@ -2606,10 +2827,57 @@ export default function SuperAdminDashboard({
                     value={editCompanyForm.plan}
                     onChange={(e) => setEditCompanyForm({ ...editCompanyForm, plan: e.target.value })}
                   >
-                    <option value="BASIC">Basic ($100/mo)</option>
-                    <option value="PRO">Pro Enterprise ($1,000/mo)</option>
-                    <option value="ENTERPRISE">Global Platinum ($2,000/mo)</option>
+                    <option value="FREE_TRIAL">Free Trial / Demo ($0)</option>
+                    <option value="STARTER">Starter Tier ($100/mo)</option>
+                    <option value="PROFESSIONAL">Professional Tier ($1,000/mo)</option>
+                    <option value="ENTERPRISE">Enterprise Tier ($2,500/mo)</option>
+                    <option value="CUSTOM">Custom Pricing (User Defined)</option>
                   </select>
+                </div>
+              </div>
+
+              {editCompanyForm.plan === 'CUSTOM' && (
+                <div className="form-group" style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '10px 14px', borderRadius: '8px' }}>
+                  <label>Custom Monthly Rate ($ USD)</label>
+                  <input
+                    type="number"
+                    value={editCompanyForm.customRate}
+                    onChange={(e) => setEditCompanyForm({ ...editCompanyForm, customRate: Number(e.target.value) })}
+                    className="form-control"
+                  />
+                </div>
+              )}
+
+              {/* Start & End Timestamps in Edit Modal */}
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', margin: '4px 0 14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#0f172a' }}>Subscription / Trial Validity Period:</span>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button type="button" className="action-pill-btn" onClick={() => applyDurationPreset(setEditCompanyForm, editCompanyForm.startAt, 7)}>+7d</button>
+                    <button type="button" className="action-pill-btn" onClick={() => applyDurationPreset(setEditCompanyForm, editCompanyForm.startAt, 30)}>+30d</button>
+                    <button type="button" className="action-pill-btn" onClick={() => applyDurationPreset(setEditCompanyForm, editCompanyForm.startAt, 365)}>+1 Year</button>
+                  </div>
+                </div>
+
+                <div className="form-grid-2">
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label style={{ fontSize: '0.72rem' }}>Start Date &amp; Time</label>
+                    <input
+                      type="datetime-local"
+                      value={editCompanyForm.startAt}
+                      onChange={(e) => setEditCompanyForm({ ...editCompanyForm, startAt: e.target.value })}
+                      className="form-control"
+                    />
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label style={{ fontSize: '0.72rem' }}>End Date &amp; Time</label>
+                    <input
+                      type="datetime-local"
+                      value={editCompanyForm.endAt}
+                      onChange={(e) => setEditCompanyForm({ ...editCompanyForm, endAt: e.target.value })}
+                      className="form-control"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -2631,29 +2899,9 @@ export default function SuperAdminDashboard({
                     onChange={(e) => setEditCompanyForm({ ...editCompanyForm, status: e.target.value })}
                   >
                     <option value="ACTIVE">ACTIVE</option>
+                    <option value="TRIAL">TRIAL</option>
                     <option value="SUSPENDED">SUSPENDED</option>
                   </select>
-                </div>
-              </div>
-
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label>Max MRs Quota</label>
-                  <input
-                    type="number"
-                    value={editCompanyForm.mrLimit}
-                    onChange={(e) => setEditCompanyForm({ ...editCompanyForm, mrLimit: Number(e.target.value) })}
-                    className="form-control"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Storage Limit (GB)</label>
-                  <input
-                    type="number"
-                    value={editCompanyForm.storageLimitGB}
-                    onChange={(e) => setEditCompanyForm({ ...editCompanyForm, storageLimitGB: Number(e.target.value) })}
-                    className="form-control"
-                  />
                 </div>
               </div>
 
@@ -3163,17 +3411,17 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          MODAL: MANAGE SUBSCRIPTION & BILLING
+          MODAL: MANAGE SUBSCRIPTION (FREE TRIAL, STARTER, PRO, ENTERPRISE, CUSTOM WITH TIMESTAMPS)
           ===================================================================== */}
       {isSubscriptionModalOpen && subModalTarget && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="modal-content" style={{ maxWidth: '640px' }}>
             <div className="modal-header">
               <div className="modal-title-group">
                 <CreditCard size={22} color="#059669" />
                 <div>
-                  <h3>Manage Subscription</h3>
-                  <p>Upgrade or adjust plan tier for {subModalTarget.name}</p>
+                  <h3>Manage Subscription &amp; Validity</h3>
+                  <p>Assign Free Trial, Starter, Professional, Enterprise, or Custom plan for {subModalTarget.name}</p>
                 </div>
               </div>
               <button type="button" className="close-modal-btn" onClick={() => setIsSubscriptionModalOpen(false)}>&times;</button>
@@ -3187,41 +3435,85 @@ export default function SuperAdminDashboard({
                   value={subModalForm.planTier}
                   onChange={(e) => {
                     const tier = e.target.value;
-                    const rate = tier === 'ENTERPRISE' ? 2000 : tier === 'PRO' ? 1000 : 100;
-                    setSubModalForm({ ...subModalForm, planTier: tier, amountBilled: rate });
+                    let rate = 100;
+                    if (tier === 'FREE_TRIAL') {
+                      rate = 0;
+                      applyDurationPreset(setSubModalForm, subModalForm.startAt, 14);
+                    } else if (tier === 'CUSTOM') {
+                      rate = Number(subModalForm.customRate) || 0;
+                    } else if (tier === 'ENTERPRISE') {
+                      rate = 2500;
+                    } else if (tier === 'PROFESSIONAL' || tier === 'PRO') {
+                      rate = 1000;
+                    } else {
+                      rate = 100;
+                    }
+                    setSubModalForm(prev => ({ ...prev, planTier: tier, amountBilled: rate }));
                   }}
+                  style={{ fontWeight: '700' }}
                 >
-                  <option value="BASIC">Basic ($100/mo)</option>
-                  <option value="PRO">Pro Enterprise ($1,000/mo)</option>
-                  <option value="ENTERPRISE">Global Platinum ($2,000/mo)</option>
+                  <option value="FREE_TRIAL">Free Trial / Demo ($0)</option>
+                  <option value="STARTER">Starter Tier ($100/mo)</option>
+                  <option value="PROFESSIONAL">Professional Tier ($1,000/mo)</option>
+                  <option value="ENTERPRISE">Enterprise Tier ($2,500/mo)</option>
+                  <option value="CUSTOM">Custom Pricing (User Defined)</option>
                 </select>
               </div>
 
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label>Monthly Billed Amount ($ USD)</label>
+              {subModalForm.planTier === 'CUSTOM' && (
+                <div className="form-group" style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '10px 14px', borderRadius: '8px' }}>
+                  <label>Custom Monthly Rate ($ USD) *</label>
                   <input
                     type="number"
-                    value={subModalForm.amountBilled}
-                    onChange={(e) => setSubModalForm({ ...subModalForm, amountBilled: Number(e.target.value) })}
+                    required
+                    placeholder="e.g. 5000"
+                    value={subModalForm.customRate}
+                    onChange={(e) => setSubModalForm({ ...subModalForm, customRate: Number(e.target.value), amountBilled: Number(e.target.value) })}
                     className="form-control"
                   />
                 </div>
-                <div className="form-group">
-                  <label>Next Renewal Date</label>
-                  <input
-                    type="date"
-                    value={subModalForm.expiryDate}
-                    onChange={(e) => setSubModalForm({ ...subModalForm, expiryDate: e.target.value })}
-                    className="form-control"
-                  />
+              )}
+
+              {/* Start & End Timestamps with Presets */}
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', margin: '4px 0 14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#0f172a' }}>Subscription / Trial Validity Period:</span>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button type="button" className="action-pill-btn" onClick={() => applyDurationPreset(setSubModalForm, subModalForm.startAt, 7)}>+7d Trial</button>
+                    <button type="button" className="action-pill-btn" onClick={() => applyDurationPreset(setSubModalForm, subModalForm.startAt, 14)}>+14d Trial</button>
+                    <button type="button" className="action-pill-btn" onClick={() => applyDurationPreset(setSubModalForm, subModalForm.startAt, 30)}>+30d Demo</button>
+                    <button type="button" className="action-pill-btn" onClick={() => applyDurationPreset(setSubModalForm, subModalForm.startAt, 365)}>+1 Year</button>
+                  </div>
+                </div>
+
+                <div className="form-grid-2">
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label style={{ fontSize: '0.72rem' }}>Start Date &amp; Time *</label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={subModalForm.startAt}
+                      onChange={(e) => setSubModalForm({ ...subModalForm, startAt: e.target.value })}
+                      className="form-control"
+                    />
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label style={{ fontSize: '0.72rem' }}>End Date &amp; Time *</label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={subModalForm.endAt}
+                      onChange={(e) => setSubModalForm({ ...subModalForm, endAt: e.target.value })}
+                      className="form-control"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="modal-actions-bar">
                 <button type="button" className="cancel-btn" onClick={() => setIsSubscriptionModalOpen(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary">
-                  <CheckCircle size={16} /> <span>Update Subscription</span>
+                  <CheckCircle size={16} /> <span>Save &amp; Update Live Revenue</span>
                 </button>
               </div>
             </form>
