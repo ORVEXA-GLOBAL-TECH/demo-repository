@@ -26,6 +26,7 @@ import tenantRoutes from './routes/tenantRoutes.js';
 import countryRoutes from './routes/countryRoutes.js';
 import subscriptionRoutes from './routes/subscriptionRoutes.js';
 import auditRoutes from './routes/auditRoutes.js';
+import settingsRoutes from './routes/settingsRoutes.js';
 
 const app = express();
 
@@ -95,6 +96,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/sovereign-countries', countryRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/plans', subscriptionRoutes);
+app.use('/api/settings', settingsRoutes);
 app.use('/api', auditRoutes);
 app.use('/api', tenantRoutes);
 

@@ -1109,5 +1109,331 @@ export const deleteSystemAlert = async (id) => {
   return true;
 };
 
+// ----------------------------------------------------------------------------
+// GLOBAL SETTINGS & COMPANY OVERRIDES
+// ----------------------------------------------------------------------------
+export const getGlobalSettings = async () => {
+  try {
+    const res = await fetchWithAuth('/settings/global');
+    if (res.success && res.data) return res.data;
+  } catch (err) {
+    console.warn('API error fetching global settings, fallback to Supabase...');
+  }
+
+  const { data, error } = await supabase
+    .from('platform_settings')
+    .select('*')
+    .eq('id', 'global_default')
+    .maybeSingle();
+
+  if (error || !data) {
+    return {
+      id: 'global_default',
+      dateFormat: 'YYYY-MM-DD',
+      timezone: 'UTC',
+      currency: 'USD',
+      language: 'en',
+      defaultWorkingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+      notificationSettings: { email: true, inApp: true, sms: false, push: true, weeklyDigest: true, criticalAlerts: true },
+      securityPolicy: { enforce2FA: false, maxLoginAttempts: 5, lockoutDurationMinutes: 15, allowMultipleSessions: true },
+      passwordPolicy: { minLength: 8, requireUppercase: true, requireNumbers: true, requireSpecialChars: true, expiryDays: 90 },
+      sessionTimeoutMinutes: 60,
+      fileLimits: { maxFileSizeMB: 25, allowedFileTypes: ['pdf', 'jpg', 'png', 'xlsx', 'csv', 'docx'] }
+    };
+  }
+
+  return {
+    id: data.id,
+    dateFormat: data.date_format,
+    timezone: data.timezone,
+    currency: data.currency,
+    language: data.language,
+    defaultWorkingDays: typeof data.default_working_days === 'string' ? JSON.parse(data.default_working_days) : data.default_working_days,
+    notificationSettings: typeof data.notification_settings === 'string' ? JSON.parse(data.notification_settings) : data.notification_settings,
+    securityPolicy: typeof data.security_policy === 'string' ? JSON.parse(data.security_policy) : data.security_policy,
+    passwordPolicy: typeof data.password_policy === 'string' ? JSON.parse(data.password_policy) : data.password_policy,
+    sessionTimeoutMinutes: data.session_timeout_minutes,
+    fileLimits: typeof data.file_limits === 'string' ? JSON.parse(data.file_limits) : data.file_limits,
+    updatedAt: data.updated_at
+  };
+};
+
+export const updateGlobalSettings = async (settings) => {
+  try {
+    const res = await fetchWithAuth('/settings/global', {
+      method: 'PUT',
+      body: JSON.stringify(settings)
+    });
+    if (res.success) return res.data;
+  } catch (err) {
+    console.warn('API error updating global settings, fallback to Supabase...');
+  }
+
+  const { data, error } = await supabase
+    .from('platform_settings')
+    .upsert({
+      id: 'global_default',
+      date_format: settings.dateFormat,
+      timezone: settings.timezone,
+      currency: settings.currency,
+      language: settings.language,
+      default_working_days: settings.defaultWorkingDays,
+      notification_settings: settings.notificationSettings,
+      security_policy: settings.securityPolicy,
+      password_policy: settings.passwordPolicy,
+      session_timeout_minutes: settings.sessionTimeoutMinutes,
+      file_limits: settings.fileLimits,
+      updated_at: new Date().toISOString()
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data;
+};
+
+export const getCompanySettings = async (companyId) => {
+  try {
+    const res = await fetchWithAuth(`/settings/company/${companyId}`);
+    if (res.success && res.data) return res.data;
+  } catch (err) {
+    console.warn('API error fetching company settings, fallback to Supabase...');
+  }
+
+  const { data: comp } = await supabase
+    .from('tenants_companies')
+    .select('*')
+    .eq('id', companyId)
+    .single();
+
+  const global = await getGlobalSettings();
+  const overrides = comp?.settings || {};
+
+  return {
+    companyId,
+    companyName: comp?.name || 'Company',
+    hasOverrides: Object.keys(overrides).length > 0,
+    overrides,
+    effectiveSettings: {
+      dateFormat: overrides.dateFormat || global.dateFormat,
+      timezone: overrides.timezone || comp?.default_timezone || global.timezone,
+      currency: overrides.currency || comp?.currency_code || global.currency,
+      language: overrides.language || global.language,
+      workingDays: overrides.workingDays || global.defaultWorkingDays,
+      notificationSettings: { ...global.notificationSettings, ...(overrides.notificationSettings || {}) },
+      securityPolicy: { ...global.securityPolicy, ...(overrides.securityPolicy || {}) },
+      passwordPolicy: { ...global.passwordPolicy, ...(overrides.passwordPolicy || {}) },
+      sessionTimeoutMinutes: overrides.sessionTimeoutMinutes !== undefined ? Number(overrides.sessionTimeoutMinutes) : global.sessionTimeoutMinutes,
+      fileLimits: { ...global.fileLimits, ...(overrides.fileLimits || {}) }
+    },
+    globalDefaults: global
+  };
+};
+
+export const updateCompanyOverrides = async (companyId, overrides) => {
+  try {
+    const res = await fetchWithAuth(`/settings/company/${companyId}/overrides`, {
+      method: 'PUT',
+      body: JSON.stringify({ overrides })
+    });
+    if (res.success) return res.data;
+  } catch (err) {
+    console.warn('API error updating company overrides, fallback to Supabase...');
+  }
+
+  const { data, error } = await supabase
+    .from('tenants_companies')
+    .update({
+      settings: overrides,
+      default_timezone: overrides.timezone || undefined,
+      currency_code: overrides.currency || undefined,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', companyId)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data;
+};
+
+export const resetCompanyOverrides = async (companyId) => {
+  try {
+    const res = await fetchWithAuth(`/settings/company/${companyId}/overrides`, {
+      method: 'DELETE'
+    });
+    if (res.success) return true;
+  } catch (err) {
+    console.warn('API error resetting company overrides, fallback to Supabase...');
+  }
+
+  const { error } = await supabase
+    .from('tenants_companies')
+    .update({ settings: {}, updated_at: new Date().toISOString() })
+    .eq('id', companyId);
+
+  if (error) throw new Error(error.message);
+  return true;
+};
+
+// ----------------------------------------------------------------------------
+// ROLE TEMPLATES & RBAC PERMISSION MATRIX
+// ----------------------------------------------------------------------------
+export const getRoleTemplates = async () => {
+  try {
+    const res = await fetchWithAuth('/settings/roles');
+    if (res.success && Array.isArray(res.data)) return res.data;
+  } catch (err) {
+    console.warn('API error fetching role templates, fallback to Supabase...');
+  }
+
+  const { data, error } = await supabase
+    .from('role_templates')
+    .select('*')
+    .order('role_key', { ascending: true });
+
+  if (error || !data || data.length === 0) {
+    return [
+      {
+        roleKey: 'SUPER_ADMIN',
+        roleName: 'Super Admin (Master Platform Authority)',
+        description: 'Supreme root authority with absolute control over all companies, platform configuration, billing, security, and role templates.',
+        isSystemImmutable: true,
+        permissions: {
+          'platform.view_all_tenants': true,
+          'platform.manage_tenants': true,
+          'platform.global_settings': true,
+          'platform.role_templates': true,
+          'platform.emergency_killswitch': true,
+          'platform.view_audit_logs': true,
+          'platform.manage_billing': true,
+          'platform.impersonate_admin': true,
+          'users.create_admin': true,
+          'users.edit_admin': true,
+          'users.toggle_status': true,
+          'users.reset_password': true,
+          'users.force_logout': true,
+          'users.lock_unlock': true,
+          'users.change_permissions': true,
+          'plans.create': true,
+          'plans.edit': true,
+          'plans.delete': true,
+          'subscriptions.assign': true,
+          'subscriptions.upgrade_downgrade': true
+        }
+      },
+      {
+        roleKey: 'COMPANY_ADMIN',
+        roleName: 'Company Admin (Tenant Executive)',
+        description: 'Full administrative control within their assigned pharmaceutical company. Strictly restricted from modifying Super Admin or global settings.',
+        isSystemImmutable: false,
+        permissions: {
+          'platform.view_all_tenants': false,
+          'platform.manage_tenants': false,
+          'platform.global_settings': false,
+          'platform.role_templates': false,
+          'platform.emergency_killswitch': false,
+          'platform.impersonate_admin': false,
+          'company.view_profile': true,
+          'company.edit_profile': true,
+          'company.manage_overrides': true,
+          'company.view_invoices': true,
+          'users.create_user': true,
+          'users.edit_user': true,
+          'users.toggle_status': true,
+          'catalog.manage': true,
+          'doctors.manage': true,
+          'chemists.manage': true,
+          'dcr.view_all': true,
+          'orders.view_all': true,
+          'field_tracking.view_live': true
+        }
+      },
+      {
+        roleKey: 'AREA_MANAGER',
+        roleName: 'Area / Regional Sales Manager',
+        description: 'Regional supervisor managing Medical Representatives, reviewing field DCR reports, and approving sales orders.',
+        isSystemImmutable: false,
+        permissions: {
+          'team.view_members': true,
+          'doctors.view': true,
+          'chemists.view': true,
+          'dcr.view_team': true,
+          'dcr.approve_reject': true,
+          'orders.view_team': true,
+          'orders.approve_reject': true,
+          'field_tracking.view_team': true
+        }
+      },
+      {
+        roleKey: 'MEDICAL_REP',
+        roleName: 'Medical Representative (Field Sales Rep)',
+        description: 'Field executive logging daily doctor/chemist call visits, taking POB orders, recording attendance, and syncing GPS telemetry.',
+        isSystemImmutable: false,
+        permissions: {
+          'dcr.create': true,
+          'dcr.view_own': true,
+          'orders.create': true,
+          'orders.view_own': true,
+          'doctors.view': true,
+          'chemists.view': true,
+          'catalog.view': true,
+          'attendance.mark': true,
+          'gps.send_telemetry': true
+        }
+      },
+      {
+        roleKey: 'AUDITOR',
+        roleName: 'Compliance & Audit Inspector',
+        description: 'Read-only compliance officer reviewing audit logs, system access history, and regulatory sales compliance.',
+        isSystemImmutable: false,
+        permissions: {
+          'audit.view_logs': true,
+          'login_history.view': true,
+          'reports.view_compliance': true,
+          'reports.export': true
+        }
+      }
+    ];
+  }
+
+  return data.map(r => ({
+    roleKey: r.role_key,
+    roleName: r.role_name,
+    description: r.description,
+    isSystemImmutable: r.is_system_immutable,
+    permissions: typeof r.permissions === 'string' ? JSON.parse(r.permissions) : r.permissions,
+    updatedAt: r.updated_at
+  }));
+};
+
+export const updateRoleTemplate = async (roleKey, permissions, meta = {}) => {
+  try {
+    const res = await fetchWithAuth(`/settings/roles/${roleKey}`, {
+      method: 'PUT',
+      body: JSON.stringify({ permissions, ...meta })
+    });
+    if (res.success) return res.data;
+  } catch (err) {
+    console.warn('API error updating role template, fallback to Supabase...');
+  }
+
+  const { data, error } = await supabase
+    .from('role_templates')
+    .upsert({
+      role_key: roleKey,
+      role_name: meta.roleName || roleKey,
+      description: meta.description || '',
+      permissions,
+      updated_at: new Date().toISOString()
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data;
+};
+
 // Backwards compatibility export
 export const getUsers = (role) => getPlatformUsers({ role });
+

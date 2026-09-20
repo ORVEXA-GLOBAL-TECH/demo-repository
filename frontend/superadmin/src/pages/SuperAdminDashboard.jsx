@@ -119,7 +119,14 @@ import {
   createAuditLog,
   getSystemAlerts,
   createSystemAlert,
-  deleteSystemAlert
+  deleteSystemAlert,
+  getGlobalSettings,
+  updateGlobalSettings,
+  getCompanySettings,
+  updateCompanyOverrides,
+  resetCompanyOverrides,
+  getRoleTemplates,
+  updateRoleTemplate
 } from '../services/api';
 
 import { DEFAULT_SOVEREIGN_REGISTRY } from '../data/sovereignRegistry';
@@ -244,6 +251,66 @@ export default function SuperAdminDashboard({
     suspendedCompanies: []
   });
 
+  // Platform Global Settings State
+  const [globalSettings, setGlobalSettings] = useState({
+    dateFormat: 'YYYY-MM-DD',
+    timezone: 'UTC',
+    currency: 'USD',
+    language: 'en',
+    defaultWorkingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+    notificationSettings: {
+      email: true,
+      inApp: true,
+      sms: false,
+      push: true,
+      weeklyDigest: true,
+      criticalAlerts: true
+    },
+    securityPolicy: {
+      enforce2FA: false,
+      maxLoginAttempts: 5,
+      lockoutDurationMinutes: 15,
+      allowMultipleSessions: true
+    },
+    passwordPolicy: {
+      minLength: 8,
+      requireUppercase: true,
+      requireNumbers: true,
+      requireSpecialChars: true,
+      expiryDays: 90
+    },
+    sessionTimeoutMinutes: 60,
+    fileLimits: {
+      maxFileSizeMB: 25,
+      allowedFileTypes: ['pdf', 'jpg', 'png', 'xlsx', 'csv', 'docx']
+    }
+  });
+  const [isSavingGlobalSettings, setIsSavingGlobalSettings] = useState(false);
+
+  // Company Overrides State
+  const [selectedOverrideCompanyId, setSelectedOverrideCompanyId] = useState('');
+  const [companyOverrideData, setCompanyOverrideData] = useState(null);
+  const [companyOverrideForm, setCompanyOverrideForm] = useState({
+    hasCustomTimezone: false,
+    timezone: 'UTC',
+    hasCustomCurrency: false,
+    currency: 'USD',
+    hasCustomDateFormat: false,
+    dateFormat: 'YYYY-MM-DD',
+    hasCustomWorkingDays: false,
+    workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+    hasCustomSessionTimeout: false,
+    sessionTimeoutMinutes: 60,
+    hasCustomFileLimits: false,
+    maxFileSizeMB: 25
+  });
+  const [isSavingCompanyOverride, setIsSavingCompanyOverride] = useState(false);
+
+  // Role Templates & RBAC State
+  const [roleTemplates, setRoleTemplates] = useState([]);
+  const [selectedRoleKey, setSelectedRoleKey] = useState('COMPANY_ADMIN');
+  const [isSavingRoleTemplate, setIsSavingRoleTemplate] = useState(false);
+
   // Active Multi-Currency Display Setting
   const [selectedDisplayCurrency, setSelectedDisplayCurrency] = useState('USD');
   const [selectedCountryFilter, setSelectedCountryFilter] = useState('ALL');
@@ -269,15 +336,25 @@ export default function SuperAdminDashboard({
   // --------------------------------------------------------------------------
   const loadAllData = async () => {
     try {
-      const [tenantsRes, usersRes, countriesRes, subsRes, alertsRes, auditRes, plansRes] = await Promise.allSettled([
+      const [tenantsRes, usersRes, countriesRes, subsRes, alertsRes, auditRes, plansRes, settingsRes, rolesRes] = await Promise.allSettled([
         getTenants(),
         getPlatformUsers(),
         getSovereignCountries(),
         getSubscriptions(),
         getSystemAlerts(),
         getAuditLogs(30),
-        getPlans()
+        getPlans(),
+        getGlobalSettings(),
+        getRoleTemplates()
       ]);
+
+      if (settingsRes.status === 'fulfilled' && settingsRes.value) {
+        setGlobalSettings(settingsRes.value);
+      }
+
+      if (rolesRes.status === 'fulfilled' && Array.isArray(rolesRes.value) && rolesRes.value.length > 0) {
+        setRoleTemplates(rolesRes.value);
+      }
 
       if (plansRes.status === 'fulfilled' && Array.isArray(plansRes.value)) {
         setPlans(plansRes.value);
@@ -1813,11 +1890,135 @@ export default function SuperAdminDashboard({
     setImpersonateReason('');
   };
 
-  const handleEndImpersonation = () => {
-    if (activeImpersonation) {
-      logAudit('IMPERSONATION_ENDED', `Ended session as ${activeImpersonation.target.name}`, activeImpersonation.target.company);
-      showToast('Impersonation session terminated.', 'info');
-      setActiveImpersonation(null);
+  // --------------------------------------------------------------------------
+  // GLOBAL SETTINGS & COMPANY OVERRIDES HANDLERS
+  // --------------------------------------------------------------------------
+  const handleSaveGlobalSettings = async (e) => {
+    if (e) e.preventDefault();
+    setIsSavingGlobalSettings(true);
+    try {
+      await updateGlobalSettings(globalSettings);
+      showToast('Global platform configuration successfully updated!', 'success');
+      logAudit('SETTINGS_UPDATED', 'Super Admin updated platform-wide global configuration', 'Platform');
+    } catch (err) {
+      showToast(`Failed to update global settings: ${err.message}`, 'error');
+    } finally {
+      setIsSavingGlobalSettings(false);
+    }
+  };
+
+  const handleSelectOverrideCompany = async (companyId) => {
+    setSelectedOverrideCompanyId(companyId);
+    if (!companyId) {
+      setCompanyOverrideData(null);
+      return;
+    }
+    try {
+      const data = await getCompanySettings(companyId);
+      setCompanyOverrideData(data);
+      const ov = data.overrides || {};
+      setCompanyOverrideForm({
+        hasCustomTimezone: Boolean(ov.timezone),
+        timezone: ov.timezone || globalSettings.timezone,
+        hasCustomCurrency: Boolean(ov.currency),
+        currency: ov.currency || globalSettings.currency,
+        hasCustomDateFormat: Boolean(ov.dateFormat),
+        dateFormat: ov.dateFormat || globalSettings.dateFormat,
+        hasCustomWorkingDays: Boolean(ov.workingDays),
+        workingDays: ov.workingDays || globalSettings.defaultWorkingDays,
+        hasCustomSessionTimeout: ov.sessionTimeoutMinutes !== undefined,
+        sessionTimeoutMinutes: ov.sessionTimeoutMinutes !== undefined ? ov.sessionTimeoutMinutes : globalSettings.sessionTimeoutMinutes,
+        hasCustomFileLimits: Boolean(ov.fileLimits?.maxFileSizeMB),
+        maxFileSizeMB: ov.fileLimits?.maxFileSizeMB || globalSettings.fileLimits.maxFileSizeMB
+      });
+    } catch (err) {
+      showToast(`Failed to fetch company overrides: ${err.message}`, 'error');
+    }
+  };
+
+  const handleSaveCompanyOverrides = async (e) => {
+    if (e) e.preventDefault();
+    if (!selectedOverrideCompanyId) {
+      showToast('Please select a company first.', 'error');
+      return;
+    }
+    setIsSavingCompanyOverride(true);
+    try {
+      const overrides = {};
+      if (companyOverrideForm.hasCustomTimezone) overrides.timezone = companyOverrideForm.timezone;
+      if (companyOverrideForm.hasCustomCurrency) overrides.currency = companyOverrideForm.currency;
+      if (companyOverrideForm.hasCustomDateFormat) overrides.dateFormat = companyOverrideForm.dateFormat;
+      if (companyOverrideForm.hasCustomWorkingDays) overrides.workingDays = companyOverrideForm.workingDays;
+      if (companyOverrideForm.hasCustomSessionTimeout) overrides.sessionTimeoutMinutes = Number(companyOverrideForm.sessionTimeoutMinutes);
+      if (companyOverrideForm.hasCustomFileLimits) {
+        overrides.fileLimits = {
+          ...globalSettings.fileLimits,
+          maxFileSizeMB: Number(companyOverrideForm.maxFileSizeMB)
+        };
+      }
+
+      await updateCompanyOverrides(selectedOverrideCompanyId, overrides);
+      showToast('Company-specific configuration overrides updated!', 'success');
+      logAudit('COMPANY_OVERRIDES_UPDATED', `Super Admin updated overrides for tenant ID ${selectedOverrideCompanyId}`, 'Tenant');
+      handleSelectOverrideCompany(selectedOverrideCompanyId);
+      loadAllData();
+    } catch (err) {
+      showToast(`Failed to save overrides: ${err.message}`, 'error');
+    } finally {
+      setIsSavingCompanyOverride(false);
+    }
+  };
+
+  const handleResetCompanyOverrides = async () => {
+    if (!selectedOverrideCompanyId) return;
+    if (!window.confirm('Reset all overrides for this company to inherit platform global defaults?')) return;
+    setIsSavingCompanyOverride(true);
+    try {
+      await resetCompanyOverrides(selectedOverrideCompanyId);
+      showToast('Company overrides removed. Now inheriting global defaults.', 'success');
+      logAudit('COMPANY_OVERRIDES_RESET', `Reset overrides to global defaults for tenant ID ${selectedOverrideCompanyId}`, 'Tenant');
+      handleSelectOverrideCompany(selectedOverrideCompanyId);
+      loadAllData();
+    } catch (err) {
+      showToast(`Failed to reset overrides: ${err.message}`, 'error');
+    } finally {
+      setIsSavingCompanyOverride(false);
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // ROLE TEMPLATES & RBAC HANDLERS
+  // --------------------------------------------------------------------------
+  const handleToggleRolePermission = (roleKey, permKey) => {
+    setRoleTemplates(prev => prev.map(rt => {
+      if (rt.roleKey === roleKey) {
+        return {
+          ...rt,
+          permissions: {
+            ...rt.permissions,
+            [permKey]: !rt.permissions[permKey]
+          }
+        };
+      }
+      return rt;
+    }));
+  };
+
+  const handleSaveRoleTemplate = async (roleKey) => {
+    const targetRole = roleTemplates.find(r => r.roleKey === roleKey);
+    if (!targetRole) return;
+    setIsSavingRoleTemplate(true);
+    try {
+      await updateRoleTemplate(roleKey, targetRole.permissions, {
+        roleName: targetRole.roleName,
+        description: targetRole.description
+      });
+      showToast(`Role template for "${targetRole.roleName}" saved successfully!`, 'success');
+      logAudit('ROLE_TEMPLATE_SAVED', `Updated permissions matrix for role ${roleKey}`, 'RBAC');
+    } catch (err) {
+      showToast(`Failed to save role template: ${err.message}`, 'error');
+    } finally {
+      setIsSavingRoleTemplate(false);
     }
   };
 
@@ -3320,6 +3521,773 @@ export default function SuperAdminDashboard({
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          GLOBAL CONFIGURATION & COMPANY OVERRIDES TAB
+          ===================================================================== */}
+      {activeTab === 'settings' && (
+        <div className="tab-pane-content">
+          <div className="pane-action-bar">
+            <div>
+              <h2 className="section-title">Global Platform Configuration</h2>
+              <p className="section-desc">Super Admin controls platform-wide policies. Companies inherit these defaults unless explicitly overridden.</p>
+            </div>
+          </div>
+
+          {/* Section 1: Platform-Wide Global Defaults */}
+          <div className="card-section" style={{ marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h3 className="card-header-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Settings size={20} color="#0284c7" /> Platform Global Defaults
+                </h3>
+                <p style={{ fontSize: '0.78rem', color: '#64748b', margin: '2px 0 0' }}>Base parameters applied across all tenant organizations</p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSaveGlobalSettings}
+                disabled={isSavingGlobalSettings}
+              >
+                <Save size={16} /> {isSavingGlobalSettings ? 'Saving...' : 'Save Global Defaults'}
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+              {/* Date Format */}
+              <div className="form-group">
+                <label className="form-label">Platform Date Format</label>
+                <select
+                  className="form-control"
+                  value={globalSettings.dateFormat}
+                  onChange={(e) => setGlobalSettings(prev => ({ ...prev, dateFormat: e.target.value }))}
+                >
+                  <option value="YYYY-MM-DD">YYYY-MM-DD (ISO Standard - e.g. 2026-09-20)</option>
+                  <option value="DD/MM/YYYY">DD/MM/YYYY (UK / India / Europe - e.g. 20/09/2026)</option>
+                  <option value="MM/DD/YYYY">MM/DD/YYYY (US Standard - e.g. 09/20/2026)</option>
+                  <option value="DD-MM-YYYY">DD-MM-YYYY (e.g. 20-09-2026)</option>
+                </select>
+              </div>
+
+              {/* Timezone */}
+              <div className="form-group">
+                <label className="form-label">Platform Timezone</label>
+                <select
+                  className="form-control"
+                  value={globalSettings.timezone}
+                  onChange={(e) => setGlobalSettings(prev => ({ ...prev, timezone: e.target.value }))}
+                >
+                  <option value="UTC">UTC (Coordinated Universal Time)</option>
+                  <option value="Asia/Kolkata">Asia/Kolkata (IST +5:30 - India)</option>
+                  <option value="America/New_York">America/New_York (EST/EDT - US East)</option>
+                  <option value="America/Chicago">America/Chicago (CST/CDT - US Central)</option>
+                  <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT - US West)</option>
+                  <option value="Europe/London">Europe/London (GMT/BST - UK)</option>
+                  <option value="Europe/Paris">Europe/Paris (CET - Central Europe)</option>
+                  <option value="Asia/Dubai">Asia/Dubai (GST +4:00 - UAE / GCC)</option>
+                  <option value="Asia/Singapore">Asia/Singapore (SGT +8:00)</option>
+                  <option value="Asia/Tokyo">Asia/Tokyo (JST +9:00 - Japan)</option>
+                  <option value="Australia/Sydney">Australia/Sydney (AEST +10:00)</option>
+                </select>
+              </div>
+
+              {/* Default Currency */}
+              <div className="form-group">
+                <label className="form-label">Platform Default Currency</label>
+                <select
+                  className="form-control"
+                  value={globalSettings.currency}
+                  onChange={(e) => setGlobalSettings(prev => ({ ...prev, currency: e.target.value }))}
+                >
+                  <option value="USD">USD ($) - US Dollar</option>
+                  <option value="INR">INR (₹) - Indian Rupee</option>
+                  <option value="EUR">EUR (€) - Euro</option>
+                  <option value="GBP">GBP (£) - British Pound</option>
+                  <option value="AED">AED (AED) - UAE Dirham</option>
+                  <option value="SGD">SGD ($) - Singapore Dollar</option>
+                  <option value="CAD">CAD ($) - Canadian Dollar</option>
+                  <option value="AUD">AUD ($) - Australian Dollar</option>
+                </select>
+              </div>
+
+              {/* Language */}
+              <div className="form-group">
+                <label className="form-label">Platform Language</label>
+                <select
+                  className="form-control"
+                  value={globalSettings.language}
+                  onChange={(e) => setGlobalSettings(prev => ({ ...prev, language: e.target.value }))}
+                >
+                  <option value="en">English (en)</option>
+                  <option value="es">Spanish (Español - es)</option>
+                  <option value="fr">French (Français - fr)</option>
+                  <option value="de">German (Deutsch - de)</option>
+                  <option value="hi">Hindi (हिन्दी - hi)</option>
+                  <option value="ar">Arabic (العربية - ar)</option>
+                </select>
+              </div>
+
+              {/* Session Timeout */}
+              <div className="form-group">
+                <label className="form-label">Default Session Timeout</label>
+                <select
+                  className="form-control"
+                  value={globalSettings.sessionTimeoutMinutes}
+                  onChange={(e) => setGlobalSettings(prev => ({ ...prev, sessionTimeoutMinutes: Number(e.target.value) }))}
+                >
+                  <option value={15}>15 Minutes (Strict Financial/Pharma)</option>
+                  <option value={30}>30 Minutes</option>
+                  <option value={60}>60 Minutes (Standard Enterprise)</option>
+                  <option value={120}>2 Hours</option>
+                  <option value={480}>8 Hours (Full Working Shift)</option>
+                </select>
+              </div>
+
+              {/* Max File Size Limit */}
+              <div className="form-group">
+                <label className="form-label">Default Max File Upload Size</label>
+                <select
+                  className="form-control"
+                  value={globalSettings.fileLimits?.maxFileSizeMB || 25}
+                  onChange={(e) => setGlobalSettings(prev => ({
+                    ...prev,
+                    fileLimits: { ...(prev.fileLimits || {}), maxFileSizeMB: Number(e.target.value) }
+                  }))}
+                >
+                  <option value={10}>10 MB</option>
+                  <option value={25}>25 MB (Standard Attachment)</option>
+                  <option value={50}>50 MB</option>
+                  <option value={100}>100 MB (High Definition Clinical Docs)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Default Working Days */}
+            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+              <label className="form-label" style={{ marginBottom: '8px' }}>Default Working Days Schedule</label>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => {
+                  const isChecked = (globalSettings.defaultWorkingDays || []).includes(day);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      className="action-pill-btn"
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '20px',
+                        background: isChecked ? '#0284c7' : '#f8fafc',
+                        color: isChecked ? '#ffffff' : '#64748b',
+                        borderColor: isChecked ? '#0284c7' : '#cbd5e1',
+                        fontWeight: '600'
+                      }}
+                      onClick={() => {
+                        const cur = globalSettings.defaultWorkingDays || [];
+                        const updated = isChecked ? cur.filter(d => d !== day) : [...cur, day];
+                        setGlobalSettings(prev => ({ ...prev, defaultWorkingDays: updated }));
+                      }}
+                    >
+                      {isChecked ? '✓ ' : ''}{day}
+                    </button>
+                  );
+                })}
+                <span style={{ fontSize: '0.74rem', color: '#94a3b8', marginLeft: '8px' }}>
+                  Quick Presets:
+                </span>
+                <button
+                  type="button"
+                  className="action-pill-btn"
+                  onClick={() => setGlobalSettings(prev => ({ ...prev, defaultWorkingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] }))}
+                >
+                  Mon-Fri
+                </button>
+                <button
+                  type="button"
+                  className="action-pill-btn"
+                  onClick={() => setGlobalSettings(prev => ({ ...prev, defaultWorkingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] }))}
+                >
+                  Mon-Sat
+                </button>
+                <button
+                  type="button"
+                  className="action-pill-btn"
+                  onClick={() => setGlobalSettings(prev => ({ ...prev, defaultWorkingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] }))}
+                >
+                  All 7 Days
+                </button>
+              </div>
+            </div>
+
+            {/* Notification, Security & Password Policy Cards Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px', marginTop: '20px' }}>
+              {/* Notifications */}
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px' }}>
+                <h4 style={{ fontSize: '0.86rem', fontWeight: '700', color: '#0f172a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Mail size={16} color="#0284c7" /> Default Notification Channels
+                </h4>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {[
+                    { key: 'email', label: 'Transactional Email Dispatch' },
+                    { key: 'inApp', label: 'Real-Time In-App Alert Badges' },
+                    { key: 'sms', label: 'SMS Gateway Broadcasts' },
+                    { key: 'push', label: 'Mobile Rep Push Telemetry' },
+                    { key: 'weeklyDigest', label: 'Automated Weekly Digest' },
+                    { key: 'criticalAlerts', label: 'High-Priority Security Alerts' }
+                  ].map(item => (
+                    <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(globalSettings.notificationSettings?.[item.key])}
+                        onChange={(e) => setGlobalSettings(prev => ({
+                          ...prev,
+                          notificationSettings: { ...(prev.notificationSettings || {}), [item.key]: e.target.checked }
+                        }))}
+                      />
+                      <span>{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Security Policy */}
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px' }}>
+                <h4 style={{ fontSize: '0.86rem', fontWeight: '700', color: '#0f172a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Lock size={16} color="#dc2626" /> Default Security Policy
+                </h4>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(globalSettings.securityPolicy?.enforce2FA)}
+                      onChange={(e) => setGlobalSettings(prev => ({
+                        ...prev,
+                        securityPolicy: { ...(prev.securityPolicy || {}), enforce2FA: e.target.checked }
+                      }))}
+                    />
+                    <span>Enforce Mandatory 2FA for Administrators</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(globalSettings.securityPolicy?.allowMultipleSessions)}
+                      onChange={(e) => setGlobalSettings(prev => ({
+                        ...prev,
+                        securityPolicy: { ...(prev.securityPolicy || {}), allowMultipleSessions: e.target.checked }
+                      }))}
+                    />
+                    <span>Allow Concurrent Multi-Device Sessions</span>
+                  </label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+                    <span style={{ fontSize: '0.78rem', color: '#475569' }}>Max Failed Login Lockout:</span>
+                    <select
+                      className="form-control"
+                      style={{ width: '130px', padding: '4px 8px', fontSize: '0.76rem' }}
+                      value={globalSettings.securityPolicy?.maxLoginAttempts || 5}
+                      onChange={(e) => setGlobalSettings(prev => ({
+                        ...prev,
+                        securityPolicy: { ...(prev.securityPolicy || {}), maxLoginAttempts: Number(e.target.value) }
+                      }))}
+                    >
+                      <option value={3}>3 Attempts</option>
+                      <option value={5}>5 Attempts</option>
+                      <option value={10}>10 Attempts</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.78rem', color: '#475569' }}>Lockout Duration:</span>
+                    <select
+                      className="form-control"
+                      style={{ width: '130px', padding: '4px 8px', fontSize: '0.76rem' }}
+                      value={globalSettings.securityPolicy?.lockoutDurationMinutes || 15}
+                      onChange={(e) => setGlobalSettings(prev => ({
+                        ...prev,
+                        securityPolicy: { ...(prev.securityPolicy || {}), lockoutDurationMinutes: Number(e.target.value) }
+                      }))}
+                    >
+                      <option value={15}>15 Minutes</option>
+                      <option value={30}>30 Minutes</option>
+                      <option value={60}>60 Minutes</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Password Policy */}
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px' }}>
+                <h4 style={{ fontSize: '0.86rem', fontWeight: '700', color: '#0f172a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Key size={16} color="#d97706" /> Default Password Policy
+                </h4>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.78rem', color: '#475569' }}>Min Password Length:</span>
+                    <select
+                      className="form-control"
+                      style={{ width: '130px', padding: '4px 8px', fontSize: '0.76rem' }}
+                      value={globalSettings.passwordPolicy?.minLength || 8}
+                      onChange={(e) => setGlobalSettings(prev => ({
+                        ...prev,
+                        passwordPolicy: { ...(prev.passwordPolicy || {}), minLength: Number(e.target.value) }
+                      }))}
+                    >
+                      <option value={8}>8 Characters</option>
+                      <option value={10}>10 Characters</option>
+                      <option value={12}>12 Characters</option>
+                      <option value={14}>14 Characters</option>
+                    </select>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(globalSettings.passwordPolicy?.requireUppercase)}
+                      onChange={(e) => setGlobalSettings(prev => ({
+                        ...prev,
+                        passwordPolicy: { ...(prev.passwordPolicy || {}), requireUppercase: e.target.checked }
+                      }))}
+                    />
+                    <span>Require Uppercase Letters (A-Z)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(globalSettings.passwordPolicy?.requireNumbers)}
+                      onChange={(e) => setGlobalSettings(prev => ({
+                        ...prev,
+                        passwordPolicy: { ...(prev.passwordPolicy || {}), requireNumbers: e.target.checked }
+                      }))}
+                    />
+                    <span>Require Numbers (0-9)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(globalSettings.passwordPolicy?.requireSpecialChars)}
+                      onChange={(e) => setGlobalSettings(prev => ({
+                        ...prev,
+                        passwordPolicy: { ...(prev.passwordPolicy || {}), requireSpecialChars: e.target.checked }
+                      }))}
+                    />
+                    <span>Require Special Characters (!@#$)</span>
+                  </label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+                    <span style={{ fontSize: '0.78rem', color: '#475569' }}>Password Expiry Cycle:</span>
+                    <select
+                      className="form-control"
+                      style={{ width: '130px', padding: '4px 8px', fontSize: '0.76rem' }}
+                      value={globalSettings.passwordPolicy?.expiryDays || 90}
+                      onChange={(e) => setGlobalSettings(prev => ({
+                        ...prev,
+                        passwordPolicy: { ...(prev.passwordPolicy || {}), expiryDays: Number(e.target.value) }
+                      }))}
+                    >
+                      <option value={30}>Every 30 Days</option>
+                      <option value={60}>Every 60 Days</option>
+                      <option value={90}>Every 90 Days</option>
+                      <option value={180}>Every 180 Days</option>
+                      <option value={0}>Never Expire</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Company-Specific Overrides Inspector & Manager */}
+          <div className="card-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h3 className="card-header-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Building2 size={20} color="#7c3aed" /> Company-Specific Configuration Overrides
+                </h3>
+                <p style={{ fontSize: '0.78rem', color: '#64748b', margin: '2px 0 0' }}>
+                  Configure granular exceptions for specific tenant organizations
+                </p>
+              </div>
+
+              {selectedOverrideCompanyId && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="action-pill-btn"
+                    style={{ color: '#dc2626', borderColor: '#fca5a5', background: '#fef2f2' }}
+                    onClick={handleResetCompanyOverrides}
+                    disabled={isSavingCompanyOverride}
+                  >
+                    <RotateCcw size={13} /> Reset to Global Defaults
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleSaveCompanyOverrides}
+                    disabled={isSavingCompanyOverride}
+                  >
+                    <Save size={15} /> {isSavingCompanyOverride ? 'Saving...' : 'Save Company Overrides'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Select Target Company */}
+            <div className="form-group" style={{ maxWidth: '420px', marginBottom: '18px' }}>
+              <label className="form-label">Select Pharmaceutical Company</label>
+              <select
+                className="form-control"
+                value={selectedOverrideCompanyId}
+                onChange={(e) => handleSelectOverrideCompany(e.target.value)}
+              >
+                <option value="">-- Choose a company to inspect or override --</option>
+                {companies.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.country}) - Plan: {c.plan}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selectedOverrideCompanyId && companyOverrideData ? (
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                  <span style={{ fontSize: '0.9rem', fontWeight: '700', color: '#0f172a' }}>
+                    {companyOverrideData.companyName}
+                  </span>
+                  {companyOverrideData.hasOverrides ? (
+                    <span className="status-tag status-trial" style={{ background: '#fef3c7', color: '#b45309' }}>
+                      ⚡ Custom Company Overrides Active
+                    </span>
+                  ) : (
+                    <span className="status-badge-green" style={{ background: '#ecfdf5', color: '#059669' }}>
+                      ✓ Inheriting Platform Global Defaults
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                  {/* Timezone Override */}
+                  <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '12px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', fontWeight: '700', cursor: 'pointer', marginBottom: '8px' }}>
+                      <input
+                        type="checkbox"
+                        checked={companyOverrideForm.hasCustomTimezone}
+                        onChange={(e) => setCompanyOverrideForm(prev => ({ ...prev, hasCustomTimezone: e.target.checked }))}
+                      />
+                      <span>Override Company Timezone</span>
+                    </label>
+                    <select
+                      className="form-control"
+                      disabled={!companyOverrideForm.hasCustomTimezone}
+                      value={companyOverrideForm.timezone}
+                      onChange={(e) => setCompanyOverrideForm(prev => ({ ...prev, timezone: e.target.value }))}
+                    >
+                      <option value="Asia/Kolkata">Asia/Kolkata (IST +5:30)</option>
+                      <option value="America/New_York">America/New_York (EST)</option>
+                      <option value="America/Chicago">America/Chicago (CST)</option>
+                      <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
+                      <option value="Europe/London">Europe/London (GMT)</option>
+                      <option value="Asia/Dubai">Asia/Dubai (GST)</option>
+                      <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
+                      <option value="UTC">UTC</option>
+                    </select>
+                  </div>
+
+                  {/* Currency Override */}
+                  <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '12px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', fontWeight: '700', cursor: 'pointer', marginBottom: '8px' }}>
+                      <input
+                        type="checkbox"
+                        checked={companyOverrideForm.hasCustomCurrency}
+                        onChange={(e) => setCompanyOverrideForm(prev => ({ ...prev, hasCustomCurrency: e.target.checked }))}
+                      />
+                      <span>Override Operating Currency</span>
+                    </label>
+                    <select
+                      className="form-control"
+                      disabled={!companyOverrideForm.hasCustomCurrency}
+                      value={companyOverrideForm.currency}
+                      onChange={(e) => setCompanyOverrideForm(prev => ({ ...prev, currency: e.target.value }))}
+                    >
+                      <option value="INR">INR (₹) - Indian Rupee</option>
+                      <option value="USD">USD ($) - US Dollar</option>
+                      <option value="EUR">EUR (€) - Euro</option>
+                      <option value="GBP">GBP (£) - British Pound</option>
+                      <option value="AED">AED (AED) - UAE Dirham</option>
+                      <option value="SGD">SGD ($) - Singapore Dollar</option>
+                    </select>
+                  </div>
+
+                  {/* Date Format Override */}
+                  <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '12px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', fontWeight: '700', cursor: 'pointer', marginBottom: '8px' }}>
+                      <input
+                        type="checkbox"
+                        checked={companyOverrideForm.hasCustomDateFormat}
+                        onChange={(e) => setCompanyOverrideForm(prev => ({ ...prev, hasCustomDateFormat: e.target.checked }))}
+                      />
+                      <span>Override Date Format</span>
+                    </label>
+                    <select
+                      className="form-control"
+                      disabled={!companyOverrideForm.hasCustomDateFormat}
+                      value={companyOverrideForm.dateFormat}
+                      onChange={(e) => setCompanyOverrideForm(prev => ({ ...prev, dateFormat: e.target.value }))}
+                    >
+                      <option value="DD/MM/YYYY">DD/MM/YYYY (e.g. 20/09/2026)</option>
+                      <option value="YYYY-MM-DD">YYYY-MM-DD (e.g. 2026-09-20)</option>
+                      <option value="MM/DD/YYYY">MM/DD/YYYY (e.g. 09/20/2026)</option>
+                    </select>
+                  </div>
+
+                  {/* Session Timeout Override */}
+                  <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '12px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', fontWeight: '700', cursor: 'pointer', marginBottom: '8px' }}>
+                      <input
+                        type="checkbox"
+                        checked={companyOverrideForm.hasCustomSessionTimeout}
+                        onChange={(e) => setCompanyOverrideForm(prev => ({ ...prev, hasCustomSessionTimeout: e.target.checked }))}
+                      />
+                      <span>Override Inactivity Session Timeout</span>
+                    </label>
+                    <select
+                      className="form-control"
+                      disabled={!companyOverrideForm.hasCustomSessionTimeout}
+                      value={companyOverrideForm.sessionTimeoutMinutes}
+                      onChange={(e) => setCompanyOverrideForm(prev => ({ ...prev, sessionTimeoutMinutes: Number(e.target.value) }))}
+                    >
+                      <option value={15}>15 Minutes</option>
+                      <option value={30}>30 Minutes</option>
+                      <option value={60}>60 Minutes</option>
+                      <option value={120}>2 Hours</option>
+                      <option value={480}>8 Hours</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>
+                <SlidersHorizontal size={36} color="#cbd5e1" style={{ margin: '0 auto 8px', display: 'block' }} />
+                <p style={{ fontSize: '0.86rem' }}>Select a pharmaceutical company above to view and customize its configuration overrides.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          ROLE TEMPLATES & RBAC PERMISSION MATRIX TAB
+          ===================================================================== */}
+      {activeTab === 'roles' && (
+        <div className="tab-pane-content">
+          <div className="pane-action-bar">
+            <div>
+              <h2 className="section-title">Role Templates &amp; RBAC Permissions Matrix</h2>
+              <p className="section-desc">Super Admin defines what each role can do across all companies and platform modules.</p>
+            </div>
+            {selectedRoleKey !== 'SUPER_ADMIN' && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => handleSaveRoleTemplate(selectedRoleKey)}
+                disabled={isSavingRoleTemplate}
+              >
+                <Save size={16} /> {isSavingRoleTemplate ? 'Saving...' : `Save ${selectedRoleKey} Permissions`}
+              </button>
+            )}
+          </div>
+
+          {/* Strict Security Guardrail Banner */}
+          <div style={{
+            background: 'linear-gradient(135deg, #fef2f2, #fff1f2)',
+            border: '1px solid #fecdd3',
+            borderRadius: '10px',
+            padding: '14px 18px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px'
+          }}>
+            <ShieldAlert size={26} color="#e11d48" style={{ flexShrink: 0 }} />
+            <div>
+              <div style={{ fontWeight: '800', color: '#9f1239', fontSize: '0.88rem' }}>
+                Strict Platform RBAC Guardrail Active
+              </div>
+              <div style={{ fontSize: '0.78rem', color: '#be123c', marginTop: '2px' }}>
+                Super Admin defines what each role can do. Company Admins are strictly prohibited from modifying Super Admin permissions, altering platform-wide policies, or elevating tenant roles.
+              </div>
+            </div>
+          </div>
+
+          {/* Role Selection Tabs */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+            {roleTemplates.map(role => {
+              const isSelected = selectedRoleKey === role.roleKey;
+              const isMaster = role.roleKey === 'SUPER_ADMIN';
+              return (
+                <button
+                  key={role.roleKey}
+                  type="button"
+                  className="action-pill-btn"
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: '24px',
+                    fontWeight: '700',
+                    fontSize: '0.84rem',
+                    background: isSelected ? (isMaster ? 'linear-gradient(135deg, #f59e0b, #d97706)' : '#0284c7') : '#ffffff',
+                    color: isSelected ? '#ffffff' : '#334155',
+                    borderColor: isSelected ? 'transparent' : '#cbd5e1',
+                    boxShadow: isSelected ? '0 4px 12px rgba(0,0,0,0.1)' : 'none'
+                  }}
+                  onClick={() => setSelectedRoleKey(role.roleKey)}
+                >
+                  {isMaster ? '👑 ' : ''}{role.roleName?.split('(')[0] || role.roleKey}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active Role Matrix Card */}
+          {(() => {
+            const activeRoleObj = roleTemplates.find(r => r.roleKey === selectedRoleKey) || roleTemplates[0];
+            if (!activeRoleObj) return null;
+            const perms = activeRoleObj.permissions || {};
+            const isMaster = activeRoleObj.roleKey === 'SUPER_ADMIN';
+
+            const permissionCategories = [
+              {
+                title: '🏢 Platform & Tenant Governance',
+                items: [
+                  { key: 'platform.view_all_tenants', label: 'View All Tenant Companies', desc: 'Can view full cross-company list and metrics' },
+                  { key: 'platform.manage_tenants', label: 'Provision & Edit Companies', desc: 'Create, edit, suspend, or delete company accounts' },
+                  { key: 'platform.global_settings', label: 'Configure Global Platform Settings', desc: 'Platform-wide date formats, timezone, and security policies' },
+                  { key: 'platform.role_templates', label: 'Define Role Templates & RBAC', desc: 'Super Admin permission matrix control' },
+                  { key: 'platform.emergency_killswitch', label: 'Execute Emergency Kill-Switch', desc: 'Trigger tenant lockouts and maintenance mode' },
+                  { key: 'platform.manage_billing', label: 'Manage SaaS Plans & Billing', desc: 'Create plans, upgrade/downgrade tiers, and renew subscriptions' },
+                  { key: 'platform.impersonate_admin', label: 'Audited Impersonation', desc: 'Login as tenant company admin for remote support' }
+                ]
+              },
+              {
+                title: '👥 User & Admin Identity Governance',
+                items: [
+                  { key: 'users.create_admin', label: 'Create Company Admins', desc: 'Provision executive administrator accounts' },
+                  { key: 'users.edit_admin', label: 'Edit Admin Profiles & Territories', desc: 'Modify names, contact info, and territory assignments' },
+                  { key: 'users.toggle_status', label: 'Activate / Deactivate Accounts', desc: 'Toggle user active/inactive status' },
+                  { key: 'users.reset_password', label: 'Reset User Passwords', desc: 'Generate secure temporary password credentials' },
+                  { key: 'users.force_logout', label: 'Force Session Logout', desc: 'Revoke active JWT tokens instantly across devices' },
+                  { key: 'users.lock_unlock', label: 'Lock / Unlock Accounts', desc: 'Lock compromised accounts with audit reasons' },
+                  { key: 'users.change_permissions', label: 'Modify User Permissions', desc: 'Grant or revoke functional feature flags' }
+                ]
+              },
+              {
+                title: '💊 Pharma Sales & Field Operations',
+                items: [
+                  { key: 'catalog.manage', label: 'Manage Product Catalog & Pricing', desc: 'Create and update pharmaceutical SKU catalog' },
+                  { key: 'doctors.manage', label: 'Manage Healthcare Professionals (Doctors)', desc: 'Register doctors, clinic locations, and specialties' },
+                  { key: 'chemists.manage', label: 'Manage Chemists & Pharmacies', desc: 'Maintain pharmacy list and drug license registries' },
+                  { key: 'dcr.view_all', label: 'Review & Approve Daily Call Reports (DCR)', desc: 'Inspect MR call logs, samples given, and feedback' },
+                  { key: 'orders.view_all', label: 'Review & Approve Booking Orders (POB)', desc: 'Process chemist orders and stockist dispatches' },
+                  { key: 'field_tracking.view_live', label: 'Live GPS Field Tracking & Telemetry', desc: 'Monitor field MR real-time routes and pings' }
+                ]
+              },
+              {
+                title: '🔒 Audit, Security & Compliance',
+                items: [
+                  { key: 'platform.view_audit_logs', label: 'Inspect Immutable Platform Audit Logs', desc: 'Full timestamped audit trail of all actions' },
+                  { key: 'users.view_login_history', label: 'View Admin Login History & IP Geolocation', desc: 'Device fingerprint and security history logs' },
+                  { key: 'export.download_reports', label: 'Export Data & Compliance Reports', desc: 'Download CSV and Excel operational data' }
+                ]
+              }
+            ];
+
+            return (
+              <div className="card-section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px' }}>
+                  <div>
+                    <h3 className="card-header-title" style={{ fontSize: '1.05rem', color: '#0f172a' }}>
+                      {activeRoleObj.roleName}
+                    </h3>
+                    <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '3px' }}>
+                      {activeRoleObj.description}
+                    </p>
+                  </div>
+                  {isMaster ? (
+                    <span className="status-tag" style={{ background: '#fef3c7', color: '#92400e', fontWeight: '800', border: '1px solid #fde68a' }}>
+                      🔒 Master Role - Immutable Platform Authority
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => handleSaveRoleTemplate(activeRoleObj.roleKey)}
+                      disabled={isSavingRoleTemplate}
+                    >
+                      <Save size={15} /> {isSavingRoleTemplate ? 'Saving...' : 'Save Permissions'}
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '20px' }}>
+                  {permissionCategories.map((cat, cIdx) => (
+                    <div key={cIdx} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px' }}>
+                      <h4 style={{ fontSize: '0.88rem', fontWeight: '800', color: '#1e293b', marginBottom: '12px' }}>
+                        {cat.title}
+                      </h4>
+                      <div style={{ display: 'grid', gap: '10px' }}>
+                        {cat.items.map(item => {
+                          const isAllowed = isMaster ? true : Boolean(perms[item.key]);
+                          const isSuperAdminOnlyControl = item.key.startsWith('platform.') && activeRoleObj.roleKey !== 'SUPER_ADMIN';
+
+                          return (
+                            <div
+                              key={item.key}
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                padding: '8px 12px',
+                                background: '#ffffff',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '6px'
+                              }}
+                            >
+                              <div style={{ paddingRight: '12px' }}>
+                                <div style={{ fontSize: '0.82rem', fontWeight: '700', color: '#0f172a' }}>
+                                  {item.label}
+                                </div>
+                                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '1px' }}>
+                                  {item.desc}
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                disabled={isMaster || isSuperAdminOnlyControl}
+                                onClick={() => handleToggleRolePermission(activeRoleObj.roleKey, item.key)}
+                                style={{
+                                  padding: '4px 10px',
+                                  borderRadius: '16px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: '800',
+                                  border: 'none',
+                                  cursor: (isMaster || isSuperAdminOnlyControl) ? 'not-allowed' : 'pointer',
+                                  background: isAllowed ? '#10b981' : '#e2e8f0',
+                                  color: isAllowed ? '#ffffff' : '#64748b',
+                                  minWidth: '70px',
+                                  textAlign: 'center',
+                                  opacity: isSuperAdminOnlyControl ? 0.6 : 1
+                                }}
+                                title={isSuperAdminOnlyControl ? 'Super Admin only control - Company Admin restricted' : ''}
+                              >
+                                {isAllowed ? 'ALLOWED' : 'DENIED'}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 

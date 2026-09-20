@@ -532,7 +532,49 @@ VALUES (
 );
 
 -- ==============================================================================
--- 21. GRANT ALL PERMISSIONS TO SUPABASE ROLES
+-- 21. PLATFORM GLOBAL SETTINGS & RBAC ROLE TEMPLATES
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS platform_settings (
+    id VARCHAR(50) PRIMARY KEY DEFAULT 'global_default',
+    date_format VARCHAR(20) NOT NULL DEFAULT 'YYYY-MM-DD',
+    timezone VARCHAR(100) NOT NULL DEFAULT 'UTC',
+    currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+    language VARCHAR(10) NOT NULL DEFAULT 'en',
+    default_working_days JSONB NOT NULL DEFAULT '["Mon", "Tue", "Wed", "Thu", "Fri"]'::jsonb,
+    notification_settings JSONB NOT NULL DEFAULT '{"email": true, "in_app": true, "sms": false, "push": true, "weekly_digest": true, "critical_alerts": true}'::jsonb,
+    security_policy JSONB NOT NULL DEFAULT '{"enforce_2fa": false, "max_login_attempts": 5, "lockout_duration_minutes": 15, "allow_multiple_sessions": true}'::jsonb,
+    password_policy JSONB NOT NULL DEFAULT '{"min_length": 8, "require_uppercase": true, "require_numbers": true, "require_special_chars": true, "expiry_days": 90}'::jsonb,
+    session_timeout_minutes INT NOT NULL DEFAULT 60,
+    file_limits JSONB NOT NULL DEFAULT '{"max_file_size_mb": 25, "allowed_file_types": ["pdf", "jpg", "png", "xlsx", "csv", "docx"]}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO platform_settings (id, date_format, timezone, currency, language, session_timeout_minutes)
+VALUES ('global_default', 'YYYY-MM-DD', 'UTC', 'USD', 'en', 60)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS role_templates (
+    role_key VARCHAR(50) PRIMARY KEY,
+    role_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    is_system_immutable BOOLEAN DEFAULT false,
+    permissions JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO role_templates (role_key, role_name, description, is_system_immutable, permissions)
+VALUES 
+('SUPER_ADMIN', 'Super Admin (Master Platform Authority)', 'Supreme root authority with absolute control over all companies, platform configuration, billing, security, and role templates.', true, '{"platform.view_all_tenants": true, "platform.manage_tenants": true, "platform.global_settings": true, "platform.role_templates": true, "platform.emergency_killswitch": true, "platform.view_audit_logs": true, "platform.manage_billing": true, "platform.impersonate_admin": true, "users.create_admin": true, "users.edit_admin": true, "users.toggle_status": true, "users.reset_password": true, "users.force_logout": true, "users.lock_unlock": true, "users.change_permissions": true, "plans.create": true, "plans.edit": true, "plans.delete": true, "subscriptions.assign": true, "subscriptions.upgrade_downgrade": true}'::jsonb),
+('COMPANY_ADMIN', 'Company Admin (Tenant Executive)', 'Full administrative control within their assigned pharmaceutical company. Strictly restricted from modifying Super Admin or global settings.', false, '{"company.view_profile": true, "company.edit_profile": true, "company.manage_overrides": true, "company.view_invoices": true, "users.create_user": true, "users.edit_user": true, "users.toggle_status": true, "catalog.manage": true, "doctors.manage": true, "chemists.manage": true, "dcr.view_all": true, "orders.view_all": true, "field_tracking.view_live": true, "platform.global_settings": false, "platform.role_templates": false}'::jsonb),
+('AREA_MANAGER', 'Area / Regional Sales Manager', 'Regional supervisor managing Medical Representatives, reviewing field DCR reports, and approving sales orders.', false, '{"team.view_members": true, "doctors.view": true, "chemists.view": true, "dcr.view_team": true, "dcr.approve_reject": true, "orders.view_team": true, "orders.approve_reject": true, "field_tracking.view_team": true}'::jsonb),
+('MEDICAL_REP', 'Medical Representative (Field Sales Rep)', 'Field executive logging daily doctor/chemist call visits, taking POB orders, recording attendance, and syncing GPS telemetry.', false, '{"dcr.create": true, "dcr.view_own": true, "orders.create": true, "orders.view_own": true, "doctors.view": true, "chemists.view": true, "catalog.view": true, "attendance.mark": true, "gps.send_telemetry": true}'::jsonb),
+('AUDITOR', 'Compliance & Audit Inspector', 'Read-only compliance officer reviewing audit logs, system access history, and regulatory sales compliance.', false, '{"audit.view_logs": true, "login_history.view": true, "reports.view_compliance": true, "reports.export": true}'::jsonb)
+ON CONFLICT (role_key) DO NOTHING;
+
+-- ==============================================================================
+-- 22. GRANT ALL PERMISSIONS TO SUPABASE ROLES
 -- ==============================================================================
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, postgres, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, postgres, service_role;
@@ -558,8 +600,11 @@ ALTER TABLE platform_audit_logs DISABLE ROW LEVEL SECURITY;
 ALTER TABLE system_alerts DISABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_login_history DISABLE ROW LEVEL SECURITY;
 ALTER TABLE subscription_plans DISABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_settings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE role_templates DISABLE ROW LEVEL SECURITY;
 
--- 22. CONFIRMATION & VERIFICATION OUTPUT
+-- 23. CONFIRMATION & VERIFICATION OUTPUT
 SELECT '🎉 Complete Supabase database schema and Super Admin provisioned!' as status,
        (SELECT count(*) FROM users) as total_users,
        (SELECT email FROM users WHERE role = 'SUPER_ADMIN') as super_admin_email;
+
