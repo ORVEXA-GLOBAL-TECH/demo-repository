@@ -2,26 +2,61 @@ import React from 'react';
 import {
   Activity,
   Building2,
-  Globe2,
-  UserCog,
+  Users,
   CreditCard,
   Layers,
-  Database,
+  Settings,
+  ShieldCheck,
+  Radio,
+  Smartphone,
+  BarChart3,
+  Lock,
   Server,
+  LifeBuoy,
+  Megaphone,
+  UserCircle,
   FileCode2,
-  ShieldCheck
+  AlertOctagon
 } from 'lucide-react';
 
 export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
-  const saasNav = [
-    { id: 'saas-overview', label: '1. Global SaaS Overview', icon: Activity },
-    { id: 'saas-companies', label: '2. Company Management', icon: Building2 },
-    { id: 'saas-countries', label: '3. Country Management', icon: Globe2 },
-    { id: 'saas-admins', label: '4. Company Admins', icon: UserCog },
-    { id: 'saas-subscriptions', label: '5. Subscriptions & Billing', icon: CreditCard },
-    { id: 'saas-features', label: '6. Feature / Module Toggles', icon: Layers },
-    { id: 'saas-tenants', label: '7. Tenant Isolation', icon: Database },
-    { id: 'saas-system-health', label: '8. System Health & Security', icon: Server }
+  const primaryNavGroups = [
+    {
+      label: 'Core Governance',
+      items: [
+        { id: 'dashboard', label: '1. Platform Dashboard', icon: Activity },
+        { id: 'companies', label: '2. Company / Tenants', icon: Building2 },
+        { id: 'platform-users', label: '3. Platform Users', icon: Users },
+        { id: 'subscriptions', label: '4. Subscriptions & Billing', icon: CreditCard }
+      ]
+    },
+    {
+      label: 'Configuration & Control',
+      items: [
+        { id: 'features', label: '5. Features & Rollouts', icon: Layers },
+        { id: 'settings', label: '6. Global Settings', icon: Settings },
+        { id: 'roles', label: '7. Role Templates', icon: ShieldCheck },
+        { id: 'integrations', label: '8. Integrations & APIs', icon: Radio },
+        { id: 'app-management', label: '9. App Version Control', icon: Smartphone }
+      ]
+    },
+    {
+      label: 'Intelligence & Operations',
+      items: [
+        { id: 'analytics', label: '10. Platform Analytics', icon: BarChart3 },
+        { id: 'security', label: '11. Security & Audit Logs', icon: Lock },
+        { id: 'system-health', label: '12. System Health & Maintenance', icon: Server },
+        { id: 'support', label: '13. Support Desk', icon: LifeBuoy },
+        { id: 'communications', label: '14. Announcements', icon: Megaphone }
+      ]
+    },
+    {
+      label: 'Master Admin',
+      items: [
+        { id: 'emergency', label: '15. Emergency Kill-Switch', icon: AlertOctagon, isDanger: true },
+        { id: 'my-account', label: '16. My Account & Security', icon: UserCircle }
+      ]
+    }
   ];
 
   return (
@@ -37,26 +72,31 @@ export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
       </div>
 
       <nav className="sidebar-nav">
-        <div className="nav-section-label" style={{ color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <ShieldCheck size={13} />
-          <span>SaaS Platform Governance</span>
-        </div>
-        {saasNav.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              className={`nav-link ${isActive ? 'active' : ''}`}
-              onClick={() => setActiveTab(item.id)}
-            >
-              <Icon size={18} color={isActive ? '#fbbf24' : '#94a3b8'} />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
+        {primaryNavGroups.map((group, gIdx) => (
+          <div key={gIdx} style={{ marginBottom: '6px' }}>
+            <div className="nav-section-label">
+              <span>{group.label}</span>
+            </div>
+            {group.items.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`nav-link ${isActive ? 'active' : ''} ${item.isDanger ? 'danger-link' : ''}`}
+                  onClick={() => setActiveTab(item.id)}
+                  style={item.isDanger ? { color: isActive ? '#ef4444' : '#f87171' } : {}}
+                >
+                  <Icon size={17} color={isActive ? (item.isDanger ? '#ef4444' : '#fbbf24') : (item.isDanger ? '#f87171' : '#94a3b8')} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
 
-        <div className="nav-section-label" style={{ marginTop: '14px' }}>API &amp; System Docs</div>
+        <div className="nav-section-label" style={{ marginTop: '10px' }}>API &amp; System Docs</div>
         <a
           href="http://localhost:5000/api/docs"
           target="_blank"
@@ -64,7 +104,7 @@ export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
           className="nav-link"
           style={{ color: '#fbbf24' }}
         >
-          <FileCode2 size={18} />
+          <FileCode2 size={17} />
           <span>Swagger API Docs ↗</span>
         </a>
       </nav>

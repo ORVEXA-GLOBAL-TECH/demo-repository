@@ -40,121 +40,102 @@ import {
   Calendar,
   Percent,
   CheckCircle,
-  Inbox
+  Inbox,
+  Radio,
+  BarChart3,
+  LifeBuoy,
+  Megaphone,
+  AlertOctagon,
+  Eye,
+  Sliders,
+  ShieldAlert,
+  Download,
+  Trash2,
+  RotateCcw,
+  UserX,
+  UserCheck2,
+  Send,
+  SlidersHorizontal,
+  Flame,
+  Check,
+  X
 } from 'lucide-react';
 
-// Standard sovereign country metadata templates (regulatory, currency, and tax configurations)
-const SOVEREIGN_COUNTRIES_METADATA = [
-  {
-    code: 'IN',
-    name: 'India',
-    flag: '🇮🇳',
-    currency: 'INR (₹)',
-    timezone: 'Asia/Kolkata (UTC+05:30)',
-    language: 'English, Hindi',
-    fiscalYear: 'April - March',
-    taxConfig: 'GST (18%) + TDS',
-    socialSecurity: 'EPFO (12%) + ESIC (0.75%)',
-    holidaysCount: 14,
-    status: 'ACTIVE'
-  },
-  {
-    code: 'KH',
-    name: 'Cambodia',
-    flag: '🇰🇭',
-    currency: 'USD ($) & KHR (៛)',
-    timezone: 'Asia/Phnom_Penh (UTC+07:00)',
-    language: 'Khmer, English',
-    fiscalYear: 'January - December',
-    taxConfig: 'Tax on Salary (0% - 20%)',
-    socialSecurity: 'NSSF (Occupational Risk + Health Care 2.6%)',
-    holidaysCount: 22,
-    status: 'ACTIVE'
-  },
-  {
-    code: 'BD',
-    name: 'Bangladesh',
-    flag: '🇧🇩',
-    currency: 'BDT (৳)',
-    timezone: 'Asia/Dhaka (UTC+06:00)',
-    language: 'Bengali, English',
-    fiscalYear: 'July - June',
-    taxConfig: 'Individual Tax Slab + 15% VAT',
-    socialSecurity: 'Workers Welfare Foundation (WPPF 5%)',
-    holidaysCount: 16,
-    status: 'ACTIVE'
-  },
-  {
-    code: 'NP',
-    name: 'Nepal',
-    flag: '🇳🇵',
-    currency: 'NPR (रू)',
-    timezone: 'Asia/Kathmandu (UTC+05:45)',
-    language: 'Nepali, English',
-    fiscalYear: 'July - June (Shrawan-Ashadh)',
-    taxConfig: 'TDS (15%) + Social Security Tax (1%)',
-    socialSecurity: 'SSF (Social Security Fund 31%)',
-    holidaysCount: 18,
-    status: 'ACTIVE'
-  },
-  {
-    code: 'TH',
-    name: 'Thailand',
-    flag: '🇹🇭',
-    currency: 'THB (฿)',
-    timezone: 'Asia/Bangkok (UTC+07:00)',
-    language: 'Thai, English',
-    fiscalYear: 'January - December',
-    taxConfig: 'PIT (Personal Income Tax 5%-35%)',
-    socialSecurity: 'SSO (Social Security 5% max 750 THB)',
-    holidaysCount: 19,
-    status: 'ACTIVE'
-  },
-  {
-    code: 'VN',
-    name: 'Vietnam',
-    flag: '🇻🇳',
-    currency: 'VND (₫)',
-    timezone: 'Asia/Ho_Chi_Minh (UTC+07:00)',
-    language: 'Vietnamese, English',
-    fiscalYear: 'January - December',
-    taxConfig: 'PIT (Progressive 5%-35%)',
-    socialSecurity: 'SHI + UI + SI (Total 32%)',
-    holidaysCount: 11,
-    status: 'ACTIVE'
-  }
-];
-
-const SYSTEM_HEALTH_SERVICES = [
-  { service: 'Core API Gateway (Node/Express)', status: 'HEALTHY', latency: '< 50ms', uptime: '99.98%' },
-  { service: 'Multi-Tenant Database Cluster', status: 'HEALTHY', latency: '< 15ms', uptime: '99.99%' },
-  { service: 'Redis Cache & Session Store', status: 'HEALTHY', latency: '< 5ms', uptime: '100%' },
-  { service: 'Cloud Object Storage (Azure Blob)', status: 'HEALTHY', latency: '< 70ms', uptime: '99.95%' },
-  { service: 'Email Provider (Enterprise SMTP)', status: 'HEALTHY', latency: '< 200ms', uptime: '99.92%' },
-  { service: 'SMS Gateway (Telco Ingress)', status: 'HEALTHY', latency: '< 250ms', uptime: '99.88%' },
-  { service: 'Push Notifications (FCM / APNs)', status: 'HEALTHY', latency: '< 100ms', uptime: '99.96%' },
-  { service: 'Geocoding & Satellite Telemetry', status: 'HEALTHY', latency: '< 120ms', uptime: '99.90%' }
-];
-
-export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', setActiveSubTab }) {
-  const currentTab = activeSubTab || 'saas-overview';
-  const handleTabChange = (tabId) => {
-    if (setActiveSubTab) {
-      setActiveSubTab(tabId);
-    }
-  };
-
-  // Dynamic state stores (free from hardcoded names, mock numbers, and fake records)
+export default function SuperAdminDashboard({
+  activeTab = 'dashboard',
+  setActiveTab,
+  globalSearchQuery = '',
+  setGlobalSearchQuery
+}) {
+  // --------------------------------------------------------------------------
+  // DYNAMIC STATE STORES (Clean, zero hardcoded dummy personas / fake data)
+  // --------------------------------------------------------------------------
   const [companies, setCompanies] = useState([]);
   const [admins, setAdmins] = useState([]);
+  const [platformUsers, setPlatformUsers] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [systemAlerts, setSystemAlerts] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isCreateCompanyOpen, setIsCreateCompanyOpen] = useState(false);
+  const [supportTickets, setSupportTickets] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [featureFlags, setFeatureFlags] = useState([
+    { id: 'FF-01', key: 'new_dcr_ui', name: 'New Dynamic DCR Experience v2', rolloutPercent: 0, status: 'CANARY', description: 'Interactive doctor visualizer and smart route map during daily call reporting' },
+    { id: 'FF-02', key: 'ai_prescription_ocr', name: 'AI Chemist Prescription OCR', rolloutPercent: 0, status: 'BETA', description: 'Automatic optical character recognition of chemist order booking slips' },
+    { id: 'FF-03', key: 'gps_high_precision_tracker', name: 'High-Precision Battery-Optimized GPS Engine', rolloutPercent: 0, status: 'TESTING', description: 'Sub-meter accuracy tracking with intelligent cellular battery optimization' }
+  ]);
 
-  // New Company Provisioning Form State
-  const [newCompany, setNewCompany] = useState({
+  // Global Settings State
+  const [globalSettings, setGlobalSettings] = useState({
+    dateFormat: 'YYYY-MM-DD',
+    timezone: 'UTC+05:30',
+    currency: 'INR',
+    language: 'English',
+    defaultWorkingDays: 'Monday - Saturday',
+    mfaEnforced: true,
+    passwordExpiryDays: 90,
+    sessionTimeoutMinutes: 60,
+    maxFileUploadMB: 25,
+    gpsRetentionDays: 90
+  });
+
+  // Mobile App Version State
+  const [appVersionState, setAppVersionState] = useState({
+    currentVersion: '3.4.0',
+    minSupportedVersion: '3.2.0',
+    recommendedVersion: '3.4.0',
+    forceUpdateEnabled: false,
+    releaseNotes: 'Performance optimizations for offline DCR sync, enhanced battery savings during GPS tracking, and instant chemist search.'
+  });
+
+  // Maintenance Mode States
+  const [maintenanceConfig, setMaintenanceConfig] = useState({
+    globalMaintenance: false,
+    reportingModuleMaintenance: false,
+    ordersModuleMaintenance: false,
+    mobileAppMaintenance: false
+  });
+
+  // Emergency Platform Kill-Switch State
+  const [emergencyLockActive, setEmergencyLockActive] = useState(false);
+
+  // Sub-tab selectors
+  const [companySubTab, setCompanySubTab] = useState('all'); // all | active | suspended | trial | admins
+  const [userSubTab, setUserSubTab] = useState('all'); // all | admins | managers | mrs
+  const [supportSubTab, setSupportSubTab] = useState('open'); // open | resolved
+
+  // Modals & Action States
+  const [isCreateCompanyOpen, setIsCreateCompanyOpen] = useState(false);
+  const [isEditCompanyOpen, setIsEditCompanyOpen] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [isImpersonateOpen, setIsImpersonateOpen] = useState(false);
+  const [impersonateTarget, setImpersonateTarget] = useState(null);
+  const [impersonateReason, setImpersonateReason] = useState('');
+  const [activeImpersonation, setActiveImpersonation] = useState(null);
+  const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = useState(false);
+  const [isNewTicketOpen, setIsNewTicketOpen] = useState(false);
+
+  // Form states
+  const [newCompanyForm, setNewCompanyForm] = useState({
     name: '',
     code: '',
     country: 'India',
@@ -163,10 +144,31 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
     fiscalYear: 'Apr - Mar',
     adminName: '',
     adminEmail: '',
-    plan: 'PRO'
+    adminPhone: '',
+    plan: 'PRO',
+    userLimit: 250,
+    mrLimit: 200,
+    storageLimitGB: 50
   });
 
-  // Dynamically computed metrics derived directly from live state
+  const [newAnnouncement, setNewAnnouncement] = useState({
+    title: '',
+    type: 'MAINTENANCE',
+    target: 'ALL',
+    content: ''
+  });
+
+  const [newTicket, setNewTicket] = useState({
+    companyName: '',
+    category: 'TECHNICAL',
+    priority: 'HIGH',
+    subject: '',
+    description: ''
+  });
+
+  // --------------------------------------------------------------------------
+  // DYNAMICALLY COMPUTED METRICS
+  // --------------------------------------------------------------------------
   const totalCompanies = companies.length;
   const activeCompanies = companies.filter(c => c.status === 'ACTIVE').length;
   const trialCompanies = companies.filter(c => c.status === 'TRIAL').length;
@@ -174,15 +176,12 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
 
   const totalUsers = companies.reduce((acc, c) => acc + (Number(c.usersCount) || 0), 0);
   const activeUsers = companies.filter(c => c.status === 'ACTIVE').reduce((acc, c) => acc + (Number(c.usersCount) || 0), 0);
-  const totalAdmins = admins.length;
   const totalMRs = companies.reduce((acc, c) => acc + (Number(c.mrsCount) || 0), 0);
   const totalManagers = companies.reduce((acc, c) => acc + (Number(c.managersCount) || 0), 0);
-  const totalGMs = companies.reduce((acc, c) => acc + (Number(c.gmsCount) || 0), 0);
-
+  const totalAdmins = admins.length;
+  const totalDoctors = companies.reduce((acc, c) => acc + (Number(c.doctorsCount) || 0), 0);
+  const totalVisits = companies.reduce((acc, c) => acc + (Number(c.visitsCount) || 0), 0);
   const totalReports = companies.reduce((acc, c) => acc + (Number(c.reportsCount) || 0), 0);
-  const dcrReportsCount = companies.reduce((acc, c) => acc + (Number(c.dcrReportsCount) || 0), 0);
-  const orderReportsCount = companies.reduce((acc, c) => acc + (Number(c.orderReportsCount) || 0), 0);
-  const expenseReportsCount = companies.reduce((acc, c) => acc + (Number(c.expenseReportsCount) || 0), 0);
 
   const totalStorageGB = companies.reduce((acc, c) => acc + (Number(c.storageUsedGB) || 0), 0);
   const totalStorageTB = (totalStorageGB / 1024).toFixed(2);
@@ -194,36 +193,29 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
     return acc + (Number(c.customMRR) || planRate);
   }, 0);
   const totalARR = totalMRR * 12;
-  const activeSubscriptions = activeCompanies;
 
   const expiringLicenses = companies.filter(c => c.daysUntilExpiry !== undefined && c.daysUntilExpiry <= 30);
 
-  // Dynamic Tier Breakdown
-  const basicCount = companies.filter(c => c.plan === 'BASIC').length;
-  const proCount = companies.filter(c => c.plan === 'PRO').length;
-  const enterpriseCount = companies.filter(c => c.plan === 'ENTERPRISE').length;
-
-  const handleToggleModule = (companyId, moduleKey) => {
-    setCompanies(prev =>
-      prev.map(c => {
-        if (c.id === companyId) {
-          return {
-            ...c,
-            modules: {
-              ...c.modules,
-              [moduleKey]: !c.modules[moduleKey]
-            }
-          };
-        }
-        return c;
-      })
-    );
+  // --------------------------------------------------------------------------
+  // ACTION HANDLERS
+  // --------------------------------------------------------------------------
+  const logAudit = (action, detail, entity = 'Platform') => {
+    const act = {
+      id: `ACT-${Date.now().toString().slice(-5)}`,
+      title: action,
+      detail: detail,
+      entity: entity,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      actor: 'Super Admin (HQ)',
+      severity: 'info'
+    };
+    setRecentActivities(prev => [act, ...prev]);
   };
 
   const handleCreateCompany = (e) => {
     e.preventDefault();
-    if (!newCompany.name.trim() || !newCompany.adminEmail.trim()) {
-      alert('Please fill in required fields.');
+    if (!newCompanyForm.name.trim() || !newCompanyForm.adminEmail.trim()) {
+      alert('Please provide company name and company admin email.');
       return;
     }
 
@@ -231,79 +223,86 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
     const tenantId = `TENANT-${String(tenantIndex).padStart(3, '0')}`;
     const companyId = `CMP-${String(tenantIndex).padStart(3, '0')}`;
     const adminId = `ADM-${String(admins.length + 1).padStart(2, '0')}`;
-    const planRate = newCompany.plan === 'ENTERPRISE' ? 4200 : newCompany.plan === 'PRO' ? 2800 : 950;
-
-    const matchedCountry = SOVEREIGN_COUNTRIES_METADATA.find(c => c.name === newCompany.country);
-    const countryFlag = matchedCountry ? matchedCountry.flag : '🌐';
+    const planRate = newCompanyForm.plan === 'ENTERPRISE' ? 4200 : newCompanyForm.plan === 'PRO' ? 2800 : 950;
 
     const createdCompany = {
       id: companyId,
-      code: newCompany.code || `CMP-${Date.now().toString().slice(-4)}`,
-      name: newCompany.name,
-      country: newCompany.country,
-      flag: countryFlag,
-      currency: newCompany.currency,
-      timezone: newCompany.timezone,
-      fiscalYear: newCompany.fiscalYear,
-      adminName: newCompany.adminName || 'Organization Administrator',
-      adminEmail: newCompany.adminEmail,
-      plan: newCompany.plan,
+      code: newCompanyForm.code || `CMP-${Date.now().toString().slice(-4)}`,
+      name: newCompanyForm.name,
+      country: newCompanyForm.country,
+      flag: newCompanyForm.country === 'Cambodia' ? '🇰🇭' : newCompanyForm.country === 'India' ? '🇮🇳' : newCompanyForm.country === 'Bangladesh' ? '🇧🇩' : '🌐',
+      currency: newCompanyForm.currency,
+      timezone: newCompanyForm.timezone,
+      fiscalYear: newCompanyForm.fiscalYear,
+      adminName: newCompanyForm.adminName || 'Organization Admin',
+      adminEmail: newCompanyForm.adminEmail,
+      plan: newCompanyForm.plan,
       status: 'ACTIVE',
       usersCount: 1,
       mrsCount: 0,
       managersCount: 0,
       gmsCount: 0,
+      doctorsCount: 0,
+      visitsCount: 0,
       reportsCount: 0,
-      dcrReportsCount: 0,
-      orderReportsCount: 0,
-      expenseReportsCount: 0,
       storageUsedGB: 1,
+      storageLimitGB: newCompanyForm.storageLimitGB || 50,
+      userLimit: newCompanyForm.userLimit || 250,
+      mrLimit: newCompanyForm.mrLimit || 200,
       apiCallsToday: 0,
       tenantId: tenantId,
       mrr: `$${planRate.toLocaleString()}`,
       customMRR: planRate,
+      createdDate: new Date().toISOString().split('T')[0],
       renewalDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       modules: {
         mrReporting: true,
+        dcr: true,
+        attendance: true,
         doctorManagement: true,
-        sales: true,
-        payroll: true,
-        nssf: newCompany.country === 'Cambodia',
-        hrms: true,
-        aiAnalytics: newCompany.plan === 'ENTERPRISE',
-        advancedReports: true
+        chemistManagement: true,
+        expense: true,
+        gpsTracking: true,
+        targetManagement: true,
+        orderManagement: true,
+        sampleManagement: false,
+        analytics: true,
+        aiStudio: newCompanyForm.plan === 'ENTERPRISE'
       }
     };
 
     const createdAdmin = {
       id: adminId,
-      name: newCompany.adminName || 'Organization Administrator',
-      email: newCompany.adminEmail,
-      company: newCompany.name,
-      country: newCompany.country,
-      role: 'Company Admin',
+      name: newCompanyForm.adminName || 'Organization Admin',
+      email: newCompanyForm.adminEmail,
+      company: newCompanyForm.name,
+      companyId: companyId,
+      country: newCompanyForm.country,
+      role: 'COMPANY ADMIN',
       mfaEnabled: false,
       status: 'ACTIVE',
       lastLogin: 'Never logged in',
       ipAddress: 'Pending First Login'
     };
 
-    const newActivity = {
-      id: `ACT-${Date.now().toString().slice(-4)}`,
-      type: 'TENANT_PROVISIONED',
-      title: 'New Tenant Provisioned',
-      detail: `Created schema ${tenantId} for ${newCompany.name}`,
-      time: 'Just now',
-      severity: 'success',
-      actor: 'SuperAdmin HQ'
+    const createdPlatformUser = {
+      id: `USR-${Date.now().toString().slice(-4)}`,
+      name: newCompanyForm.adminName || 'Organization Admin',
+      email: newCompanyForm.adminEmail,
+      mobile: newCompanyForm.adminPhone || '--',
+      company: newCompanyForm.name,
+      role: 'COMPANY ADMIN',
+      status: 'ACTIVE',
+      lastLogin: 'Never logged in'
     };
 
     setCompanies(prev => [createdCompany, ...prev]);
     setAdmins(prev => [createdAdmin, ...prev]);
-    setRecentActivities(prev => [newActivity, ...prev]);
+    setPlatformUsers(prev => [createdPlatformUser, ...prev]);
+    logAudit('Create Company', `Provisioned tenant ${tenantId} for ${createdCompany.name}`, createdCompany.name);
 
-    // Reset Form
-    setNewCompany({
+    setIsCreateCompanyOpen(false);
+    setNewCompanyForm({
       name: '',
       code: '',
       country: 'India',
@@ -312,9 +311,31 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
       fiscalYear: 'Apr - Mar',
       adminName: '',
       adminEmail: '',
-      plan: 'PRO'
+      adminPhone: '',
+      plan: 'PRO',
+      userLimit: 250,
+      mrLimit: 200,
+      storageLimitGB: 50
     });
-    setIsCreateCompanyOpen(false);
+  };
+
+  const handleToggleModule = (companyId, moduleKey) => {
+    setCompanies(prev =>
+      prev.map(c => {
+        if (c.id === companyId) {
+          const updated = {
+            ...c,
+            modules: {
+              ...c.modules,
+              [moduleKey]: !c.modules[moduleKey]
+            }
+          };
+          logAudit('Module Access Toggled', `Toggled ${moduleKey} to ${updated.modules[moduleKey] ? 'ENABLED' : 'DISABLED'} for ${c.name}`, c.name);
+          return updated;
+        }
+        return c;
+      })
+    );
   };
 
   const toggleCompanyStatus = (id) => {
@@ -322,6 +343,7 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
       prev.map(c => {
         if (c.id === id) {
           const nextStatus = c.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+          logAudit('Company Status Changed', `Changed status of ${c.name} to ${nextStatus}`, c.name);
           return { ...c, status: nextStatus };
         }
         return c;
@@ -329,18 +351,103 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
     );
   };
 
+  const handleStartImpersonation = (e) => {
+    e.preventDefault();
+    if (!impersonateReason.trim()) {
+      alert('A valid reason is required for strict security and auditing compliance.');
+      return;
+    }
+    const record = {
+      target: impersonateTarget,
+      reason: impersonateReason,
+      startedAt: new Date().toLocaleTimeString()
+    };
+    setActiveImpersonation(record);
+    logAudit('Admin Impersonation Started', `Super Admin impersonated ${impersonateTarget.name} (${impersonateTarget.company}). Reason: ${impersonateReason}`, impersonateTarget.company);
+    setIsImpersonateOpen(false);
+    setImpersonateReason('');
+  };
+
+  const handleEndImpersonation = () => {
+    if (activeImpersonation) {
+      logAudit('Admin Impersonation Ended', `Ended session as ${activeImpersonation.target.name}`, activeImpersonation.target.company);
+      setActiveImpersonation(null);
+    }
+  };
+
+  const handleSendAnnouncement = (e) => {
+    e.preventDefault();
+    if (!newAnnouncement.title.trim() || !newAnnouncement.content.trim()) return;
+    const ann = {
+      id: `ANN-${Date.now().toString().slice(-4)}`,
+      title: newAnnouncement.title,
+      type: newAnnouncement.type,
+      target: newAnnouncement.target,
+      content: newAnnouncement.content,
+      publishedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    setAnnouncements(prev => [ann, ...prev]);
+    logAudit('Published Announcement', `Published broadcast: "${newAnnouncement.title}" to target ${newAnnouncement.target}`);
+    setIsAnnouncementModalOpen(false);
+    setNewAnnouncement({ title: '', type: 'MAINTENANCE', target: 'ALL', content: '' });
+  };
+
+  const handleCreateTicket = (e) => {
+    e.preventDefault();
+    if (!newTicket.subject.trim()) return;
+    const tick = {
+      id: `TCK-${Date.now().toString().slice(-4)}`,
+      companyName: newTicket.companyName || 'General Platform',
+      category: newTicket.category,
+      priority: newTicket.priority,
+      subject: newTicket.subject,
+      description: newTicket.description,
+      status: 'OPEN',
+      assignedTo: 'Super Admin HQ',
+      createdAt: new Date().toLocaleDateString()
+    };
+    setSupportTickets(prev => [tick, ...prev]);
+    logAudit('Support Ticket Created', `Created support ticket #${tick.id}: ${tick.subject}`, tick.companyName);
+    setIsNewTicketOpen(false);
+    setNewTicket({ companyName: '', category: 'TECHNICAL', priority: 'HIGH', subject: '', description: '' });
+  };
+
+  // --------------------------------------------------------------------------
+  // RENDER SECTIONS
+  // --------------------------------------------------------------------------
   return (
     <div className="superadmin-suite-container">
-      {/* Top Level SaaS Navigation Bar */}
+      {/* Impersonation Active Banner */}
+      {activeImpersonation && (
+        <div className="impersonation-active-banner">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Eye size={20} color="#b45309" />
+            <div>
+              <strong>AUDITED IMPERSONATION SESSION ACTIVE: </strong>
+              <span>Viewing as <strong>{activeImpersonation.target.name}</strong> ({activeImpersonation.target.company}). Reason: <em>"{activeImpersonation.reason}"</em></span>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="action-pill-btn"
+            style={{ background: '#b45309', color: '#fff', border: 'none' }}
+            onClick={handleEndImpersonation}
+          >
+            End Impersonation Session
+          </button>
+        </div>
+      )}
+
+      {/* Global SaaS Header Strip */}
       <div className="saas-header-strip">
         <div className="saas-header-left">
           <div className="saas-global-chip">
             <Globe2 size={14} />
-            <span>ORVEXA GLOBAL TECH // MULTI-TENANT SAAS GOVERNANCE</span>
+            <span>ORVEXA GLOBAL TECH // SAAS GOVERNANCE LAYER</span>
           </div>
           <h1 className="saas-header-title">Super Admin Platform Command Center</h1>
           <p className="saas-header-desc">
-            Global SaaS Control Layer &bull; Tenant Isolation &bull; Country Configurations &bull; Multi-Tenant Subscriptions
+            30-Point SaaS Governance &bull; Multi-Tenant Isolation &bull; Sovereign Compliance &bull; Feature Flags &bull; Disaster Recovery
           </p>
         </div>
 
@@ -370,27 +477,25 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
       </div>
 
       {/* =====================================================================
-          TAB 1: GLOBAL PLATFORM COMMAND CENTER & OVERVIEW
+          1. PLATFORM DASHBOARD (19 PLATFORM METRICS)
           ===================================================================== */}
-      {currentTab === 'saas-overview' && (
+      {activeTab === 'dashboard' && (
         <div className="tab-pane-content">
-          {/* Top Platform Scope Banner */}
           <div className="arch-reminder-card" style={{ borderLeftColor: '#f59e0b', background: 'linear-gradient(90deg, #fffbeb 0%, #f8fafc 100%)' }}>
             <ShieldCheck size={22} color="#d97706" style={{ flexShrink: 0 }} />
             <div>
-              <span className="arch-card-title" style={{ color: '#92400e', fontSize: '0.86rem' }}>Global Platform Master Dashboard Active: </span>
+              <span className="arch-card-title" style={{ color: '#92400e', fontSize: '0.86rem' }}>Platform Governance Dashboard Active: </span>
               <span className="arch-card-desc" style={{ color: '#78350f' }}>
-                Real-time visibility across {totalCompanies} multi-tenant {totalCompanies === 1 ? 'company' : 'companies'}, {totalUsers.toLocaleString()} users, {totalAdmins} administrators, and isolated storage schemas.
+                Complete visibility across {totalCompanies} tenants, {totalUsers.toLocaleString()} users, {totalAdmins} admins, {totalDoctors.toLocaleString()} doctors, {totalVisits.toLocaleString()} visits, and storage schemas.
               </span>
             </div>
           </div>
 
-          {/* 6 Executive Platform Metric Cards */}
+          {/* 6 Executive KPI Metric Cards */}
           <div className="kpi-banner-grid">
-            {/* 1. Companies & Tenants */}
             <div className="saas-kpi-card">
               <div className="kpi-top">
-                <span className="kpi-label">Total Companies / Tenants</span>
+                <span className="kpi-label">Companies / Tenants</span>
                 <Building2 size={18} className="kpi-icon blue" />
               </div>
               <div className="kpi-number">{totalCompanies}</div>
@@ -401,7 +506,6 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
               </div>
             </div>
 
-            {/* 2. Platform Users & Admins */}
             <div className="saas-kpi-card">
               <div className="kpi-top">
                 <span className="kpi-label">Total Platform Users</span>
@@ -412,76 +516,66 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                 <strong className="text-green">{activeUsers.toLocaleString()} Active</strong> &bull; <strong className="text-blue">{totalAdmins} Admins</strong>
               </div>
               <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '3px' }}>
-                {totalMRs.toLocaleString()} MRs &bull; {totalManagers.toLocaleString()} Managers &bull; {totalGMs} GMs
+                {totalMRs.toLocaleString()} MRs &bull; {totalManagers.toLocaleString()} Managers
               </div>
             </div>
 
-            {/* 3. Total Reports Processed */}
             <div className="saas-kpi-card">
               <div className="kpi-top">
-                <span className="kpi-label">Total Platform Reports</span>
+                <span className="kpi-label">Doctors &amp; Field Visits</span>
+                <Activity size={18} className="kpi-icon cyan" />
+              </div>
+              <div className="kpi-number text-blue">{totalDoctors.toLocaleString()}</div>
+              <div className="kpi-sub">
+                <strong>{totalVisits.toLocaleString()} Field Calls Completed</strong>
+              </div>
+            </div>
+
+            <div className="saas-kpi-card">
+              <div className="kpi-top">
+                <span className="kpi-label">Reports &amp; Analytics</span>
                 <FileText size={18} className="kpi-icon purple" />
               </div>
               <div className="kpi-number" style={{ color: '#7c3aed' }}>{totalReports.toLocaleString()}</div>
               <div className="kpi-sub">
-                <strong>{dcrReportsCount.toLocaleString()} DCRs</strong> &bull; <strong>{orderReportsCount.toLocaleString()} Orders</strong> &bull; <strong>{expenseReportsCount.toLocaleString()} Claims</strong>
+                <strong>DCRs, Chemist Orders &amp; Claims</strong>
               </div>
             </div>
 
-            {/* 4. Storage Utilization */}
             <div className="saas-kpi-card">
               <div className="kpi-top">
-                <span className="kpi-label">Total Storage Used</span>
-                <HardDrive size={18} className="kpi-icon cyan" />
+                <span className="kpi-label">Storage &amp; Telemetry</span>
+                <HardDrive size={18} className="kpi-icon blue" />
               </div>
               <div className="kpi-number">{totalStorageTB} TB</div>
               <div className="kpi-sub">
-                <strong>{totalStorageGB} GB Total Database &amp; Media</strong>
+                <strong>{totalStorageGB} GB Multi-Tenant DBs</strong>
               </div>
             </div>
 
-            {/* 5. API Usage & Throughput */}
             <div className="saas-kpi-card">
               <div className="kpi-top">
-                <span className="kpi-label">API Gateway Usage</span>
-                <Activity size={18} className="kpi-icon blue" />
-              </div>
-              <div className="kpi-number">{totalCallsToday.toLocaleString()} <span style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: '600' }}>calls/day</span></div>
-              <div className="kpi-sub">
-                <strong className="text-green">99.98% SLA</strong> &bull; Active Ingress
-              </div>
-            </div>
-
-            {/* 6. Subscriptions & Economics */}
-            <div className="saas-kpi-card">
-              <div className="kpi-top">
-                <span className="kpi-label">Subscription Status &amp; MRR</span>
+                <span className="kpi-label">MRR &amp; ARR Status</span>
                 <CreditCard size={18} className="kpi-icon green" />
               </div>
               <div className="kpi-number text-green">${totalMRR.toLocaleString()} <span style={{ fontSize: '0.8rem', color: '#64748b' }}>MRR</span></div>
               <div className="kpi-sub">
-                <strong>{activeSubscriptions} Active Subscriptions</strong> &bull; ARR: ${totalARR.toLocaleString()}
+                <strong>{activeCompanies} Subscriptions</strong> &bull; ARR: ${totalARR.toLocaleString()}
               </div>
             </div>
           </div>
 
           {/* 2-Column Operational Grid */}
           <div className="saas-overview-layout">
-            {/* Left Column: Tenant Companies & License Expirations & Activity */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              {/* Tenant Directory Table */}
               <div className="card-section">
                 <div className="section-header">
                   <div>
                     <h2 className="section-title">Tenant Companies Overview</h2>
                     <p className="section-desc">Multi-tenant isolation status, users quota, and subscription tier</p>
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => handleTabChange('saas-companies')}
-                  >
-                    View All Companies ({totalCompanies}) <ArrowUpRight size={14} />
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setActiveTab('companies')}>
+                    Manage Companies ({totalCompanies}) <ArrowUpRight size={14} />
                   </button>
                 </div>
 
@@ -489,15 +583,9 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                   {companies.length === 0 ? (
                     <div style={{ padding: '36px 20px', textAlign: 'center', color: '#64748b' }}>
                       <Inbox size={36} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
-                      <div style={{ fontWeight: '700', fontSize: '0.92rem', color: '#334155' }}>No Tenant Companies Provisioned</div>
-                      <p style={{ fontSize: '0.8rem', maxWidth: '380px', margin: '4px auto 14px' }}>
-                        Get started by provisioning your first isolated multi-tenant organization.
-                      </p>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        onClick={() => setIsCreateCompanyOpen(true)}
-                      >
+                      <div style={{ fontWeight: '700', fontSize: '0.92rem', color: '#334155' }}>No Tenants Enrolled</div>
+                      <p style={{ fontSize: '0.8rem', margin: '4px auto 14px' }}>Get started by provisioning your first isolated pharma tenant.</p>
+                      <button type="button" className="btn btn-primary btn-sm" onClick={() => setIsCreateCompanyOpen(true)}>
                         <Plus size={14} /> Provision Tenant
                       </button>
                     </div>
@@ -505,13 +593,13 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                     <table className="custom-table">
                       <thead>
                         <tr>
-                          <th>Company &amp; Jurisdiction</th>
-                          <th>Tenant Schema</th>
+                          <th>Company</th>
+                          <th>Schema</th>
                           <th>Plan</th>
-                          <th>Users Quota</th>
+                          <th>Users</th>
                           <th>MRR</th>
                           <th>Status</th>
-                          <th style={{ textAlign: 'right' }}>Actions</th>
+                          <th style={{ textAlign: 'right' }}>Action</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -526,35 +614,17 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                                 </div>
                               </div>
                             </td>
-                            <td>
-                              <span className="tenant-id-pill">{comp.tenantId}</span>
-                            </td>
-                            <td>
-                              <span className={`plan-pill plan-${comp.plan.toLowerCase()}`}>
-                                {comp.plan}
-                              </span>
-                            </td>
-                            <td>
-                              <div className="users-breakdown-cell">
-                                <strong>{comp.usersCount} Users</strong>
-                                <span>{comp.mrsCount} MRs &bull; {comp.managersCount} MGRs</span>
-                              </div>
-                            </td>
-                            <td>
-                              <strong>{comp.mrr}</strong>
-                            </td>
+                            <td><span className="tenant-id-pill">{comp.tenantId}</span></td>
+                            <td><span className={`plan-pill plan-${comp.plan.toLowerCase()}`}>{comp.plan}</span></td>
+                            <td><strong>{comp.usersCount} Users</strong></td>
+                            <td><strong>{comp.mrr}</strong></td>
                             <td>
                               <span className={`status-tag status-${comp.status.toLowerCase()}`}>
-                                {comp.status === 'ACTIVE' ? '🟢 Active' : comp.status === 'TRIAL' ? '🟣 Trial' : '🟡 Suspended'}
+                                {comp.status === 'ACTIVE' ? '🟢 Active' : '🟡 Suspended'}
                               </span>
                             </td>
                             <td style={{ textAlign: 'right' }}>
-                              <button
-                                type="button"
-                                className="action-pill-btn primary"
-                                onClick={() => handleTabChange('saas-features')}
-                                title="Configure features & modules for this company"
-                              >
+                              <button type="button" className="action-pill-btn primary" onClick={() => setActiveTab('features')}>
                                 Modules
                               </button>
                             </td>
@@ -566,140 +636,29 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                 </div>
               </div>
 
-              {/* License Expirations Tracker */}
+              {/* Recent Activity Audit Stream */}
               <div className="card-section">
                 <div className="section-header">
                   <div>
                     <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Clock size={18} color="#d97706" /> Upcoming License Expirations
+                      <Activity size={18} color="#2563eb" /> Real-Time Platform Activity Stream
                     </h2>
-                    <p className="section-desc">Tenant subscriptions expiring in the next 30 to 60 days</p>
+                    <p className="section-desc">Immutable log of company registration, admin auth, and feature changes</p>
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => handleTabChange('saas-subscriptions')}
-                  >
-                    Manage Billing &rarr;
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setActiveTab('security')}>
+                    Audit Log &rarr;
                   </button>
                 </div>
-
-                <div className="saas-table-container">
-                  {expiringLicenses.length === 0 ? (
-                    <div style={{ padding: '24px 20px', textAlign: 'center', color: '#64748b', fontSize: '0.82rem' }}>
-                      <CheckCircle size={24} color="#10b981" style={{ margin: '0 auto 6px', display: 'block' }} />
-                      <span>All active company licenses and subscriptions are up to date. No renewals due within 30 days.</span>
-                    </div>
-                  ) : (
-                    <table className="custom-table">
-                      <thead>
-                        <tr>
-                          <th>Company</th>
-                          <th>Plan</th>
-                          <th>Licensed Users</th>
-                          <th>Expiry Date</th>
-                          <th>Countdown</th>
-                          <th>MRR Value</th>
-                          <th style={{ textAlign: 'right' }}>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {expiringLicenses.map((lic) => (
-                          <tr key={lic.id}>
-                            <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span>{lic.flag}</span>
-                                <strong style={{ fontSize: '0.82rem' }}>{lic.name}</strong>
-                              </div>
-                            </td>
-                            <td>
-                              <span className={`plan-pill plan-${lic.plan.toLowerCase()}`}>{lic.plan}</span>
-                            </td>
-                            <td>
-                              <strong>{lic.usersCount} Seats</strong>
-                            </td>
-                            <td style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>
-                              {lic.renewalDate}
-                            </td>
-                            <td>
-                              <span style={{
-                                padding: '2px 7px',
-                                borderRadius: '4px',
-                                fontSize: '0.72rem',
-                                fontWeight: '800',
-                                backgroundColor: (lic.daysUntilExpiry || 0) <= 15 ? '#fee2e2' : '#fef3c7',
-                                color: (lic.daysUntilExpiry || 0) <= 15 ? '#991b1b' : '#92400e'
-                              }}>
-                                {lic.daysUntilExpiry} Days Left
-                              </span>
-                            </td>
-                            <td>
-                              <strong>{lic.mrr}</strong>
-                            </td>
-                            <td style={{ textAlign: 'right' }}>
-                              <button
-                                type="button"
-                                className="action-pill-btn"
-                                style={{ color: '#2563eb', borderColor: '#bfdbfe', background: '#eff6ff' }}
-                                onClick={() => alert(`License extension invoice generated for ${lic.name}!`)}
-                              >
-                                Extend
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              </div>
-
-              {/* Recent Platform Activity & Global Audit Log */}
-              <div className="card-section">
-                <div className="section-header">
-                  <div>
-                    <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Activity size={18} color="#2563eb" /> Recent Platform Activity &amp; Audit Trail
-                    </h2>
-                    <p className="section-desc">Live immutable log of tenant provisioning, admin authentication, and security events</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => handleTabChange('saas-system-health')}
-                  >
-                    Security Audit Trail &rarr;
-                  </button>
-                </div>
-
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {recentActivities.length === 0 ? (
                     <div style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '0.8rem', background: '#f8fafc', borderRadius: '8px' }}>
-                      No recent platform activity events. New actions and tenant provisioning logs will appear here.
+                      No recent activity logs. New tenant events will appear here in real-time.
                     </div>
                   ) : (
-                    recentActivities.map((act) => (
-                      <div
-                        key={act.id}
-                        style={{
-                          padding: '10px 14px',
-                          borderRadius: '8px',
-                          background: '#f8fafc',
-                          border: '1px solid #e2e8f0',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: '12px'
-                        }}
-                      >
+                    recentActivities.slice(0, 6).map((act) => (
+                      <div key={act.id} style={{ padding: '10px 14px', borderRadius: '8px', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{
-                            width: '8px',
-                            height: '8px',
-                            borderRadius: '50%',
-                            backgroundColor: act.severity === 'success' ? '#10b981' : act.severity === 'warning' ? '#f59e0b' : '#3b82f6',
-                            flexShrink: 0
-                          }} />
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981', flexShrink: 0 }} />
                           <div>
                             <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#0f172a' }}>{act.title}</div>
                             <div style={{ fontSize: '0.74rem', color: '#64748b' }}>{act.detail}</div>
@@ -716,107 +675,49 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
               </div>
             </div>
 
-            {/* Right Column: System Alerts, Health & Resource Quotas */}
+            {/* Right Column: Health & Announcements */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              {/* System Alerts Center */}
               <div className="card-section">
                 <div className="card-header-flex">
                   <h3 className="card-header-title">
-                    <AlertTriangle size={18} color="#ef4444" /> Platform System Alerts ({systemAlerts.length} Active)
-                  </h3>
-                  <button
-                    type="button"
-                    className="link-btn-xs"
-                    style={{ fontSize: '0.75rem', color: '#2563eb', fontWeight: '700', background: 'none', border: 'none', cursor: 'pointer' }}
-                    onClick={() => handleTabChange('saas-system-health')}
-                  >
-                    View Alert Center &rarr;
-                  </button>
-                </div>
-                <div className="alerts-mini-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {systemAlerts.length === 0 ? (
-                    <div style={{ padding: '16px', textAlign: 'center', color: '#059669', background: '#f0fdf4', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600' }}>
-                      🟢 All systems operating within normal parameters. No active alerts.
-                    </div>
-                  ) : (
-                    systemAlerts.map((alertItem) => (
-                      <div
-                        key={alertItem.id}
-                        className={`alert-mini-item ${alertItem.level.toLowerCase()}`}
-                        style={{
-                          padding: '10px 12px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '4px',
-                          borderLeft: `4px solid ${alertItem.level === 'CRITICAL' ? '#ef4444' : alertItem.level === 'WARNING' ? '#f59e0b' : '#3b82f6'}`
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span className={alertItem.level === 'CRITICAL' ? 'alert-badge-red' : alertItem.level === 'WARNING' ? 'alert-badge-amber' : 'alert-badge-blue'}>
-                            {alertItem.level}
-                          </span>
-                          <span style={{ fontSize: '0.68rem', color: '#64748b' }}>{alertItem.time}</span>
-                        </div>
-                        <div style={{ fontSize: '0.8rem', fontWeight: '800', color: '#0f172a' }}>{alertItem.title}</div>
-                        <div style={{ fontSize: '0.74rem', color: '#475569' }}>{alertItem.desc}</div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Multi-Tenant System Health Matrix */}
-              <div className="card-section">
-                <div className="card-header-flex">
-                  <h3 className="card-header-title">
-                    <Server size={18} color="#059669" /> System Health &amp; Microservices
+                    <Server size={18} color="#059669" /> Microservices Health Telemetry
                   </h3>
                   <span style={{ fontSize: '0.72rem', color: '#059669', fontWeight: '800', background: '#dcfce7', padding: '2px 8px', borderRadius: '12px' }}>
-                    🟢 8/8 Operational
+                    🟢 9/9 Healthy
                   </span>
                 </div>
-
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  {SYSTEM_HEALTH_SERVICES.slice(0, 6).map((svc) => (
-                    <div key={svc.service} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 10px' }}>
-                      <div style={{ fontSize: '0.68rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {svc.service.split(' ')[0]}
-                      </div>
+                  {['API Gateway', 'Multi-Tenant DB', 'Storage Vault', 'Auth Service', 'Notifications', 'GPS Tracking', 'Email Service', 'SMS Gateway', 'Background Jobs'].map((svc) => (
+                    <div key={svc} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '0.68rem', color: '#64748b' }}>{svc}</div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
-                        <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#0f172a' }}>{svc.latency}</span>
-                        <span style={{ fontSize: '0.68rem', color: '#059669', fontWeight: '700' }}>{svc.uptime}</span>
+                        <span style={{ fontSize: '0.82rem', fontWeight: '800', color: '#0f172a' }}>● Healthy</span>
+                        <span style={{ fontSize: '0.68rem', color: '#059669', fontWeight: '700' }}>99.99%</span>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Resource & Storage Quota Utilization */}
+              {/* System Alerts */}
               <div className="card-section">
-                <h3 className="card-header-title">
-                  <HardDrive size={18} color="#2563eb" /> Platform Resource Management
-                </h3>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
-                  {/* Database Storage Progress */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', marginBottom: '4px' }}>
-                      <span style={{ fontWeight: '700', color: '#334155' }}>Multi-Tenant Database Schemas</span>
-                      <span style={{ fontWeight: '800', color: '#0f172a' }}>{totalStorageGB} GB Total</span>
-                    </div>
-                    <div style={{ height: '6px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${Math.min(100, Math.max(5, (totalStorageGB / 100) * 100))}%`, height: '100%', background: '#2563eb', borderRadius: '4px' }} />
-                    </div>
-                  </div>
-
-                  {/* Multi-Tenant Security Isolation */}
-                  <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '8px', padding: '10px 12px', fontSize: '0.74rem', color: '#475569' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800', color: '#0f172a', marginBottom: '2px' }}>
-                      <Lock size={14} color="#059669" /> Tier-0 Tenant Isolation Enforced
-                    </div>
-                    <span>Zero cross-tenant data leakage. Automated schema sandboxing &amp; RLS encryption active.</span>
-                  </div>
+                <div className="card-header-flex">
+                  <h3 className="card-header-title">
+                    <AlertTriangle size={18} color="#ef4444" /> System Alerts ({systemAlerts.length} Active)
+                  </h3>
                 </div>
+                {systemAlerts.length === 0 ? (
+                  <div style={{ padding: '16px', textAlign: 'center', color: '#059669', background: '#f0fdf4', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600' }}>
+                    🟢 All systems operating within normal parameters. No active alerts.
+                  </div>
+                ) : (
+                  systemAlerts.map(alertItem => (
+                    <div key={alertItem.id} style={{ padding: '8px 12px', background: '#fef2f2', border: '1px solid #fee2e2', borderRadius: '6px', marginBottom: '6px' }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: '800', color: '#991b1b' }}>{alertItem.title}</div>
+                      <div style={{ fontSize: '0.72rem', color: '#7f1d1d' }}>{alertItem.desc}</div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -824,131 +725,320 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
       )}
 
       {/* =====================================================================
-          TAB 2: COMPANY MANAGEMENT
+          2. COMPANY / TENANT MANAGEMENT (FULL LIFECYCLE & ACTIONS)
           ===================================================================== */}
-      {currentTab === 'saas-companies' && (
+      {activeTab === 'companies' && (
         <div className="tab-pane-content">
+          <div className="sub-nav-tabs">
+            <button type="button" className={`sub-nav-pill ${companySubTab === 'all' ? 'active' : ''}`} onClick={() => setCompanySubTab('all')}>
+              All Companies ({totalCompanies})
+            </button>
+            <button type="button" className={`sub-nav-pill ${companySubTab === 'active' ? 'active' : ''}`} onClick={() => setCompanySubTab('active')}>
+              Active ({activeCompanies})
+            </button>
+            <button type="button" className={`sub-nav-pill ${companySubTab === 'suspended' ? 'active' : ''}`} onClick={() => setCompanySubTab('suspended')}>
+              Suspended ({suspendedCompanies})
+            </button>
+            <button type="button" className={`sub-nav-pill ${companySubTab === 'trial' ? 'active' : ''}`} onClick={() => setCompanySubTab('trial')}>
+              Trials ({trialCompanies})
+            </button>
+            <button type="button" className={`sub-nav-pill ${companySubTab === 'admins' ? 'active' : ''}`} onClick={() => setCompanySubTab('admins')}>
+              Company Admins ({admins.length})
+            </button>
+          </div>
+
           <div className="pane-action-bar">
             <div className="search-box-large">
               <Search size={18} />
               <input
                 type="text"
-                placeholder="Search companies by name, code, country, or admin..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search company by name, code, jurisdiction, admin..."
+                value={globalSearchQuery}
+                onChange={(e) => setGlobalSearchQuery(e.target.value)}
                 className="search-input-field"
               />
             </div>
-            <button
-              type="button"
-              className="primary-action-btn"
-              onClick={() => setIsCreateCompanyOpen(true)}
-            >
+            <button type="button" className="primary-action-btn" onClick={() => setIsCreateCompanyOpen(true)}>
               <Plus size={16} />
-              <span>Create New Company</span>
+              <span>Create New Pharma Company</span>
             </button>
           </div>
 
-          {/* Companies Table */}
-          <div className="saas-table-container">
-            {companies.length === 0 ? (
-              <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
-                <Building2 size={40} color="#94a3b8" style={{ margin: '0 auto 12px', display: 'block' }} />
-                <div style={{ fontWeight: '800', fontSize: '1rem', color: '#1e293b' }}>No Companies Enrolled Yet</div>
-                <p style={{ fontSize: '0.84rem', maxWidth: '420px', margin: '6px auto 16px', color: '#64748b' }}>
-                  Click "Create New Company" to provision an isolated tenant for an enterprise client.
-                </p>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => setIsCreateCompanyOpen(true)}
-                >
-                  <Plus size={16} /> Create New Company
-                </button>
-              </div>
-            ) : (
-              <table className="saas-data-table">
-                <thead>
-                  <tr>
-                    <th>Company Name &amp; Code</th>
-                    <th>Country &amp; Jurisdiction</th>
-                    <th>Assigned Company Admin</th>
-                    <th>Subscription Plan</th>
-                    <th>Status</th>
-                    <th>Tenancy</th>
-                    <th>Users</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {companies
-                    .filter(c =>
-                      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                      c.country.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                      c.adminName.toLowerCase().includes(searchQuery.toLowerCase())
-                    )
-                    .map((company) => (
-                      <tr key={company.id}>
-                        <td>
-                          <div className="comp-name-group">
-                            <span className="comp-flag">{company.flag}</span>
-                            <div>
-                              <div className="comp-name-text">{company.name}</div>
-                              <div className="comp-code-sub">{company.code} &bull; {company.fiscalYear}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="country-tag">
-                            <span>{company.country}</span>
-                            <span className="tz-note">{company.currency} &bull; {company.timezone.split('/')[1] || company.timezone}</span>
-                          </div>
-                        </td>
+          {companySubTab === 'admins' ? (
+            <div className="saas-table-container">
+              {admins.length === 0 ? (
+                <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
+                  <UserCog size={38} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
+                  <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Company Admins Registered</div>
+                  <p style={{ fontSize: '0.8rem', margin: '4px auto 12px' }}>Company admins are created when provisioning a new tenant.</p>
+                </div>
+              ) : (
+                <table className="saas-data-table">
+                  <thead>
+                    <tr>
+                      <th>Admin Name &amp; Email</th>
+                      <th>Assigned Pharma Company</th>
+                      <th>Country</th>
+                      <th>Status</th>
+                      <th>Last Login</th>
+                      <th style={{ textAlign: 'right' }}>Security Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {admins.map((adm) => (
+                      <tr key={adm.id}>
                         <td>
                           <div className="admin-profile-cell">
-                            <div className="admin-avatar">{company.adminName ? company.adminName.charAt(0).toUpperCase() : 'A'}</div>
+                            <div className="admin-avatar">{adm.name.charAt(0).toUpperCase()}</div>
                             <div>
-                              <div className="admin-name">{company.adminName}</div>
-                              <div className="admin-email">{company.adminEmail}</div>
+                              <div className="admin-name">{adm.name}</div>
+                              <div className="admin-email">{adm.email}</div>
                             </div>
                           </div>
                         </td>
-                        <td>
-                          <span className={`plan-pill plan-${company.plan.toLowerCase()}`}>
-                            {company.plan}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={`status-tag status-${company.status.toLowerCase()}`}>
-                            {company.status === 'ACTIVE' ? '🟢 Active' : company.status === 'TRIAL' ? '🟣 Trial' : '🟡 Suspended'}
-                          </span>
-                        </td>
-                        <td>
-                          <span className="tenant-id-pill">{company.tenantId}</span>
-                        </td>
-                        <td>
-                          <div className="users-breakdown-cell">
-                            <strong>{company.usersCount} Total</strong>
-                            <span>{company.mrsCount} MRs &bull; {company.managersCount} MGRs</span>
-                          </div>
-                        </td>
+                        <td><strong>{adm.company}</strong></td>
+                        <td>{adm.country}</td>
+                        <td><span className="status-tag status-active">{adm.status}</span></td>
+                        <td>{adm.lastLogin}</td>
                         <td style={{ textAlign: 'right' }}>
                           <div className="actions-cluster">
                             <button
                               type="button"
                               className="action-pill-btn"
-                              onClick={() => toggleCompanyStatus(company.id)}
+                              style={{ color: '#b45309', borderColor: '#fde68a', background: '#fffbeb' }}
+                              onClick={() => {
+                                setImpersonateTarget(adm);
+                                setIsImpersonateOpen(true);
+                              }}
                             >
-                              {company.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                              <Eye size={13} /> Impersonate
                             </button>
                             <button
                               type="button"
-                              className="action-pill-btn primary"
+                              className="action-pill-btn"
                               onClick={() => {
-                                handleTabChange('saas-features');
+                                alert(`Password reset instructions triggered for ${adm.email}`);
+                                logAudit('Password Reset', `Super Admin triggered password reset for ${adm.email}`, adm.company);
                               }}
                             >
-                              Modules
+                              Reset Pwd
+                            </button>
+                            <button
+                              type="button"
+                              className="action-pill-btn red"
+                              onClick={() => {
+                                alert(`Force logout executed for ${adm.name}`);
+                                logAudit('Force Logout', `Forced session termination for ${adm.name}`, adm.company);
+                              }}
+                            >
+                              Force Logout
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ) : (
+            <div className="saas-table-container">
+              {companies.length === 0 ? (
+                <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
+                  <Building2 size={40} color="#94a3b8" style={{ margin: '0 auto 12px', display: 'block' }} />
+                  <div style={{ fontWeight: '800', fontSize: '1rem', color: '#1e293b' }}>No Companies Enrolled Yet</div>
+                  <p style={{ fontSize: '0.84rem', maxWidth: '420px', margin: '6px auto 16px', color: '#64748b' }}>
+                    Click "Create New Pharma Company" to onboard an enterprise organization.
+                  </p>
+                  <button type="button" className="btn btn-primary" onClick={() => setIsCreateCompanyOpen(true)}>
+                    <Plus size={16} /> Create New Pharma Company
+                  </button>
+                </div>
+              ) : (
+                <table className="saas-data-table">
+                  <thead>
+                    <tr>
+                      <th>Company &amp; Jurisdiction</th>
+                      <th>Plan</th>
+                      <th>Users / Limits</th>
+                      <th>Storage</th>
+                      <th>MRR</th>
+                      <th>Status</th>
+                      <th>Expiry</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {companies
+                      .filter(c => companySubTab === 'all' || c.status.toLowerCase() === companySubTab)
+                      .filter(c =>
+                        c.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+                        c.country.toLowerCase().includes(globalSearchQuery.toLowerCase())
+                      )
+                      .map((company) => (
+                        <tr key={company.id}>
+                          <td>
+                            <div className="comp-name-group">
+                              <span className="comp-flag">{company.flag}</span>
+                              <div>
+                                <div className="comp-name-text">{company.name}</div>
+                                <div className="comp-code-sub">{company.code} &bull; {company.tenantId}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td><span className={`plan-pill plan-${company.plan.toLowerCase()}`}>{company.plan}</span></td>
+                          <td>
+                            <div className="users-breakdown-cell">
+                              <strong>{company.usersCount} / {company.userLimit} Users</strong>
+                              <span>{company.mrsCount} / {company.mrLimit} MRs</span>
+                            </div>
+                          </td>
+                          <td><strong>{company.storageUsedGB} GB</strong> / {company.storageLimitGB} GB</td>
+                          <td><strong>{company.mrr}</strong></td>
+                          <td>
+                            <span className={`status-tag status-${company.status.toLowerCase()}`}>
+                              {company.status === 'ACTIVE' ? '🟢 Active' : company.status === 'TRIAL' ? '🟣 Trial' : '🟡 Suspended'}
+                            </span>
+                          </td>
+                          <td style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>{company.renewalDate}</td>
+                          <td style={{ textAlign: 'right' }}>
+                            <div className="actions-cluster">
+                              <button
+                                type="button"
+                                className="action-pill-btn"
+                                style={{ color: '#b45309', borderColor: '#fde68a', background: '#fffbeb' }}
+                                onClick={() => {
+                                  const adminMatch = admins.find(a => a.company === company.name) || { name: company.adminName, email: company.adminEmail, company: company.name };
+                                  setImpersonateTarget(adminMatch);
+                                  setIsImpersonateOpen(true);
+                                }}
+                                title="Login as company admin (Audited)"
+                              >
+                                <Eye size={12} /> Impersonate
+                              </button>
+                              <button
+                                type="button"
+                                className="action-pill-btn"
+                                onClick={() => toggleCompanyStatus(company.id)}
+                              >
+                                {company.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                              </button>
+                              <button
+                                type="button"
+                                className="action-pill-btn primary"
+                                onClick={() => setActiveTab('features')}
+                              >
+                                Modules
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =====================================================================
+          3. PLATFORM USERS (CROSS-TENANT SEARCH & GOVERNANCE)
+          ===================================================================== */}
+      {activeTab === 'platform-users' && (
+        <div className="tab-pane-content">
+          <div className="sub-nav-tabs">
+            <button type="button" className={`sub-nav-pill ${userSubTab === 'all' ? 'active' : ''}`} onClick={() => setUserSubTab('all')}>
+              All Platform Users ({platformUsers.length})
+            </button>
+            <button type="button" className={`sub-nav-pill ${userSubTab === 'admins' ? 'active' : ''}`} onClick={() => setUserSubTab('admins')}>
+              Admins ({platformUsers.filter(u => u.role.includes('ADMIN')).length})
+            </button>
+            <button type="button" className={`sub-nav-pill ${userSubTab === 'managers' ? 'active' : ''}`} onClick={() => setUserSubTab('managers')}>
+              Managers ({platformUsers.filter(u => u.role.includes('MANAGER')).length})
+            </button>
+            <button type="button" className={`sub-nav-pill ${userSubTab === 'mrs' ? 'active' : ''}`} onClick={() => setUserSubTab('mrs')}>
+              MRs ({platformUsers.filter(u => u.role === 'MR').length})
+            </button>
+          </div>
+
+          <div className="pane-action-bar">
+            <div className="search-box-large">
+              <Search size={18} />
+              <input
+                type="text"
+                placeholder="Search across all tenants: Employee Name, Mobile, Email, Company, Role..."
+                value={globalSearchQuery}
+                onChange={(e) => setGlobalSearchQuery(e.target.value)}
+                className="search-input-field"
+              />
+            </div>
+          </div>
+
+          <div className="saas-table-container">
+            {platformUsers.length === 0 ? (
+              <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
+                <Users size={38} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
+                <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Cross-Platform Users Found</div>
+                <p style={{ fontSize: '0.8rem', margin: '4px auto 12px' }}>Users enrolled across company tenants will be indexed here.</p>
+              </div>
+            ) : (
+              <table className="saas-data-table">
+                <thead>
+                  <tr>
+                    <th>User Profile</th>
+                    <th>Company / Tenant</th>
+                    <th>Role</th>
+                    <th>Mobile</th>
+                    <th>Status</th>
+                    <th>Last Active</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {platformUsers
+                    .filter(u =>
+                      u.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+                      u.email.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+                      u.company.toLowerCase().includes(globalSearchQuery.toLowerCase())
+                    )
+                    .map((user) => (
+                      <tr key={user.id}>
+                        <td>
+                          <div className="admin-profile-cell">
+                            <div className="admin-avatar">{user.name.charAt(0).toUpperCase()}</div>
+                            <div>
+                              <div className="admin-name">{user.name}</div>
+                              <div className="admin-email">{user.email}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td><strong>{user.company}</strong></td>
+                        <td><span className="plan-pill plan-pro">{user.role}</span></td>
+                        <td>{user.mobile}</td>
+                        <td><span className="status-tag status-active">{user.status}</span></td>
+                        <td>{user.lastLogin}</td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div className="actions-cluster">
+                            <button
+                              type="button"
+                              className="action-pill-btn"
+                              onClick={() => {
+                                alert(`Reset account credentials initiated for ${user.email}`);
+                                logAudit('Account Reset', `Reset account for ${user.email}`, user.company);
+                              }}
+                            >
+                              Reset
+                            </button>
+                            <button
+                              type="button"
+                              className="action-pill-btn red"
+                              onClick={() => {
+                                alert(`Force logout sent for ${user.name}`);
+                                logAudit('Force Logout', `Forced logout for ${user.name}`, user.company);
+                              }}
+                            >
+                              Force Logout
                             </button>
                           </div>
                         </td>
@@ -962,216 +1052,42 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
       )}
 
       {/* =====================================================================
-          TAB 3: COUNTRY MANAGEMENT
+          4. SUBSCRIPTIONS & BILLING MANAGEMENT
           ===================================================================== */}
-      {currentTab === 'saas-countries' && (
-        <div className="tab-pane-content">
-          <div className="country-header-banner">
-            <div>
-              <h2 className="section-title">Supported Sovereign Jurisdictions</h2>
-              <p className="section-desc">
-                Configure currency, fiscal years, tax withholding, and statutory social security (e.g. NSSF in Cambodia, EPFO/GST in India, WPPF in Bangladesh).
-              </p>
-            </div>
-            <button
-              type="button"
-              className="primary-action-btn"
-              onClick={() => alert('Country configuration wizard ready to integrate custom regulatory frameworks.')}
-            >
-              <Plus size={16} />
-              <span>Add Supported Country</span>
-            </button>
-          </div>
-
-          <div className="countries-grid">
-            {SOVEREIGN_COUNTRIES_METADATA.map((c) => {
-              const countryCompaniesCount = companies.filter(comp => comp.country.toLowerCase() === c.name.toLowerCase()).length;
-              return (
-                <div key={c.code} className="country-card">
-                  <div className="country-card-header">
-                    <div className="country-title-row">
-                      <span className="country-big-flag">{c.flag}</span>
-                      <div>
-                        <h3 className="country-name">{c.name} ({c.code})</h3>
-                        <span className="country-active-tag">{countryCompaniesCount} {countryCompaniesCount === 1 ? 'Company' : 'Companies'} Onboarded</span>
-                      </div>
-                    </div>
-                    <span className="status-badge-green">Operational</span>
-                  </div>
-
-                  <div className="country-details-list">
-                    <div className="detail-item">
-                      <span className="detail-key">Currency:</span>
-                      <span className="detail-val">{c.currency}</span>
-                    </div>
-                    <div className="detail-item">
-                      <span className="detail-key">Timezone:</span>
-                      <span className="detail-val">{c.timezone}</span>
-                    </div>
-                    <div className="detail-item">
-                      <span className="detail-key">Fiscal Year:</span>
-                      <span className="detail-val">{c.fiscalYear}</span>
-                    </div>
-                    <div className="detail-item highlight-tax">
-                      <span className="detail-key">Tax / Withholding:</span>
-                      <span className="detail-val">{c.taxConfig}</span>
-                    </div>
-                    <div className="detail-item highlight-nssf">
-                      <span className="detail-key">Social Security / Statutory:</span>
-                      <span className="detail-val">{c.socialSecurity}</span>
-                    </div>
-                    <div className="detail-item">
-                      <span className="detail-key">Public Holiday Calendar:</span>
-                      <span className="detail-val">{c.holidaysCount} Declared Holidays</span>
-                    </div>
-                  </div>
-
-                  <div className="country-card-footer">
-                    <button
-                      type="button"
-                      className="btn-configure-country"
-                      onClick={() => alert(`Configuring compliance rules for ${c.name}`)}
-                    >
-                      <Settings size={14} />
-                      <span>Configure Statutory Rules</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================================
-          TAB 4: COMPANY ADMIN MANAGEMENT
-          ===================================================================== */}
-      {currentTab === 'saas-admins' && (
-        <div className="tab-pane-content">
-          <div className="pane-action-bar">
-            <div>
-              <h2 className="section-title">Company Administrators (Tenant Owners)</h2>
-              <p className="section-desc">
-                Super Admin creates and monitors Company Admins. Each admin controls their own organization independently.
-              </p>
-            </div>
-          </div>
-
-          <div className="saas-table-container">
-            {admins.length === 0 ? (
-              <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
-                <UserCog size={40} color="#94a3b8" style={{ margin: '0 auto 12px', display: 'block' }} />
-                <div style={{ fontWeight: '800', fontSize: '1rem', color: '#1e293b' }}>No Company Administrators Assigned</div>
-                <p style={{ fontSize: '0.84rem', maxWidth: '420px', margin: '6px auto 16px', color: '#64748b' }}>
-                  Company administrators are created automatically when provisioning a new tenant organization.
-                </p>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => setIsCreateCompanyOpen(true)}
-                >
-                  <Plus size={16} /> Provision Tenant &amp; Admin
-                </button>
-              </div>
-            ) : (
-              <table className="saas-data-table">
-                <thead>
-                  <tr>
-                    <th>Administrator Profile</th>
-                    <th>Assigned Company</th>
-                    <th>Country</th>
-                    <th>MFA Status</th>
-                    <th>Status</th>
-                    <th>Last Session</th>
-                    <th style={{ textAlign: 'right' }}>Security Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {admins.map((adm) => (
-                    <tr key={adm.id}>
-                      <td>
-                        <div className="admin-profile-cell">
-                          <div className="admin-avatar">{adm.name ? adm.name.charAt(0).toUpperCase() : 'A'}</div>
-                          <div>
-                            <div className="admin-name">{adm.name}</div>
-                            <div className="admin-email">{adm.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="company-tag-bold">{adm.company}</span>
-                      </td>
-                      <td>{adm.country}</td>
-                      <td>
-                        {adm.mfaEnabled ? (
-                          <span className="mfa-badge enabled"><Lock size={12} /> 2FA Active</span>
-                        ) : (
-                          <span className="mfa-badge disabled"><AlertTriangle size={12} /> Not Enforced</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className={`status-tag status-${adm.status.toLowerCase()}`}>
-                          {adm.status}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="session-info">
-                          <div>{adm.lastLogin}</div>
-                          <span className="ip-note">{adm.ipAddress}</span>
-                        </div>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div className="actions-cluster">
-                          <button
-                            type="button"
-                            className="action-pill-btn"
-                            onClick={() => alert(`Password reset instructions triggered for ${adm.email}`)}
-                          >
-                            Reset Pwd
-                          </button>
-                          <button
-                            type="button"
-                            className="action-pill-btn red"
-                            onClick={() => alert(`Session terminated for ${adm.name}`)}
-                          >
-                            Force Logout
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================================
-          TAB 5: SUBSCRIPTION & BILLING MANAGEMENT
-          ===================================================================== */}
-      {currentTab === 'saas-subscriptions' && (
+      {activeTab === 'subscriptions' && (
         <div className="tab-pane-content">
           <div className="subscription-plans-grid">
             <div className="plan-card">
+              <div className="plan-tier-name">FREE TRIAL</div>
+              <div className="plan-price">$0 <span>/ 30 days</span></div>
+              <p className="plan-limits-desc">For pilot testing with new pharmaceutical brands</p>
+              <ul className="plan-perks-list">
+                <li>Up to 25 Field Reps</li>
+                <li>Core Daily Call Reports (DCR)</li>
+                <li>Chemist &amp; Doctor Registry</li>
+                <li>5 GB Storage Quota</li>
+              </ul>
+              <div className="plan-sub-count">{trialCompanies} Companies in Trial</div>
+            </div>
+
+            <div className="plan-card">
               <div className="plan-tier-name">BASIC TIER</div>
               <div className="plan-price">$950 <span>/ month</span></div>
-              <p className="plan-limits-desc">For small pharma distribution businesses</p>
+              <p className="plan-limits-desc">For regional pharma distribution agencies</p>
               <ul className="plan-perks-list">
                 <li>Up to 250 Field MRs</li>
                 <li>Core MR Reporting &amp; DCR</li>
                 <li>Chemist Order Booking (POB)</li>
                 <li>50 GB Storage Limit</li>
-                <li>Single Country Deployment</li>
               </ul>
-              <div className="plan-sub-count">{basicCount} {basicCount === 1 ? 'Company' : 'Companies'} Enrolled</div>
+              <div className="plan-sub-count">{companies.filter(c => c.plan === 'BASIC').length} Enrolled</div>
             </div>
 
             <div className="plan-card featured-plan">
               <div className="featured-ribbon">POPULAR</div>
               <div className="plan-tier-name">PRO ENTERPRISE</div>
               <div className="plan-price">$2,800 <span>/ month</span></div>
-              <p className="plan-limits-desc">For regional pharmaceutical manufacturers</p>
+              <p className="plan-limits-desc">For pharmaceutical manufacturing corporations</p>
               <ul className="plan-perks-list">
                 <li>Up to 1,500 Field Reps</li>
                 <li>Full DCR + Tour Plans (MTP)</li>
@@ -1179,7 +1095,7 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                 <li>Statutory Payroll &amp; NSSF</li>
                 <li>250 GB Storage Limit</li>
               </ul>
-              <div className="plan-sub-count">{proCount} {proCount === 1 ? 'Company' : 'Companies'} Enrolled</div>
+              <div className="plan-sub-count">{companies.filter(c => c.plan === 'PRO').length} Enrolled</div>
             </div>
 
             <div className="plan-card">
@@ -1189,11 +1105,10 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
               <ul className="plan-perks-list">
                 <li>Unlimited Field Reps &amp; GMs</li>
                 <li>Multi-Country Schema Isolation</li>
-                <li>AI Studio &amp; Route Optimization</li>
-                <li>Automated OCR Prescription Reader</li>
-                <li>1 TB Dedicated Geo-Vault</li>
+                <li>AI Studio &amp; Prescription OCR</li>
+                <li>Dedicated Storage Geo-Vault</li>
               </ul>
-              <div className="plan-sub-count">{enterpriseCount} {enterpriseCount === 1 ? 'Company' : 'Companies'} Enrolled</div>
+              <div className="plan-sub-count">{companies.filter(c => c.plan === 'ENTERPRISE').length} Enrolled</div>
             </div>
           </div>
 
@@ -1213,15 +1128,15 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                   <tr>
                     <th>Invoice ID</th>
                     <th>Company Tenant</th>
-                    <th>Billing Tier</th>
+                    <th>Tier</th>
                     <th>Amount</th>
                     <th>Status</th>
-                    <th>Cycle End Date</th>
+                    <th>Renewal Date</th>
                     <th style={{ textAlign: 'right' }}>Receipt</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {invoices.map((inv) => (
+                  {invoices.map(inv => (
                     <tr key={inv.id}>
                       <td><code>{inv.id}</code></td>
                       <td><strong>{inv.company}</strong></td>
@@ -1229,7 +1144,7 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                       <td><strong>{inv.amount}</strong></td>
                       <td><span className="status-badge-green">{inv.status}</span></td>
                       <td>{inv.date}</td>
-                      <td style={{ textAlign: 'right' }}><button className="action-pill-btn">Download PDF</button></td>
+                      <td style={{ textAlign: 'right' }}><button className="action-pill-btn">PDF</button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -1240,156 +1155,123 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
       )}
 
       {/* =====================================================================
-          TAB 6: FEATURE / MODULE MANAGEMENT (PER-COMPANY TOGGLES)
+          5. FEATURES & CANARY FEATURE FLAGS
           ===================================================================== */}
-      {currentTab === 'saas-features' && (
+      {activeTab === 'features' && (
         <div className="tab-pane-content">
-          <div className="pane-action-bar">
+          <div className="section-header">
             <div>
-              <h2 className="section-title">Per-Company Feature &amp; Module Matrix</h2>
+              <h2 className="section-title">Feature Modules &amp; Canary Feature Flags</h2>
               <p className="section-desc">
-                Enable or disable specific modules per tenant. For example, Cambodia tenants utilize statutory NSSF, while AI Studio is enabled for enterprise accounts.
+                Super Admin controls per-tenant module accessibility and gradual percentage rollouts across the platform.
               </p>
             </div>
-            <button
-              type="button"
-              className="action-pill-btn"
-              onClick={() => alert('Syncing module licenses across active tenant schemas.')}
-            >
-              <RefreshCw size={14} />
-              <span>Sync Module Licensings</span>
-            </button>
           </div>
 
+          {/* Feature Flags Section */}
+          <div className="card-section" style={{ marginBottom: '22px' }}>
+            <h3 className="card-header-title">
+              <Sliders size={18} color="#7c3aed" /> Active Feature Flags &amp; Canary Deployments
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px' }}>
+              {featureFlags.map((flag) => (
+                <div key={flag.id} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ fontSize: '0.86rem', color: '#0f172a' }}>{flag.name}</strong>
+                    <span className="status-tag status-trial">{flag.status}</span>
+                  </div>
+                  <p style={{ fontSize: '0.74rem', color: '#64748b', margin: '6px 0 12px' }}>{flag.description}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.76rem' }}>
+                    <span>Rollout: <strong>{flag.rolloutPercent}% of Tenants</strong></span>
+                    <button
+                      type="button"
+                      className="action-pill-btn"
+                      onClick={() => {
+                        const newPct = flag.rolloutPercent >= 100 ? 0 : flag.rolloutPercent + 25;
+                        setFeatureFlags(prev => prev.map(f => f.id === flag.id ? { ...f, rolloutPercent: newPct } : f));
+                        logAudit('Feature Flag Updated', `Updated ${flag.name} rollout to ${newPct}%`);
+                      }}
+                    >
+                      Adjust % Rollout
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Per-Company Matrix */}
+          <div className="section-title-sm"><span>Per-Company Module Access Matrix</span></div>
           <div className="saas-table-container">
             {companies.length === 0 ? (
               <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
-                <Layers size={40} color="#94a3b8" style={{ margin: '0 auto 12px', display: 'block' }} />
-                <div style={{ fontWeight: '800', fontSize: '1rem', color: '#1e293b' }}>No Companies to Configure</div>
-                <p style={{ fontSize: '0.84rem', maxWidth: '420px', margin: '6px auto 16px', color: '#64748b' }}>
-                  Provision a company first to configure modular feature access and permissions.
-                </p>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => setIsCreateCompanyOpen(true)}
-                >
-                  <Plus size={16} /> Provision Company
-                </button>
+                <Layers size={38} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
+                <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Companies Enrolled</div>
+                <p style={{ fontSize: '0.8rem', margin: '4px auto 12px' }}>Provision a company to configure module licensing toggles.</p>
               </div>
             ) : (
               <table className="saas-data-table matrix-table">
                 <thead>
                   <tr>
-                    <th>Company Tenant</th>
+                    <th>Company</th>
                     <th>MR Reporting</th>
-                    <th>Doctors &amp; Chemist</th>
-                    <th>Sales &amp; Orders</th>
-                    <th>Payroll Engine</th>
-                    <th>NSSF (Cambodia)</th>
-                    <th>HRMS Suite</th>
-                    <th>AI Studio (OCR/TSP)</th>
-                    <th>Advanced Analytics</th>
+                    <th>DCR</th>
+                    <th>Attendance</th>
+                    <th>Doctors</th>
+                    <th>Chemist</th>
+                    <th>Expense</th>
+                    <th>GPS</th>
+                    <th>Orders</th>
+                    <th>AI Studio</th>
                   </tr>
                 </thead>
                 <tbody>
                   {companies.map((c) => (
                     <tr key={c.id}>
+                      <td><strong>{c.name}</strong></td>
                       <td>
-                        <div className="comp-name-group">
-                          <span>{c.flag}</span>
-                          <div>
-                            <strong>{c.name}</strong>
-                            <div className="comp-code-sub">{c.plan} &bull; {c.tenantId}</div>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td>
-                        <button
-                          type="button"
-                          className={`toggle-icon-btn ${c.modules.mrReporting ? 'on' : 'off'}`}
-                          onClick={() => handleToggleModule(c.id, 'mrReporting')}
-                        >
-                          {c.modules.mrReporting ? <CheckCircle2 size={20} color="#10b981" /> : <XCircle size={20} color="#94a3b8" />}
+                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'mrReporting')}>
+                          {c.modules.mrReporting ? <CheckCircle2 size={18} color="#10b981" /> : <XCircle size={18} color="#94a3b8" />}
                         </button>
                       </td>
-
                       <td>
-                        <button
-                          type="button"
-                          className={`toggle-icon-btn ${c.modules.doctorManagement ? 'on' : 'off'}`}
-                          onClick={() => handleToggleModule(c.id, 'doctorManagement')}
-                        >
-                          {c.modules.doctorManagement ? <CheckCircle2 size={20} color="#10b981" /> : <XCircle size={20} color="#94a3b8" />}
+                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'dcr')}>
+                          {c.modules.dcr ? <CheckCircle2 size={18} color="#10b981" /> : <XCircle size={18} color="#94a3b8" />}
                         </button>
                       </td>
-
                       <td>
-                        <button
-                          type="button"
-                          className={`toggle-icon-btn ${c.modules.sales ? 'on' : 'off'}`}
-                          onClick={() => handleToggleModule(c.id, 'sales')}
-                        >
-                          {c.modules.sales ? <CheckCircle2 size={20} color="#10b981" /> : <XCircle size={20} color="#94a3b8" />}
+                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'attendance')}>
+                          {c.modules.attendance ? <CheckCircle2 size={18} color="#10b981" /> : <XCircle size={18} color="#94a3b8" />}
                         </button>
                       </td>
-
                       <td>
-                        <button
-                          type="button"
-                          className={`toggle-icon-btn ${c.modules.payroll ? 'on' : 'off'}`}
-                          onClick={() => handleToggleModule(c.id, 'payroll')}
-                        >
-                          {c.modules.payroll ? <CheckCircle2 size={20} color="#10b981" /> : <XCircle size={20} color="#94a3b8" />}
+                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'doctorManagement')}>
+                          {c.modules.doctorManagement ? <CheckCircle2 size={18} color="#10b981" /> : <XCircle size={18} color="#94a3b8" />}
                         </button>
                       </td>
-
                       <td>
-                        <button
-                          type="button"
-                          className={`toggle-icon-btn ${c.modules.nssf ? 'on' : 'off'}`}
-                          onClick={() => handleToggleModule(c.id, 'nssf')}
-                        >
-                          {c.modules.nssf ? (
-                            <span className="nssf-active-pill">NSSF Active</span>
-                          ) : (
-                            <span className="nssf-inactive-pill">Disabled</span>
-                          )}
+                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'chemistManagement')}>
+                          {c.modules.chemistManagement ? <CheckCircle2 size={18} color="#10b981" /> : <XCircle size={18} color="#94a3b8" />}
                         </button>
                       </td>
-
                       <td>
-                        <button
-                          type="button"
-                          className={`toggle-icon-btn ${c.modules.hrms ? 'on' : 'off'}`}
-                          onClick={() => handleToggleModule(c.id, 'hrms')}
-                        >
-                          {c.modules.hrms ? <CheckCircle2 size={20} color="#10b981" /> : <XCircle size={20} color="#94a3b8" />}
+                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'expense')}>
+                          {c.modules.expense ? <CheckCircle2 size={18} color="#10b981" /> : <XCircle size={18} color="#94a3b8" />}
                         </button>
                       </td>
-
                       <td>
-                        <button
-                          type="button"
-                          className={`toggle-icon-btn ${c.modules.aiAnalytics ? 'on' : 'off'}`}
-                          onClick={() => handleToggleModule(c.id, 'aiAnalytics')}
-                        >
-                          {c.modules.aiAnalytics ? (
-                            <span className="ai-active-pill">AI Enabled</span>
-                          ) : (
-                            <span className="ai-inactive-pill">Locked</span>
-                          )}
+                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'gpsTracking')}>
+                          {c.modules.gpsTracking ? <CheckCircle2 size={18} color="#10b981" /> : <XCircle size={18} color="#94a3b8" />}
                         </button>
                       </td>
-
                       <td>
-                        <button
-                          type="button"
-                          className={`toggle-icon-btn ${c.modules.advancedReports ? 'on' : 'off'}`}
-                          onClick={() => handleToggleModule(c.id, 'advancedReports')}
-                        >
-                          {c.modules.advancedReports ? <CheckCircle2 size={20} color="#10b981" /> : <XCircle size={20} color="#94a3b8" />}
+                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'orderManagement')}>
+                          {c.modules.orderManagement ? <CheckCircle2 size={18} color="#10b981" /> : <XCircle size={18} color="#94a3b8" />}
+                        </button>
+                      </td>
+                      <td>
+                        <button type="button" className="toggle-icon-btn" onClick={() => handleToggleModule(c.id, 'aiStudio')}>
+                          {c.modules.aiStudio ? <span className="ai-active-pill">AI Active</span> : <span className="ai-inactive-pill">Off</span>}
                         </button>
                       </td>
                     </tr>
@@ -1402,139 +1284,305 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
       )}
 
       {/* =====================================================================
-          TAB 7: TENANT ISOLATION MANAGEMENT
+          6. GLOBAL PLATFORM CONFIGURATION & SETTINGS
           ===================================================================== */}
-      {currentTab === 'saas-tenants' && (
+      {activeTab === 'settings' && (
         <div className="tab-pane-content">
-          <div className="country-header-banner">
-            <div>
-              <h2 className="section-title">Multi-Tenant Database &amp; Storage Isolation</h2>
-              <p className="section-desc">
-                Strict logical &amp; schema isolation guarantees that no company can ever inspect or cross-contaminate another enterprise’s doctors, MRs, or sales records.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="primary-action-btn"
-              onClick={() => alert('Automated schema integrity check triggered for all active tenant instances.')}
+          <div className="card-section">
+            <h2 className="section-title">Platform-Wide Default Settings &amp; Policies</h2>
+            <p className="section-desc">Configure default date formats, timeouts, security thresholds, and file upload quotas.</p>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                alert('✅ Global configuration saved successfully.');
+                logAudit('Global Settings Saved', 'Super Admin updated platform default policies.');
+              }}
+              style={{ marginTop: '18px' }}
             >
-              <HardDrive size={16} />
-              <span>Trigger Global Backup</span>
-            </button>
-          </div>
-
-          <div className="tenants-grid">
-            {companies.length === 0 ? (
-              <div style={{ gridColumn: '1 / -1', padding: '48px 20px', textAlign: 'center', color: '#64748b', background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <Database size={40} color="#94a3b8" style={{ margin: '0 auto 12px', display: 'block' }} />
-                <div style={{ fontWeight: '800', fontSize: '1rem', color: '#1e293b' }}>No Isolated Tenant Databases Deployed</div>
-                <p style={{ fontSize: '0.84rem', maxWidth: '420px', margin: '6px auto 16px', color: '#64748b' }}>
-                  Each provisioned company receives an isolated, encrypted database schema and private object storage container.
-                </p>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => setIsCreateCompanyOpen(true)}
-                >
-                  <Plus size={16} /> Provision Tenant Schema
-                </button>
-              </div>
-            ) : (
-              companies.map((t) => (
-                <div key={t.id} className="tenant-card">
-                  <div className="tenant-top-row">
-                    <div>
-                      <span className="tenant-code-badge">{t.tenantId}</span>
-                      <h3 className="tenant-comp-name">{t.name}</h3>
-                    </div>
-                    <span className={`tenant-status-dot ${t.status === 'ACTIVE' ? 'online' : 'standby'}`}>
-                      {t.status === 'ACTIVE' ? '🟢 Online' : '🟡 Standby'}
-                    </span>
-                  </div>
-
-                  <div className="tenant-schema-box">
-                    <Database size={14} color="#64748b" />
-                    <code>tenant_{t.code.toLowerCase().replace(/[^a-z0-9]/g, '_')}</code>
-                  </div>
-
-                  <div className="tenant-specs">
-                    <div className="spec-row">
-                      <span>Jurisdiction:</span>
-                      <strong>{t.country}</strong>
-                    </div>
-                    <div className="spec-row">
-                      <span>Storage Quota:</span>
-                      <strong>{t.storageUsedGB} GB Allocated</strong>
-                    </div>
-                    <div className="spec-row">
-                      <span>Database Health:</span>
-                      <strong className="text-green">100% HEALTHY</strong>
-                    </div>
-                    <div className="spec-row">
-                      <span>Isolation Level:</span>
-                      <span>Tier-0 Sandbox</span>
-                    </div>
-                  </div>
-
-                  <div className="tenant-actions-row">
-                    <button
-                      type="button"
-                      className="action-pill-btn"
-                      onClick={() => alert(`Schema verification complete for ${t.tenantId}: Schema checksum matches golden definition.`)}
-                    >
-                      Verify Schema
-                    </button>
-                    <button
-                      type="button"
-                      className="action-pill-btn primary"
-                      onClick={() => alert(`Encrypted snapshot generated for tenant ${t.tenantId}.`)}
-                    >
-                      Export Snapshot
-                    </button>
-                  </div>
+              <div className="form-grid-3">
+                <div className="form-group">
+                  <label>Default Date Format</label>
+                  <select
+                    className="form-control"
+                    value={globalSettings.dateFormat}
+                    onChange={(e) => setGlobalSettings({ ...globalSettings, dateFormat: e.target.value })}
+                  >
+                    <option value="YYYY-MM-DD">YYYY-MM-DD (ISO Standard)</option>
+                    <option value="DD/MM/YYYY">DD/MM/YYYY (UK / India)</option>
+                    <option value="MM/DD/YYYY">MM/DD/YYYY (US)</option>
+                  </select>
                 </div>
-              ))
-            )}
+                <div className="form-group">
+                  <label>Default Timezone</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={globalSettings.timezone}
+                    onChange={(e) => setGlobalSettings({ ...globalSettings, timezone: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Default Currency</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={globalSettings.currency}
+                    onChange={(e) => setGlobalSettings({ ...globalSettings, currency: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="form-grid-3">
+                <div className="form-group">
+                  <label>Session Timeout (Minutes)</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={globalSettings.sessionTimeoutMinutes}
+                    onChange={(e) => setGlobalSettings({ ...globalSettings, sessionTimeoutMinutes: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Max File Upload Limit (MB)</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={globalSettings.maxFileUploadMB}
+                    onChange={(e) => setGlobalSettings({ ...globalSettings, maxFileUploadMB: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>GPS History Retention (Days)</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={globalSettings.gpsRetentionDays}
+                    onChange={(e) => setGlobalSettings({ ...globalSettings, gpsRetentionDays: Number(e.target.value) })}
+                  />
+                </div>
+              </div>
+
+              <button type="submit" className="btn btn-primary" style={{ marginTop: '10px' }}>
+                Save Global Policies
+              </button>
+            </form>
           </div>
         </div>
       )}
 
       {/* =====================================================================
-          TAB 8: SYSTEM HEALTH, SECURITY & GLOBAL AUDIT LOGS
+          7. GLOBAL ROLE TEMPLATES
           ===================================================================== */}
-      {currentTab === 'saas-system-health' && (
+      {activeTab === 'roles' && (
         <div className="tab-pane-content">
-          <div className="section-title-sm">
-            <span>Core Infrastructure &amp; Microservices Telemetry</span>
+          <div className="section-header">
+            <div>
+              <h2 className="section-title">Platform Role Hierarchy &amp; Permission Templates</h2>
+              <p className="section-desc">Super Admin defines standard roles across all organizations.</p>
+            </div>
           </div>
 
-          <div className="health-services-grid">
-            {SYSTEM_HEALTH_SERVICES.map((s, idx) => (
-              <div key={idx} className="service-health-card">
-                <div className="service-top">
-                  <div className="service-name">{s.service}</div>
-                  <span className={`service-status-pill ${s.status.toLowerCase()}`}>
-                    🟢 Healthy
-                  </span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+            {[
+              { role: 'SUPER ADMIN', level: 'Tier-0', desc: 'Platform Owner: Full governance, schema creation, pricing, and master overrides.' },
+              { role: 'PLATFORM ADMIN', level: 'Tier-1', desc: 'SaaS Operator: Tenant monitoring, support ticket triage, and infrastructure metrics.' },
+              { role: 'COMPANY ADMIN', level: 'Tenant Root', desc: 'Organization Owner: Manages employees, doctors, routes, and company configurations.' },
+              { role: 'REGIONAL MANAGER', level: 'Managerial', desc: 'Supervises Area Managers and MRs, approves tour plans (MTP) and expense claims.' },
+              { role: 'AREA MANAGER', level: 'Supervisory', desc: 'Field supervisor: Joint doctor visits, chemist audit, and territory coverage review.' },
+              { role: 'MEDICAL REPRESENTATIVE (MR)', level: 'Field Executive', desc: 'Field execution: Doctor call reporting (DCR), chemist order booking (POB), and GPS attendance.' }
+            ].map((r) => (
+              <div key={r.role} className="card-section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>{r.role}</strong>
+                  <span className="status-badge-green">{r.level}</span>
                 </div>
-                <div className="service-metrics-row">
-                  <span>Latency: <strong>{s.latency}</strong></span>
-                  <span>Uptime: <strong>{s.uptime}</strong></span>
+                <p style={{ fontSize: '0.76rem', color: '#64748b', margin: '8px 0 12px' }}>{r.desc}</p>
+                <button type="button" className="action-pill-btn" onClick={() => alert(`Configuring permission matrix for ${r.role}`)}>
+                  Configure Permissions
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          8. INTEGRATIONS & API MANAGEMENT
+          ===================================================================== */}
+      {activeTab === 'integrations' && (
+        <div className="tab-pane-content">
+          <div className="section-header">
+            <div>
+              <h2 className="section-title">Enterprise Integrations &amp; API Management</h2>
+              <p className="section-desc">Manage API credentials, webhooks, rate limits, and third-party SaaS connectors.</p>
+            </div>
+            <button type="button" className="primary-action-btn" onClick={() => alert('New API Key generated.')}>
+              <Plus size={16} /> Generate API Key
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+            {[
+              { name: 'Google Maps / Mapbox Geocoding', category: 'MAPS', status: 'CONNECTED', desc: 'GPS Telemetry & Route Optimization' },
+              { name: 'SendGrid Enterprise SMTP', category: 'EMAIL', status: 'CONNECTED', desc: 'System alerts, invoices, and password resets' },
+              { name: 'Twilio SMS Gateway', category: 'SMS', status: 'CONNECTED', desc: '2FA OTP verification and SMS notices' },
+              { name: 'WhatsApp Cloud API', category: 'MESSAGING', status: 'READY', desc: 'Automated order booking receipts to chemists' },
+              { name: 'SAP / ERP Connector', category: 'ERP', status: 'READY', desc: 'Bi-directional sync of product catalog & invoices' },
+              { name: 'Azure Cloud Blob Storage', category: 'STORAGE', status: 'CONNECTED', desc: 'Multi-tenant encrypted document repository' }
+            ].map((integ) => (
+              <div key={integ.name} className="card-section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>{integ.name}</strong>
+                  <span className="status-badge-green">{integ.status}</span>
+                </div>
+                <span className="plan-pill plan-basic" style={{ marginTop: '4px', display: 'inline-block' }}>{integ.category}</span>
+                <p style={{ fontSize: '0.74rem', color: '#64748b', margin: '8px 0 12px' }}>{integ.desc}</p>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button type="button" className="action-pill-btn" onClick={() => alert(`Connection test passed for ${integ.name}!`)}>
+                    Test Connection
+                  </button>
+                  <button type="button" className="action-pill-btn primary" onClick={() => alert(`Configuring credentials for ${integ.name}`)}>
+                    Configure
+                  </button>
                 </div>
               </div>
             ))}
           </div>
+        </div>
+      )}
 
-          {/* Platform Security & Global Audit Trail */}
-          <div className="section-title-sm" style={{ marginTop: '28px' }}>
-            <span>Platform Governance Audit Trail</span>
+      {/* =====================================================================
+          9. MOBILE APP VERSION MANAGEMENT
+          ===================================================================== */}
+      {activeTab === 'app-management' && (
+        <div className="tab-pane-content">
+          <div className="card-section">
+            <h2 className="section-title">Mobile App Version Control &amp; Force Update Engine</h2>
+            <p className="section-desc">Manage Android/iOS field app builds, minimum required versions, and release notes.</p>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                alert('✅ Mobile version deployment configuration updated.');
+                logAudit('Mobile App Version Updated', `Updated app build parameters: Version ${appVersionState.currentVersion}`);
+              }}
+              style={{ marginTop: '18px' }}
+            >
+              <div className="form-grid-3">
+                <div className="form-group">
+                  <label>Current Released Build</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={appVersionState.currentVersion}
+                    onChange={(e) => setAppVersionState({ ...appVersionState, currentVersion: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Minimum Supported Build</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={appVersionState.minSupportedVersion}
+                    onChange={(e) => setAppVersionState({ ...appVersionState, minSupportedVersion: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Recommended Build</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={appVersionState.recommendedVersion}
+                    onChange={(e) => setAppVersionState({ ...appVersionState, recommendedVersion: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Release Notes</label>
+                <textarea
+                  className="form-control"
+                  rows={3}
+                  value={appVersionState.releaseNotes}
+                  onChange={(e) => setAppVersionState({ ...appVersionState, releaseNotes: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '14px 0' }}>
+                <input
+                  type="checkbox"
+                  id="forceUpdateCheck"
+                  checked={appVersionState.forceUpdateEnabled}
+                  onChange={(e) => setAppVersionState({ ...appVersionState, forceUpdateEnabled: e.target.checked })}
+                />
+                <label htmlFor="forceUpdateCheck" style={{ fontSize: '0.84rem', fontWeight: '700', color: '#991b1b', cursor: 'pointer' }}>
+                  Enable Force Update (Blocks field reps on builds older than minimum supported version)
+                </label>
+              </div>
+
+              <button type="submit" className="btn btn-primary">
+                Publish Version Settings
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          10. CROSS-COMPANY ANALYTICS
+          ===================================================================== */}
+      {activeTab === 'analytics' && (
+        <div className="tab-pane-content">
+          <div className="section-header">
+            <div>
+              <h2 className="section-title">Cross-Tenant Usage Analytics &amp; Telemetry</h2>
+              <p className="section-desc">Aggregate activity, DAU/MAU, API throughput, and storage utilization without breaching tenant privacy.</p>
+            </div>
+          </div>
+
+          <div className="metrics-grid-4">
+            <div className="stat-card">
+              <div className="kpi-label">Daily Active Users (DAU)</div>
+              <div className="kpi-number text-blue">{Math.round(activeUsers * 0.72).toLocaleString()}</div>
+              <div className="kpi-sub">72% Active Daily Engagement</div>
+            </div>
+            <div className="stat-card">
+              <div className="kpi-label">Monthly Active Users (MAU)</div>
+              <div className="kpi-number text-purple">{activeUsers.toLocaleString()}</div>
+              <div className="kpi-sub">Total Active Headcount</div>
+            </div>
+            <div className="stat-card">
+              <div className="kpi-label">Daily Ingress API Calls</div>
+              <div className="kpi-number text-green">{totalCallsToday.toLocaleString()}</div>
+              <div className="kpi-sub">Average Latency: 38ms</div>
+            </div>
+            <div className="stat-card">
+              <div className="kpi-label">Report Generation Velocity</div>
+              <div className="kpi-number text-amber">{totalReports.toLocaleString()}</div>
+              <div className="kpi-sub">All tenants aggregated</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          11. SECURITY & AUDIT LOGS
+          ===================================================================== */}
+      {activeTab === 'security' && (
+        <div className="tab-pane-content">
+          <div className="section-header">
+            <div>
+              <h2 className="section-title">Immutable Platform Governance Audit Trail</h2>
+              <p className="section-desc">Real-time recording of security events, administrative logins, and provisioning changes.</p>
+            </div>
           </div>
 
           <div className="saas-table-container">
             {recentActivities.length === 0 ? (
               <div style={{ padding: '36px 20px', textAlign: 'center', color: '#64748b', fontSize: '0.84rem' }}>
                 <ShieldCheck size={32} color="#94a3b8" style={{ margin: '0 auto 8px', display: 'block' }} />
-                <span>No audit trail logs recorded yet. Security events and provisioning operations will be logged here.</span>
+                <span>No audit trail logs recorded yet. Security events will appear here.</span>
               </div>
             ) : (
               <table className="saas-data-table">
@@ -1543,6 +1591,7 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                     <th>Timestamp</th>
                     <th>Action</th>
                     <th>Details</th>
+                    <th>Target Entity</th>
                     <th>Performed By</th>
                     <th>Result</th>
                   </tr>
@@ -1553,6 +1602,7 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                       <td>{act.time}</td>
                       <td><strong>{act.title}</strong></td>
                       <td>{act.detail}</td>
+                      <td><span className="tenant-id-pill">{act.entity}</span></td>
                       <td>{act.actor}</td>
                       <td><span className="status-badge-green">SUCCESS</span></td>
                     </tr>
@@ -1560,6 +1610,293 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                 </tbody>
               </table>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          12. SYSTEM HEALTH & MAINTENANCE MODE
+          ===================================================================== */}
+      {activeTab === 'system-health' && (
+        <div className="tab-pane-content">
+          <div className="card-section" style={{ marginBottom: '20px' }}>
+            <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <SlidersHorizontal size={20} color="#2563eb" /> Granular Maintenance Mode Controls
+            </h2>
+            <p className="section-desc">Take specific modules or the entire platform offline for scheduled updates.</p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginTop: '16px' }}>
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong>Global Web Application</strong>
+                  <input
+                    type="checkbox"
+                    checked={maintenanceConfig.globalMaintenance}
+                    onChange={(e) => {
+                      setMaintenanceConfig({ ...maintenanceConfig, globalMaintenance: e.target.checked });
+                      logAudit('Maintenance Mode Changed', `Global maintenance set to ${e.target.checked}`);
+                    }}
+                  />
+                </div>
+                <p style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '4px' }}>Displays maintenance landing banner to all portal users</p>
+              </div>
+
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong>Mobile Sync Engine</strong>
+                  <input
+                    type="checkbox"
+                    checked={maintenanceConfig.mobileAppMaintenance}
+                    onChange={(e) => {
+                      setMaintenanceConfig({ ...maintenanceConfig, mobileAppMaintenance: e.target.checked });
+                      logAudit('Maintenance Mode Changed', `Mobile sync maintenance set to ${e.target.checked}`);
+                    }}
+                  />
+                </div>
+                <p style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '4px' }}>Pauses background mobile batch synchronization</p>
+              </div>
+
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong>DCR Reporting Ingress</strong>
+                  <input
+                    type="checkbox"
+                    checked={maintenanceConfig.reportingModuleMaintenance}
+                    onChange={(e) => {
+                      setMaintenanceConfig({ ...maintenanceConfig, reportingModuleMaintenance: e.target.checked });
+                      logAudit('Maintenance Mode Changed', `Reporting ingress maintenance set to ${e.target.checked}`);
+                    }}
+                  />
+                </div>
+                <p style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '4px' }}>Queues submitted daily call reports safely in Redis</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          13. SUPPORT DESK / TICKETS
+          ===================================================================== */}
+      {activeTab === 'support' && (
+        <div className="tab-pane-content">
+          <div className="sub-nav-tabs">
+            <button type="button" className={`sub-nav-pill ${supportSubTab === 'open' ? 'active' : ''}`} onClick={() => setSupportSubTab('open')}>
+              Open Tickets ({supportTickets.filter(t => t.status === 'OPEN').length})
+            </button>
+            <button type="button" className={`sub-nav-pill ${supportSubTab === 'resolved' ? 'active' : ''}`} onClick={() => setSupportSubTab('resolved')}>
+              Resolved ({supportTickets.filter(t => t.status === 'RESOLVED').length})
+            </button>
+          </div>
+
+          <div className="pane-action-bar">
+            <button type="button" className="primary-action-btn" onClick={() => setIsNewTicketOpen(true)}>
+              <Plus size={16} />
+              <span>Create Support Ticket</span>
+            </button>
+          </div>
+
+          <div className="saas-table-container">
+            {supportTickets.length === 0 ? (
+              <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
+                <LifeBuoy size={38} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
+                <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Support Tickets Active</div>
+                <p style={{ fontSize: '0.8rem', margin: '4px auto 12px' }}>Support requests raised by tenant admins will be routed here.</p>
+                <button type="button" className="btn btn-primary" onClick={() => setIsNewTicketOpen(true)}>
+                  <Plus size={15} /> Create Ticket
+                </button>
+              </div>
+            ) : (
+              <table className="saas-data-table">
+                <thead>
+                  <tr>
+                    <th>Ticket ID</th>
+                    <th>Pharma Company</th>
+                    <th>Subject</th>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {supportTickets
+                    .filter(t => supportSubTab === 'all' || t.status.toLowerCase() === supportSubTab)
+                    .map((t) => (
+                      <tr key={t.id}>
+                        <td><code>{t.id}</code></td>
+                        <td><strong>{t.companyName}</strong></td>
+                        <td>{t.subject}</td>
+                        <td><span className="plan-pill plan-basic">{t.category}</span></td>
+                        <td>
+                          <span className={t.priority === 'HIGH' ? 'alert-badge-red' : 'alert-badge-amber'}>
+                            {t.priority}
+                          </span>
+                        </td>
+                        <td><span className="status-tag status-active">{t.status}</span></td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button
+                            type="button"
+                            className="action-pill-btn"
+                            onClick={() => {
+                              setSupportTickets(prev => prev.map(item => item.id === t.id ? { ...item, status: item.status === 'OPEN' ? 'RESOLVED' : 'OPEN' } : item));
+                            }}
+                          >
+                            {t.status === 'OPEN' ? 'Mark Resolved' : 'Reopen'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          14. ANNOUNCEMENTS & BROADCAST NOTIFICATIONS
+          ===================================================================== */}
+      {activeTab === 'communications' && (
+        <div className="tab-pane-content">
+          <div className="section-header">
+            <div>
+              <h2 className="section-title">Global Platform Announcements &amp; Broadcasts</h2>
+              <p className="section-desc">Broadcast maintenance advisories, release notes, or security notices to all or targeted tenants.</p>
+            </div>
+            <button type="button" className="primary-action-btn" onClick={() => setIsAnnouncementModalOpen(true)}>
+              <Megaphone size={16} /> Publish Announcement
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {announcements.length === 0 ? (
+              <div style={{ padding: '36px 20px', textAlign: 'center', color: '#64748b', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <Megaphone size={34} color="#94a3b8" style={{ margin: '0 auto 8px', display: 'block' }} />
+                <span>No active global announcements. Click "Publish Announcement" to broadcast.</span>
+              </div>
+            ) : (
+              announcements.map((ann) => (
+                <div key={ann.id} className="card-section">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="status-tag status-trial">{ann.type}</span>
+                      <strong style={{ fontSize: '0.92rem', color: '#0f172a' }}>{ann.title}</strong>
+                    </div>
+                    <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Target: <strong>{ann.target}</strong> &bull; {ann.publishedAt}</span>
+                  </div>
+                  <p style={{ fontSize: '0.8rem', color: '#334155', marginTop: '8px' }}>{ann.content}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          15. EMERGENCY & DISASTER KILL-SWITCH
+          ===================================================================== */}
+      {activeTab === 'emergency' && (
+        <div className="tab-pane-content">
+          <div className="emergency-panel">
+            <div className="emergency-header">
+              <AlertOctagon size={28} />
+              <div>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: '800' }}>Platform Emergency Disaster &amp; Kill-Switch Controls</h2>
+                <p style={{ fontSize: '0.8rem' }}>Strictly restricted to Tier-0 Master Super Administrator. All actions are irreversibly audited.</p>
+              </div>
+            </div>
+
+            <div className="emergency-grid">
+              <div className="emergency-card">
+                <div>
+                  <strong style={{ color: '#991b1b', fontSize: '0.9rem' }}>Global Login Lockout</strong>
+                  <p style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '4px' }}>Instantly rejects authentication across all company web and mobile apps during security threats.</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-emergency"
+                  onClick={() => {
+                    const confirm = window.confirm('🚨 DANGER: Are you sure you want to toggle Global Platform Login Lockout?');
+                    if (confirm) {
+                      setEmergencyLockActive(!emergencyLockActive);
+                      logAudit('EMERGENCY KILL-SWITCH', `Global login lockout set to ${!emergencyLockActive}`);
+                    }
+                  }}
+                >
+                  {emergencyLockActive ? 'Deactivate Emergency Lock' : 'Activate Global Lockout'}
+                </button>
+              </div>
+
+              <div className="emergency-card">
+                <div>
+                  <strong style={{ color: '#991b1b', fontSize: '0.9rem' }}>Force Logout All Platform Users</strong>
+                  <p style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '4px' }}>Invalidates all active JWT tokens and Redis sessions across all tenants.</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-emergency"
+                  onClick={() => {
+                    const confirm = window.confirm('🚨 Are you sure you want to terminate all active sessions globally?');
+                    if (confirm) {
+                      alert('✅ All active platform user sessions have been terminated.');
+                      logAudit('EMERGENCY SESSION PURGE', 'Purged all active JWT sessions across the platform.');
+                    }
+                  }}
+                >
+                  Terminate All Sessions
+                </button>
+              </div>
+
+              <div className="emergency-card">
+                <div>
+                  <strong style={{ color: '#991b1b', fontSize: '0.9rem' }}>Revoke All External API Keys</strong>
+                  <p style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '4px' }}>Immediately revokes all ERP, CRM, and webhook authorization secrets.</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-emergency"
+                  onClick={() => {
+                    const confirm = window.confirm('🚨 Are you sure you want to revoke all external API tokens?');
+                    if (confirm) {
+                      alert('✅ All external API keys have been revoked.');
+                      logAudit('EMERGENCY API REVOCATION', 'Revoked all external integration API keys.');
+                    }
+                  }}
+                >
+                  Revoke API Keys
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          16. MY ACCOUNT & MASTER SECURITY
+          ===================================================================== */}
+      {activeTab === 'my-account' && (
+        <div className="tab-pane-content">
+          <div className="card-section">
+            <h2 className="section-title">Master Super Administrator Account</h2>
+            <p className="section-desc">Tier-0 root administrator settings, 2FA MFA enforcement, and hardware key credentials.</p>
+
+            <div style={{ marginTop: '18px', display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '480px' }}>
+              <div className="form-group">
+                <label>Administrator Name</label>
+                <input type="text" className="form-control" defaultValue="Super Administrator" readOnly />
+              </div>
+              <div className="form-group">
+                <label>Administrator Security Level</label>
+                <input type="text" className="form-control" defaultValue="TIER-0 GLOBAL ROOT" readOnly />
+              </div>
+              <div className="form-group">
+                <label>Two-Factor Authentication (2FA)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                  <span className="status-badge-green"><Lock size={12} /> 2FA TOTP Active</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1578,13 +1915,7 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                   <p>Provisions a dedicated isolated tenant, currency, and initial company administrator.</p>
                 </div>
               </div>
-              <button
-                type="button"
-                className="close-modal-btn"
-                onClick={() => setIsCreateCompanyOpen(false)}
-              >
-                &times;
-              </button>
+              <button type="button" className="close-modal-btn" onClick={() => setIsCreateCompanyOpen(false)}>&times;</button>
             </div>
 
             <form onSubmit={handleCreateCompany} className="modal-form-body">
@@ -1594,21 +1925,20 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Acme Pharmaceuticals Ltd"
-                    value={newCompany.name}
-                    onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })}
+                    placeholder="e.g. Acme Pharma Ltd"
+                    value={newCompanyForm.name}
+                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, name: e.target.value })}
                     className="form-control"
                   />
                 </div>
-
                 <div className="form-group">
                   <label>Company Code</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. ACM-IN"
-                    value={newCompany.code}
-                    onChange={(e) => setNewCompany({ ...newCompany, code: e.target.value })}
+                    value={newCompanyForm.code}
+                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, code: e.target.value })}
                     className="form-control"
                   />
                 </div>
@@ -1618,7 +1948,7 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                 <div className="form-group">
                   <label>Country Jurisdiction</label>
                   <select
-                    value={newCompany.country}
+                    value={newCompanyForm.country}
                     onChange={(e) => {
                       const country = e.target.value;
                       let curr = 'INR';
@@ -1628,7 +1958,7 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                       if (country === 'Nepal') { curr = 'NPR'; tz = 'Asia/Kathmandu'; }
                       if (country === 'Thailand') { curr = 'THB'; tz = 'Asia/Bangkok'; }
                       if (country === 'Vietnam') { curr = 'VND'; tz = 'Asia/Ho_Chi_Minh'; }
-                      setNewCompany({ ...newCompany, country, currency: curr, timezone: tz });
+                      setNewCompanyForm({ ...newCompanyForm, country, currency: curr, timezone: tz });
                     }}
                     className="form-control"
                   >
@@ -1640,23 +1970,21 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                     <option value="Vietnam">🇻🇳 Vietnam</option>
                   </select>
                 </div>
-
                 <div className="form-group">
-                  <label>Default Currency</label>
+                  <label>Currency</label>
                   <input
                     type="text"
-                    value={newCompany.currency}
-                    onChange={(e) => setNewCompany({ ...newCompany, currency: e.target.value })}
+                    value={newCompanyForm.currency}
+                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, currency: e.target.value })}
                     className="form-control"
                   />
                 </div>
-
                 <div className="form-group">
                   <label>Timezone</label>
                   <input
                     type="text"
-                    value={newCompany.timezone}
-                    onChange={(e) => setNewCompany({ ...newCompany, timezone: e.target.value })}
+                    value={newCompanyForm.timezone}
+                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, timezone: e.target.value })}
                     className="form-control"
                   />
                 </div>
@@ -1669,31 +1997,30 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                     type="text"
                     required
                     placeholder="Enter Admin Full Name"
-                    value={newCompany.adminName}
-                    onChange={(e) => setNewCompany({ ...newCompany, adminName: e.target.value })}
+                    value={newCompanyForm.adminName}
+                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, adminName: e.target.value })}
                     className="form-control"
                   />
                 </div>
-
                 <div className="form-group">
                   <label>Initial Company Admin Corporate Email</label>
                   <input
                     type="email"
                     required
                     placeholder="admin@company.com"
-                    value={newCompany.adminEmail}
-                    onChange={(e) => setNewCompany({ ...newCompany, adminEmail: e.target.value })}
+                    value={newCompanyForm.adminEmail}
+                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, adminEmail: e.target.value })}
                     className="form-control"
                   />
                 </div>
               </div>
 
-              <div className="form-grid-2">
+              <div className="form-grid-3">
                 <div className="form-group">
                   <label>Subscription Tier</label>
                   <select
-                    value={newCompany.plan}
-                    onChange={(e) => setNewCompany({ ...newCompany, plan: e.target.value })}
+                    value={newCompanyForm.plan}
+                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, plan: e.target.value })}
                     className="form-control"
                   >
                     <option value="BASIC">Basic ($950/mo)</option>
@@ -1701,35 +2028,249 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                     <option value="ENTERPRISE">Global Platinum ($4,200/mo)</option>
                   </select>
                 </div>
-
                 <div className="form-group">
-                  <label>Fiscal Year Cycle</label>
-                  <select
-                    value={newCompany.fiscalYear}
-                    onChange={(e) => setNewCompany({ ...newCompany, fiscalYear: e.target.value })}
+                  <label>User Limit</label>
+                  <input
+                    type="number"
+                    value={newCompanyForm.userLimit}
+                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, userLimit: Number(e.target.value) })}
                     className="form-control"
-                  >
-                    <option value="Apr - Mar">April - March</option>
-                    <option value="Jan - Dec">January - December</option>
-                    <option value="Jul - Jun">July - June</option>
-                  </select>
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Storage Limit (GB)</label>
+                  <input
+                    type="number"
+                    value={newCompanyForm.storageLimitGB}
+                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, storageLimitGB: Number(e.target.value) })}
+                    className="form-control"
+                  />
                 </div>
               </div>
 
               <div className="modal-actions-bar">
-                <button
-                  type="button"
-                  className="cancel-btn"
-                  onClick={() => setIsCreateCompanyOpen(false)}
-                >
-                  Cancel
+                <button type="button" className="cancel-btn" onClick={() => setIsCreateCompanyOpen(false)}>Cancel</button>
+                <button type="submit" className="submit-create-btn">
+                  <CheckCircle2 size={16} /> <span>Provision Isolated Tenant</span>
                 </button>
-                <button
-                  type="submit"
-                  className="submit-create-btn"
-                >
-                  <CheckCircle2 size={16} />
-                  <span>Provision Isolated Tenant</span>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          IMPERSONATION MODAL (AUDITED)
+          ===================================================================== */}
+      {isImpersonateOpen && impersonateTarget && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Eye size={22} color="#d97706" />
+                <div>
+                  <h3>Impersonate Company Admin</h3>
+                  <p>Login as {impersonateTarget.name} ({impersonateTarget.company})</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsImpersonateOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleStartImpersonation} className="modal-form-body">
+              <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '10px 12px', fontSize: '0.78rem', color: '#92400e', marginBottom: '14px' }}>
+                ⚠️ <strong>Audited Action:</strong> All interactions conducted during this impersonation session are logged with your Super Admin identity and timestamps.
+              </div>
+
+              <div className="form-group">
+                <label>Reason for Impersonation (Required for Audit Compliance)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Support ticket #1042: Debugging MTP routing approval"
+                  value={impersonateReason}
+                  onChange={(e) => setImpersonateReason(e.target.value)}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsImpersonateOpen(false)}>Cancel</button>
+                <button type="submit" className="submit-create-btn" style={{ background: '#b45309' }}>
+                  <Eye size={16} /> <span>Proceed to Impersonate</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          PUBLISH ANNOUNCEMENT MODAL
+          ===================================================================== */}
+      {isAnnouncementModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Megaphone size={22} color="#2563eb" />
+                <div>
+                  <h3>Publish Global Announcement</h3>
+                  <p>Broadcast notices to tenants across web and mobile consoles.</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsAnnouncementModalOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleSendAnnouncement} className="modal-form-body">
+              <div className="form-group">
+                <label>Announcement Title</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Scheduled Maintenance Notice"
+                  value={newAnnouncement.title}
+                  onChange={(e) => setNewAnnouncement({ ...newAnnouncement, title: e.target.value })}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Type</label>
+                  <select
+                    className="form-control"
+                    value={newAnnouncement.type}
+                    onChange={(e) => setNewAnnouncement({ ...newAnnouncement, type: e.target.value })}
+                  >
+                    <option value="MAINTENANCE">Maintenance Notice</option>
+                    <option value="FEATURE">New Feature Release</option>
+                    <option value="SECURITY">Security Advisory</option>
+                    <option value="POLICY">Policy / Terms Update</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Target Audience</label>
+                  <select
+                    className="form-control"
+                    value={newAnnouncement.target}
+                    onChange={(e) => setNewAnnouncement({ ...newAnnouncement, target: e.target.value })}
+                  >
+                    <option value="ALL">All Users Across Platform</option>
+                    <option value="COMPANY_ADMINS">Company Admins Only</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Announcement Content</label>
+                <textarea
+                  required
+                  rows={4}
+                  placeholder="Write announcement details..."
+                  value={newAnnouncement.content}
+                  onChange={(e) => setNewAnnouncement({ ...newAnnouncement, content: e.target.value })}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsAnnouncementModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <Send size={15} /> <span>Broadcast Announcement</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          NEW TICKET MODAL
+          ===================================================================== */}
+      {isNewTicketOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <LifeBuoy size={22} color="#2563eb" />
+                <div>
+                  <h3>Create Support Ticket</h3>
+                  <p>Log a support request for a company organization.</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsNewTicketOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleCreateTicket} className="modal-form-body">
+              <div className="form-group">
+                <label>Company Tenant</label>
+                <input
+                  type="text"
+                  placeholder="Company name"
+                  value={newTicket.companyName}
+                  onChange={(e) => setNewTicket({ ...newTicket, companyName: e.target.value })}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Category</label>
+                  <select
+                    className="form-control"
+                    value={newTicket.category}
+                    onChange={(e) => setNewTicket({ ...newTicket, category: e.target.value })}
+                  >
+                    <option value="TECHNICAL">Technical Issue</option>
+                    <option value="BILLING">Billing &amp; Subscription</option>
+                    <option value="DATA">Data / Schema Export</option>
+                    <option value="TRAINING">Training &amp; Support</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Priority</label>
+                  <select
+                    className="form-control"
+                    value={newTicket.priority}
+                    onChange={(e) => setNewTicket({ ...newTicket, priority: e.target.value })}
+                  >
+                    <option value="HIGH">High Priority</option>
+                    <option value="CRITICAL">Critical</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Subject</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Issue summary"
+                  value={newTicket.subject}
+                  onChange={(e) => setNewTicket({ ...newTicket, subject: e.target.value })}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  rows={3}
+                  placeholder="Details of the support request..."
+                  value={newTicket.description}
+                  onChange={(e) => setNewTicket({ ...newTicket, description: e.target.value })}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsNewTicketOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <span>Create Ticket</span>
                 </button>
               </div>
             </form>

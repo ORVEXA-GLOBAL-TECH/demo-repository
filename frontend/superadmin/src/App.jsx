@@ -11,10 +11,11 @@ import './styles/theme.css';
 
 function MainSuperAdminApp() {
   const { currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState('saas-overview');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
 
   useEffect(() => {
     if (!currentUser) return;
@@ -61,15 +62,23 @@ function MainSuperAdminApp() {
 
   const getPageTitle = () => {
     switch (activeTab) {
-      case 'saas-overview': return 'Global SaaS Multi-Tenant Overview // Orvexa Global Tech';
-      case 'saas-companies': return 'Multi-Tenant Company Lifecycle & Management';
-      case 'saas-countries': return 'Sovereign Country Compliance, Tax & Statutory Registry';
-      case 'saas-admins': return 'Company Administrators & Tenant Security Monitoring';
-      case 'saas-subscriptions': return 'Global SaaS Subscription Economics & Invoicing';
-      case 'saas-features': return 'Per-Company Feature & Module Licensing Matrix';
-      case 'saas-tenants': return 'Multi-Tenant Database & Storage Isolation';
-      case 'saas-system-health': return 'Infrastructure Health, Security Center & Global Audit Trail';
-      default: return 'Orvexa Global Super Admin Command Center';
+      case 'dashboard': return '1. Platform Dashboard // Master Multi-Tenant Overview';
+      case 'companies': return '2. Company / Tenant Governance & Lifecycle';
+      case 'platform-users': return '3. Platform Users & Cross-Tenant Directory';
+      case 'subscriptions': return '4. Subscriptions, Invoicing & Monetization';
+      case 'features': return '5. Feature Governance & Canary Feature Flags';
+      case 'settings': return '6. Global Platform Configuration & Defaults';
+      case 'roles': return '7. Global Role Templates & Access Matrices';
+      case 'integrations': return '8. Enterprise Integrations & API Management';
+      case 'app-management': return '9. Mobile App Version Control & Force Updates';
+      case 'analytics': return '10. Cross-Company Telemetry & Usage Analytics';
+      case 'security': return '11. Security Governance & Immutable Audit Logs';
+      case 'system-health': return '12. System Health, Microservices & Maintenance Mode';
+      case 'support': return '13. Cross-Company Support Desk & Tickets';
+      case 'communications': return '14. Global Announcements & Notifications';
+      case 'emergency': return '15. Disaster & Emergency Platform Kill-Switch';
+      case 'my-account': return '16. My Master Administrator Account';
+      default: return 'Orvexa Super Admin Governance Suite';
     }
   };
 
@@ -81,11 +90,15 @@ function MainSuperAdminApp() {
           title={getPageTitle()}
           unreadCount={unreadCount}
           onToggleNotifications={() => setIsDrawerOpen(true)}
+          globalSearchQuery={globalSearchQuery}
+          setGlobalSearchQuery={setGlobalSearchQuery}
         />
         <main className="content-area">
           <SuperAdminDashboard
-            activeSubTab={activeTab}
-            setActiveSubTab={setActiveTab}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            globalSearchQuery={globalSearchQuery}
+            setGlobalSearchQuery={setGlobalSearchQuery}
           />
         </main>
       </div>
