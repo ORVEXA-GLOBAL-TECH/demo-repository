@@ -221,7 +221,7 @@ export const createTenant = async (tenantData) => {
       max_doctors: tenantData.maxDoctors || 5000,
       max_storage_gb: tenantData.maxStorageGb || 50.0,
       billing_cycle: tenantData.billingCycle || 'Monthly',
-      monthly_rate: tenantData.monthlyRate || 2800,
+      monthly_rate: tenantData.monthlyRate || 1000,
       contact_email: tenantData.contactEmail,
       contact_phone: tenantData.contactPhone || '',
       status: 'Active'

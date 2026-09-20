@@ -564,7 +564,7 @@ export default function SuperAdminDashboard({
       if (tenantsRes.status === 'fulfilled' && Array.isArray(tenantsRes.value)) {
         const mappedCompanies = tenantsRes.value.map(t => {
           const matchedCountry = sovereignRegistry.find(c => c.code === t.country_code) || DEFAULT_SOVEREIGN_REGISTRY[0];
-          const planRate = t.plan === 'ENTERPRISE' ? 4200 : t.plan === 'PRO' ? 2800 : 950;
+          const planRate = t.plan === 'ENTERPRISE' ? 2000 : t.plan === 'PRO' ? 1000 : 100;
           return {
             id: t.id,
             code: t.code,
@@ -642,7 +642,7 @@ export default function SuperAdminDashboard({
           id: `INV-${s.id.slice(0, 6).toUpperCase()}`,
           company: s.tenant_name || s.tenants_companies?.name || 'Pharma Tenant',
           tier: s.plan_tier || 'PRO',
-          amount: `$${Number(s.amount_billed || 2800).toLocaleString()}`,
+          amount: `$${Number(s.amount_billed || 1000).toLocaleString()}`,
           status: s.status || 'Active',
           date: s.expiry_date || new Date().toISOString().split('T')[0]
         }));
@@ -748,7 +748,7 @@ export default function SuperAdminDashboard({
     mrLimit: 200,
     storageLimitGB: 50,
     billingCycle: 'Monthly',
-    monthlyRate: 2800
+    monthlyRate: 1000
   });
 
   const [editCompanyForm, setEditCompanyForm] = useState({
@@ -761,7 +761,7 @@ export default function SuperAdminDashboard({
     contactEmail: '',
     contactPhone: '',
     billingCycle: 'Monthly',
-    monthlyRate: 2800,
+    monthlyRate: 1000,
     status: 'ACTIVE'
   });
 
@@ -811,7 +811,7 @@ export default function SuperAdminDashboard({
 
   const [subModalForm, setSubModalForm] = useState({
     planTier: 'PRO',
-    amountBilled: 2800,
+    amountBilled: 1000,
     billingInterval: 'Monthly',
     expiryDate: ''
   });
@@ -848,7 +848,7 @@ export default function SuperAdminDashboard({
 
   const totalMRR_USD = companies.reduce((acc, c) => {
     if (c.status !== 'ACTIVE') return acc;
-    const planRate = c.plan === 'ENTERPRISE' ? 4200 : c.plan === 'PRO' ? 2800 : 950;
+    const planRate = c.plan === 'ENTERPRISE' ? 2000 : c.plan === 'PRO' ? 1000 : 100;
     return acc + (Number(c.customMRR) || planRate);
   }, 0);
   const totalARR_USD = totalMRR_USD * 12;
@@ -933,7 +933,7 @@ export default function SuperAdminDashboard({
     }
 
     try {
-      const planRate = newCompanyForm.plan === 'ENTERPRISE' ? 4200 : newCompanyForm.plan === 'PRO' ? 2800 : 950;
+      const planRate = newCompanyForm.plan === 'ENTERPRISE' ? 2000 : newCompanyForm.plan === 'PRO' ? 1000 : 100;
       const payload = {
         name: newCompanyForm.name,
         legalName: newCompanyForm.legalName || newCompanyForm.name,
@@ -975,7 +975,7 @@ export default function SuperAdminDashboard({
         mrLimit: 200,
         storageLimitGB: 50,
         billingCycle: 'Monthly',
-        monthlyRate: 2800
+        monthlyRate: 1000
       });
     } catch (err) {
       showToast(`Failed to create tenant: ${err.message}`, 'error');
@@ -994,7 +994,7 @@ export default function SuperAdminDashboard({
       contactEmail: company.adminEmail || '',
       contactPhone: '',
       billingCycle: 'Monthly',
-      monthlyRate: company.customMRR || 2800,
+      monthlyRate: company.customMRR || 1000,
       status: company.status
     });
     setIsEditCompanyOpen(true);
@@ -1307,7 +1307,7 @@ export default function SuperAdminDashboard({
     setSubModalTarget(company);
     setSubModalForm({
       planTier: company.plan || 'PRO',
-      amountBilled: company.plan === 'ENTERPRISE' ? 4200 : company.plan === 'PRO' ? 2800 : 950,
+      amountBilled: company.plan === 'ENTERPRISE' ? 2000 : company.plan === 'PRO' ? 1000 : 100,
       billingInterval: 'Monthly',
       expiryDate: company.renewalDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     });
@@ -2221,7 +2221,7 @@ export default function SuperAdminDashboard({
           <div className="subscription-plans-grid">
             <div className="plan-card">
               <div className="plan-tier-name">BASIC TIER</div>
-              <div className="plan-price">$950 <span>/ month</span></div>
+              <div className="plan-price">$100 <span>/ month</span></div>
               <p className="plan-limits-desc">For regional pharma distribution agencies</p>
               <ul className="plan-perks-list">
                 <li>Up to 250 Field MRs</li>
@@ -2234,7 +2234,7 @@ export default function SuperAdminDashboard({
             <div className="plan-card featured-plan">
               <div className="featured-ribbon">POPULAR</div>
               <div className="plan-tier-name">PRO ENTERPRISE</div>
-              <div className="plan-price">$2,800 <span>/ month</span></div>
+              <div className="plan-price">$1,000 <span>/ month</span></div>
               <p className="plan-limits-desc">For pharmaceutical manufacturing corporations</p>
               <ul className="plan-perks-list">
                 <li>Up to 1,500 Field Reps</li>
@@ -2247,7 +2247,7 @@ export default function SuperAdminDashboard({
 
             <div className="plan-card">
               <div className="plan-tier-name">GLOBAL PLATINUM</div>
-              <div className="plan-price">$4,200 <span>/ month</span></div>
+              <div className="plan-price">$2,000 <span>/ month</span></div>
               <p className="plan-limits-desc">For multinational pharmaceutical conglomerates</p>
               <ul className="plan-perks-list">
                 <li>Unlimited Field Reps &amp; GMs</li>
@@ -2497,9 +2497,9 @@ export default function SuperAdminDashboard({
                     onChange={(e) => setNewCompanyForm({ ...newCompanyForm, plan: e.target.value })}
                     className="form-control"
                   >
-                    <option value="BASIC">Basic ($950/mo)</option>
-                    <option value="PRO">Pro Enterprise ($2,800/mo)</option>
-                    <option value="ENTERPRISE">Global Platinum ($4,200/mo)</option>
+                    <option value="BASIC">Basic ($100/mo)</option>
+                    <option value="PRO">Pro Enterprise ($1,000/mo)</option>
+                    <option value="ENTERPRISE">Global Platinum ($2,000/mo)</option>
                   </select>
                 </div>
               </div>
@@ -2606,9 +2606,9 @@ export default function SuperAdminDashboard({
                     value={editCompanyForm.plan}
                     onChange={(e) => setEditCompanyForm({ ...editCompanyForm, plan: e.target.value })}
                   >
-                    <option value="BASIC">Basic ($950/mo)</option>
-                    <option value="PRO">Pro Enterprise ($2,800/mo)</option>
-                    <option value="ENTERPRISE">Global Platinum ($4,200/mo)</option>
+                    <option value="BASIC">Basic ($100/mo)</option>
+                    <option value="PRO">Pro Enterprise ($1,000/mo)</option>
+                    <option value="ENTERPRISE">Global Platinum ($2,000/mo)</option>
                   </select>
                 </div>
               </div>
@@ -3187,13 +3187,13 @@ export default function SuperAdminDashboard({
                   value={subModalForm.planTier}
                   onChange={(e) => {
                     const tier = e.target.value;
-                    const rate = tier === 'ENTERPRISE' ? 4200 : tier === 'PRO' ? 2800 : 950;
+                    const rate = tier === 'ENTERPRISE' ? 2000 : tier === 'PRO' ? 1000 : 100;
                     setSubModalForm({ ...subModalForm, planTier: tier, amountBilled: rate });
                   }}
                 >
-                  <option value="BASIC">Basic ($950/mo)</option>
-                  <option value="PRO">Pro Enterprise ($2,800/mo)</option>
-                  <option value="ENTERPRISE">Global Platinum ($4,200/mo)</option>
+                  <option value="BASIC">Basic ($100/mo)</option>
+                  <option value="PRO">Pro Enterprise ($1,000/mo)</option>
+                  <option value="ENTERPRISE">Global Platinum ($2,000/mo)</option>
                 </select>
               </div>
 

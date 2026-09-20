@@ -1123,7 +1123,7 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
           <div className="subscription-plans-grid">
             <div className="plan-card">
               <div className="plan-tier-name">BASIC TIER</div>
-              <div className="plan-price">$950 <span>/ month</span></div>
+              <div className="plan-price">$100 <span>/ month</span></div>
               <p className="plan-limits-desc">For small pharma distribution businesses</p>
               <ul className="plan-perks-list">
                 <li>Up to 250 Field MRs</li>
@@ -1138,7 +1138,7 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
             <div className="plan-card featured-plan">
               <div className="featured-ribbon">POPULAR</div>
               <div className="plan-tier-name">PRO ENTERPRISE</div>
-              <div className="plan-price">$2,800 <span>/ month</span></div>
+              <div className="plan-price">$1,000 <span>/ month</span></div>
               <p className="plan-limits-desc">For regional pharmaceutical manufacturers</p>
               <ul className="plan-perks-list">
                 <li>Up to 1,500 Field Reps</li>
@@ -1152,7 +1152,7 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
 
             <div className="plan-card">
               <div className="plan-tier-name">GLOBAL PLATINUM</div>
-              <div className="plan-price">$5,500 <span>/ month</span></div>
+              <div className="plan-price">$2,000 <span>/ month</span></div>
               <p className="plan-limits-desc">For multinational pharmaceutical conglomerates</p>
               <ul className="plan-perks-list">
                 <li>Unlimited Field Reps &amp; GMs</li>
@@ -1665,9 +1665,9 @@ export default function SuperAdminDashboard({ activeSubTab = 'saas-overview', se
                     onChange={(e) => setNewCompany({ ...newCompany, plan: e.target.value })}
                     className="form-control"
                   >
-                    <option value="BASIC">Basic ($950/mo)</option>
-                    <option value="PRO">Pro Enterprise ($2,800/mo)</option>
-                    <option value="ENTERPRISE">Global Platinum ($5,500/mo)</option>
+                    <option value="BASIC">Basic ($100/mo)</option>
+                    <option value="PRO">Pro Enterprise ($1,000/mo)</option>
+                    <option value="ENTERPRISE">Global Platinum ($2,000/mo)</option>
                   </select>
                 </div>
 
