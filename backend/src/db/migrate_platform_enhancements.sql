@@ -139,7 +139,42 @@ CREATE INDEX IF NOT EXISTS idx_login_history_email ON admin_login_history(email)
 CREATE INDEX IF NOT EXISTS idx_login_history_created_at ON admin_login_history(created_at DESC);
 
 -- ==============================================================================
--- 7. SAAS SUBSCRIPTION PLANS (subscription_plans)
+-- 7. PLATFORM GLOBAL AUDIT LOGS (8-Dimensional Tracking: Who, Company, Action, Date/Time, IP, Device, Old/New Value)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS platform_audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants_companies(id) ON DELETE CASCADE,
+    company_name VARCHAR(255),
+    actor_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    actor_name VARCHAR(255),
+    actor_email VARCHAR(255) NOT NULL,
+    actor_role VARCHAR(50) NOT NULL DEFAULT 'SUPER_ADMIN',
+    action VARCHAR(100) NOT NULL,
+    target_entity VARCHAR(100) NOT NULL,
+    entity_id VARCHAR(255),
+    ip_address VARCHAR(64),
+    device_info VARCHAR(255),
+    user_agent TEXT,
+    old_value JSONB,
+    new_value JSONB,
+    details JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE IF EXISTS platform_audit_logs 
+    ADD COLUMN IF NOT EXISTS company_name VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS actor_name VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS device_info VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS old_value JSONB,
+    ADD COLUMN IF NOT EXISTS new_value JSONB;
+
+CREATE INDEX IF NOT EXISTS idx_audit_tenant_time ON platform_audit_logs(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_action ON platform_audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_audit_actor_email ON platform_audit_logs(actor_email);
+CREATE INDEX IF NOT EXISTS idx_audit_ip_address ON platform_audit_logs(ip_address);
+
+-- ==============================================================================
+-- 8. SAAS SUBSCRIPTION PLANS (subscription_plans)
 -- ==============================================================================
 CREATE TABLE IF NOT EXISTS subscription_plans (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
