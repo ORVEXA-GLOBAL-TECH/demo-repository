@@ -39,10 +39,10 @@ const sanitizeUser = (user) => {
 const handleLogin = async (req, res) => {
   const { email, password, role, platform = 'web' } = req.body;
 
-  if (!email) {
+  if (!email || !password) {
     return res.status(400).json({
       success: false,
-      message: 'Email address is required for authentication.'
+      message: 'Both email address and password are required for authentication.'
     });
   }
 
@@ -51,129 +51,101 @@ const handleLogin = async (req, res) => {
   try {
     const dbHealth = await checkDbHealth();
 
-    if (dbHealth.status === 'CONNECTED') {
-      // 1. Fetch user from PostgreSQL database
-      const userRes = await query(
-        `SELECT * FROM users WHERE lower(email) = lower($1) LIMIT 1;`,
-        [cleanEmail]
-      );
-
-      if (userRes.rows.length > 0) {
-        const dbUser = userRes.rows[0];
-
-        // 2. Account Status Check
-        if (dbUser.status && dbUser.status !== 'Active') {
-          return res.status(403).json({
-            success: false,
-            message: `Account is currently ${dbUser.status}. Please contact the Super Administrator.`
-          });
-        }
-
-        // 3. Password Verification
-        let isPasswordValid = true;
-        if (password && dbUser.password_hash) {
-          // Check bcrypt hash
-          isPasswordValid = await bcrypt.compare(password, dbUser.password_hash);
-          
-          // If bcrypt fails, check direct equality (dev safety fallback)
-          if (!isPasswordValid && password === dbUser.password_hash) {
-            isPasswordValid = true;
-          }
-        }
-
-        if (!isPasswordValid) {
-          // Log failed login attempt
-          await query(
-            `INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, details, ip_address)
-             VALUES ($1, $2, 'LOGIN_FAILED', 'users', $3, $4);`,
-            [cleanEmail, dbUser.role || 'UNKNOWN', JSON.stringify({ reason: 'Invalid Password' }), req.ip]
-          ).catch(() => {});
-
-          return res.status(401).json({
-            success: false,
-            message: 'Invalid credentials. Please verify your email and password.'
-          });
-        }
-
-        // 4. Update last_login_at timestamp
-        await query(
-          `UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1;`,
-          [dbUser.id]
-        ).catch(() => {});
-
-        // 5. Log successful login in audit trail
-        await query(
-          `INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, entity_id, details, ip_address)
-           VALUES ($1, $2, 'LOGIN_SUCCESS', 'users', $3, $4, $5);`,
-          [cleanEmail, dbUser.role, dbUser.id, JSON.stringify({ platform, timestamp: new Date().toISOString() }), req.ip]
-        ).catch(() => {});
-
-        const sanitized = sanitizeUser(dbUser);
-
-        // 6. Generate Enterprise JWT Token
-        const token = jwt.sign(
-          {
-            id: sanitized.id,
-            email: sanitized.email,
-            role: sanitized.role,
-            tenantId: sanitized.tenantId,
-            name: sanitized.name,
-            allowedPlatforms: sanitized.allowedPlatforms
-          },
-          config.jwtSecret,
-          { expiresIn: '7d' }
-        );
-
-        return res.json({
-          success: true,
-          message: 'Authentication successful',
-          token,
-          user: sanitized
-        });
-      }
-    }
-
-    // Fallback if DB offline or user not found during bootstrapping
-    // Check if logging in as Akshyatraj Pati Super Admin
-    if (cleanEmail === 'akshatrajpati@gmail.com' || role === 'SUPER_ADMIN') {
-      const superAdminUser = {
-        id: '00000000-0000-0000-0000-000000000001',
-        name: 'Akshyatraj Pati',
-        firstName: 'Akshyatraj',
-        lastName: 'Pati',
-        email: cleanEmail === 'akshatrajpati@gmail.com' ? 'akshatrajpati@gmail.com' : cleanEmail,
-        role: 'SUPER_ADMIN',
-        tenantId: null,
-        status: 'Active',
-        territory: 'Enterprise Global HQ',
-        designation: 'Master Platform Super Administrator',
-        allowedPlatforms: ['web'],
-        lastLoginAt: new Date().toISOString()
-      };
-
-      const token = jwt.sign(
-        {
-          id: superAdminUser.id,
-          email: superAdminUser.email,
-          role: superAdminUser.role,
-          name: superAdminUser.name,
-          allowedPlatforms: ['web']
-        },
-        config.jwtSecret,
-        { expiresIn: '7d' }
-      );
-
-      return res.json({
-        success: true,
-        message: 'Super Admin authenticated successfully',
-        token,
-        user: superAdminUser
+    if (dbHealth.status !== 'CONNECTED') {
+      return res.status(503).json({
+        success: false,
+        message: 'Database service is currently unreachable. Please check PostgreSQL connection.'
       });
     }
 
-    return res.status(401).json({
-      success: false,
-      message: 'User account not found. Please verify your credentials or register your pharma company.'
+    // 1. Fetch user from PostgreSQL database
+    const userRes = await query(
+      `SELECT * FROM users WHERE lower(email) = lower($1) LIMIT 1;`,
+      [cleanEmail]
+    );
+
+    if (userRes.rows.length === 0) {
+      // Log failed login attempt
+      await query(
+        `INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, details, ip_address)
+         VALUES ($1, 'UNKNOWN', 'LOGIN_FAILED', 'users', $2, $3);`,
+        [cleanEmail, JSON.stringify({ reason: 'User not found in database' }), req.ip]
+      ).catch(() => {});
+
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials. No user account found with this email.'
+      });
+    }
+
+    const dbUser = userRes.rows[0];
+
+    // 2. Account Status Check
+    if (dbUser.status && dbUser.status !== 'Active') {
+      return res.status(403).json({
+        success: false,
+        message: `Account is currently ${dbUser.status}. Please contact the Super Administrator.`
+      });
+    }
+
+    // 3. Strict Bcrypt Password Verification
+    if (!dbUser.password_hash) {
+      return res.status(401).json({
+        success: false,
+        message: 'Account password not configured. Please reset your password.'
+      });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, dbUser.password_hash);
+
+    if (!isPasswordValid) {
+      // Log failed login attempt
+      await query(
+        `INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, details, ip_address)
+         VALUES ($1, $2, 'LOGIN_FAILED', 'users', $3, $4);`,
+        [cleanEmail, dbUser.role || 'UNKNOWN', JSON.stringify({ reason: 'Incorrect Password' }), req.ip]
+      ).catch(() => {});
+
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials. Incorrect password.'
+      });
+    }
+
+    // 4. Update last_login_at timestamp
+    await query(
+      `UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1;`,
+      [dbUser.id]
+    ).catch(() => {});
+
+    // 5. Log successful login in audit trail
+    await query(
+      `INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, entity_id, details, ip_address)
+       VALUES ($1, $2, 'LOGIN_SUCCESS', 'users', $3, $4, $5);`,
+      [cleanEmail, dbUser.role, dbUser.id, JSON.stringify({ platform, timestamp: new Date().toISOString() }), req.ip]
+    ).catch(() => {});
+
+    const sanitized = sanitizeUser(dbUser);
+
+    // 6. Generate Enterprise JWT Token
+    const token = jwt.sign(
+      {
+        id: sanitized.id,
+        email: sanitized.email,
+        role: sanitized.role,
+        tenantId: sanitized.tenantId,
+        name: sanitized.name,
+        allowedPlatforms: sanitized.allowedPlatforms
+      },
+      config.jwtSecret,
+      { expiresIn: '7d' }
+    );
+
+    return res.json({
+      success: true,
+      message: 'Authentication successful',
+      token,
+      user: sanitized
     });
   } catch (error) {
     console.error('Authentication Error:', error);
