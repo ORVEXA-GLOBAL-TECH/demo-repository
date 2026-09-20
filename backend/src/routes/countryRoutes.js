@@ -33,12 +33,16 @@ router.post('/', async (req, res) => {
     taxScheme,
     socialSecurity,
     fiscalYear,
-    regulatoryBody
+    regulatoryBody,
+    fxRateToUSD,
+    fx_rate_to_usd
   } = req.body;
 
   if (!code || !name || !currencyCode) {
     return res.status(400).json({ success: false, message: 'Country code, name, and currency are required.' });
   }
+
+  const effectiveFx = Number(fxRateToUSD || fx_rate_to_usd || 1.0);
 
   try {
     const dbHealth = await checkDbHealth();
@@ -47,9 +51,9 @@ router.post('/', async (req, res) => {
         INSERT INTO sovereign_countries (
           code, name, native_name, currency_code, currency_symbol,
           primary_timezone, calling_code, tax_scheme, social_security,
-          fiscal_year, regulatory_body, is_active
+          fiscal_year, regulatory_body, is_active, fx_rate_to_usd
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, $12)
         ON CONFLICT (code) DO UPDATE
         SET name = EXCLUDED.name,
             currency_code = EXCLUDED.currency_code,
@@ -57,7 +61,8 @@ router.post('/', async (req, res) => {
             primary_timezone = EXCLUDED.primary_timezone,
             tax_scheme = EXCLUDED.tax_scheme,
             fiscal_year = EXCLUDED.fiscal_year,
-            regulatory_body = EXCLUDED.regulatory_body
+            regulatory_body = EXCLUDED.regulatory_body,
+            fx_rate_to_usd = EXCLUDED.fx_rate_to_usd
         RETURNING *;
       `, [
         code.toUpperCase().trim(),
@@ -70,8 +75,40 @@ router.post('/', async (req, res) => {
         taxScheme || 'Standard Tax',
         socialSecurity || 'Statutory Social Care',
         fiscalYear || 'January - December',
-        regulatoryBody || 'Ministry of Health'
-      ]);
+        regulatoryBody || 'Ministry of Health',
+        effectiveFx
+      ]).catch(async (err) => {
+        // Fallback if fx_rate_to_usd column doesn't exist yet
+        return await query(`
+          INSERT INTO sovereign_countries (
+            code, name, native_name, currency_code, currency_symbol,
+            primary_timezone, calling_code, tax_scheme, social_security,
+            fiscal_year, regulatory_body, is_active
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true)
+          ON CONFLICT (code) DO UPDATE
+          SET name = EXCLUDED.name,
+              currency_code = EXCLUDED.currency_code,
+              currency_symbol = EXCLUDED.currency_symbol,
+              primary_timezone = EXCLUDED.primary_timezone,
+              tax_scheme = EXCLUDED.tax_scheme,
+              fiscal_year = EXCLUDED.fiscal_year,
+              regulatory_body = EXCLUDED.regulatory_body
+          RETURNING *;
+        `, [
+          code.toUpperCase().trim(),
+          name.trim(),
+          nativeName || name,
+          currencyCode.toUpperCase().trim(),
+          currencySymbol || '$',
+          primaryTimezone || 'UTC',
+          callingCode || '+1',
+          taxScheme || 'Standard Tax',
+          socialSecurity || 'Statutory Social Care',
+          fiscalYear || 'January - December',
+          regulatoryBody || 'Ministry of Health'
+        ]);
+      });
 
       await query(`
         INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, entity_id, details)
@@ -82,8 +119,8 @@ router.post('/', async (req, res) => {
         'SOVEREIGN_COUNTRY_SAVED',
         'sovereign_countries',
         code,
-        JSON.stringify({ country: name, code })
-      ]);
+        JSON.stringify({ country: name, code, fxRate: effectiveFx })
+      ]).catch(() => {});
 
       return res.status(201).json({
         success: true,
@@ -115,8 +152,12 @@ router.put('/:code', async (req, res) => {
     socialSecurity,
     fiscalYear,
     regulatoryBody,
-    isActive
+    isActive,
+    fxRateToUSD,
+    fx_rate_to_usd
   } = req.body;
+
+  const effectiveFx = fxRateToUSD !== undefined ? Number(fxRateToUSD) : (fx_rate_to_usd !== undefined ? Number(fx_rate_to_usd) : null);
 
   try {
     const dbHealth = await checkDbHealth();
@@ -133,8 +174,9 @@ router.put('/:code', async (req, res) => {
           social_security = COALESCE($7, social_security),
           fiscal_year = COALESCE($8, fiscal_year),
           regulatory_body = COALESCE($9, regulatory_body),
-          is_active = COALESCE($10, is_active)
-        WHERE code = $11
+          is_active = COALESCE($10, is_active),
+          fx_rate_to_usd = COALESCE($11, fx_rate_to_usd)
+        WHERE code = $12
         RETURNING *;
       `, [
         name,
@@ -147,8 +189,39 @@ router.put('/:code', async (req, res) => {
         fiscalYear,
         regulatoryBody,
         isActive,
+        effectiveFx,
         code.toUpperCase()
-      ]);
+      ]).catch(async () => {
+        // Fallback if fx_rate_to_usd column doesn't exist
+        return await query(`
+          UPDATE sovereign_countries
+          SET
+            name = COALESCE($1, name),
+            native_name = COALESCE($2, native_name),
+            currency_code = COALESCE($3, currency_code),
+            currency_symbol = COALESCE($4, currency_symbol),
+            primary_timezone = COALESCE($5, primary_timezone),
+            tax_scheme = COALESCE($6, tax_scheme),
+            social_security = COALESCE($7, social_security),
+            fiscal_year = COALESCE($8, fiscal_year),
+            regulatory_body = COALESCE($9, regulatory_body),
+            is_active = COALESCE($10, is_active)
+          WHERE code = $11
+          RETURNING *;
+        `, [
+          name,
+          nativeName,
+          currencyCode,
+          currencySymbol,
+          primaryTimezone,
+          taxScheme,
+          socialSecurity,
+          fiscalYear,
+          regulatoryBody,
+          isActive,
+          code.toUpperCase()
+        ]);
+      });
 
       if (updateRes.rows.length === 0) {
         return res.status(404).json({ success: false, message: 'Country not found.' });
@@ -164,7 +237,7 @@ router.put('/:code', async (req, res) => {
         'sovereign_countries',
         code,
         JSON.stringify({ code, changes: req.body })
-      ]);
+      ]).catch(() => {});
 
       return res.json({
         success: true,

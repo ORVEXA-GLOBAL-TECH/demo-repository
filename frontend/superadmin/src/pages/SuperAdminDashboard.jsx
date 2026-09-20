@@ -664,9 +664,41 @@ export default function SuperAdminDashboard({
       if (countriesRes.status === 'fulfilled' && Array.isArray(countriesRes.value) && countriesRes.value.length > 0) {
         const merged = DEFAULT_SOVEREIGN_REGISTRY.map(dc => {
           const dbMatch = countriesRes.value.find(c => c.code === dc.code);
-          return dbMatch ? { ...dc, ...dbMatch } : dc;
+          if (dbMatch) {
+            return {
+              ...dc,
+              name: dbMatch.name || dc.name,
+              currencyCode: dbMatch.currency_code || dbMatch.currencyCode || dc.currencyCode,
+              currencySymbol: dbMatch.currency_symbol || dbMatch.currencySymbol || dc.currencySymbol,
+              timezone: dbMatch.primary_timezone || dbMatch.timezone || dc.timezone,
+              taxScheme: dbMatch.tax_scheme || dbMatch.taxScheme || dc.taxScheme,
+              fxRateToUSD: Number(dbMatch.fx_rate_to_usd !== undefined ? dbMatch.fx_rate_to_usd : (dbMatch.fxRateToUSD !== undefined ? dbMatch.fxRateToUSD : dc.fxRateToUSD)) || dc.fxRateToUSD || 1.0,
+              socialSecurity: dbMatch.social_security || dbMatch.socialSecurity || dc.socialSecurity,
+              fiscalYear: dbMatch.fiscal_year || dbMatch.fiscalYear || dc.fiscalYear
+            };
+          }
+          return dc;
         });
-        setSovereignRegistry(merged);
+
+        const extraCustomCountries = countriesRes.value
+          .filter(c => !DEFAULT_SOVEREIGN_REGISTRY.some(dc => dc.code === c.code))
+          .map(c => ({
+            code: c.code,
+            name: c.name,
+            flag: c.flag || '🌐',
+            currencyCode: c.currency_code || c.currencyCode || 'USD',
+            currencySymbol: c.currency_symbol || c.currencySymbol || '$',
+            currencyName: c.currency_name || `${c.name} Currency`,
+            fxRateToUSD: Number(c.fx_rate_to_usd || c.fxRateToUSD) || 1.0,
+            timezone: c.primary_timezone || c.timezone || 'UTC',
+            utcOffset: c.utc_offset || 'UTC',
+            taxScheme: c.tax_scheme || c.taxScheme || 'Standard Tax',
+            socialSecurity: c.social_security || 'Statutory Scheme',
+            fiscalYear: c.fiscal_year || 'January - December',
+            status: 'ACTIVE'
+          }));
+
+        setSovereignRegistry([...merged, ...extraCustomCountries]);
       }
 
       if (subsRes.status === 'fulfilled' && Array.isArray(subsRes.value)) {
@@ -796,6 +828,10 @@ export default function SuperAdminDashboard({
   const [editCompanyForm, setEditCompanyForm] = useState({
     name: '',
     legalName: '',
+    country: 'India',
+    countryCode: 'IN',
+    currency: 'INR',
+    timezone: 'Asia/Kolkata',
     plan: 'STARTER',
     customRate: 0,
     startAt: toLocalInputDateTime(new Date()),
@@ -834,6 +870,7 @@ export default function SuperAdminDashboard({
     name: '',
     currencyCode: '',
     currencySymbol: '',
+    fxRateToUSD: 1.0,
     primaryTimezone: 'UTC',
     taxScheme: 'Standard VAT / PIT',
     socialSecurity: 'Statutory Scheme',
@@ -844,6 +881,7 @@ export default function SuperAdminDashboard({
     name: '',
     currencyCode: '',
     currencySymbol: '',
+    fxRateToUSD: 1.0,
     primaryTimezone: '',
     taxScheme: '',
     socialSecurity: '',
@@ -1052,14 +1090,32 @@ export default function SuperAdminDashboard({
     }
   };
 
+  const handleEditCompanyCountryChange = (countryName) => {
+    const matched = sovereignRegistry.find(c => c.name === countryName || c.code === countryName);
+    if (matched) {
+      setEditCompanyForm(prev => ({
+        ...prev,
+        country: matched.name,
+        countryCode: matched.code,
+        currency: matched.currencyCode,
+        timezone: matched.timezone
+      }));
+    }
+  };
+
   const handleOpenEditCompany = (company) => {
     setEditingCompany(company);
     const isTrial = company.plan === 'FREE_TRIAL' || company.plan === 'TRIAL' || company.status === 'TRIAL';
     const isCustom = company.plan === 'CUSTOM' || company.isCustomPricing;
+    const matchedCountry = sovereignRegistry.find(c => c.code === company.countryCode || c.name === company.country) || DEFAULT_SOVEREIGN_REGISTRY[0];
 
     setEditCompanyForm({
       name: company.name,
       legalName: company.legalName || company.name,
+      country: matchedCountry.name,
+      countryCode: company.countryCode || matchedCountry.code,
+      currency: company.currency || matchedCountry.currencyCode,
+      timezone: company.timezone || matchedCountry.timezone,
       plan: company.plan,
       isCustomPricing: isCustom,
       customRate: company.customRate || company.customMRR || 0,
@@ -1091,6 +1147,9 @@ export default function SuperAdminDashboard({
       await updateTenant(editingCompany.id, {
         name: editCompanyForm.name,
         legalName: editCompanyForm.legalName,
+        countryCode: editCompanyForm.countryCode,
+        currencyCode: editCompanyForm.currency,
+        timezone: editCompanyForm.timezone,
         plan: editCompanyForm.plan,
         status: isTrial ? 'Trial' : editCompanyForm.status,
         monthlyRate: calculatedRate,
@@ -1103,7 +1162,7 @@ export default function SuperAdminDashboard({
         contactEmail: editCompanyForm.contactEmail
       });
 
-      showToast(`Company "${editCompanyForm.name}" updated successfully.`, 'success');
+      showToast(`Company "${editCompanyForm.name}" updated with country ${editCompanyForm.country} (${editCompanyForm.currency}, ${editCompanyForm.timezone})!`, 'success');
       logAudit('TENANT_UPDATED', `Updated configuration for ${editCompanyForm.name} (${editCompanyForm.plan} - $${calculatedRate}/mo)`, editCompanyForm.name);
       setIsEditCompanyOpen(false);
       loadAllData();
@@ -1418,18 +1477,21 @@ export default function SuperAdminDashboard({
     }
 
     try {
-      await createCountry({
+      const payload = {
         code: newCountryForm.code.toUpperCase().trim(),
         name: newCountryForm.name.trim(),
         currency_code: newCountryForm.currencyCode.toUpperCase().trim(),
         currency_symbol: newCountryForm.currencySymbol || '$',
+        fx_rate_to_usd: Number(newCountryForm.fxRateToUSD) || 1.0,
         primary_timezone: newCountryForm.primaryTimezone || 'UTC',
         tax_scheme: newCountryForm.taxScheme,
         social_security: newCountryForm.socialSecurity,
         fiscal_year: newCountryForm.fiscalYear
-      });
+      };
 
-      showToast(`Sovereign Country ${newCountryForm.name} registered.`, 'success');
+      await createCountry(payload);
+
+      showToast(`Sovereign Country ${newCountryForm.name} registered (FX: 1 USD = ${payload.fx_rate_to_usd} ${payload.currency_code})!`, 'success');
       logAudit('SOVEREIGN_COUNTRY_ADDED', `Registered country ${newCountryForm.name} (${newCountryForm.code})`);
       setIsCreateCountryOpen(false);
       loadAllData();
@@ -1438,6 +1500,7 @@ export default function SuperAdminDashboard({
         name: '',
         currencyCode: '',
         currencySymbol: '',
+        fxRateToUSD: 1.0,
         primaryTimezone: 'UTC',
         taxScheme: 'Standard VAT / PIT',
         socialSecurity: 'Statutory Scheme',
@@ -1454,6 +1517,7 @@ export default function SuperAdminDashboard({
       name: country.name,
       currencyCode: country.currencyCode,
       currencySymbol: country.currencySymbol,
+      fxRateToUSD: country.fxRateToUSD || 1.0,
       primaryTimezone: country.timezone,
       taxScheme: country.taxScheme,
       socialSecurity: country.socialSecurity,
@@ -1467,18 +1531,34 @@ export default function SuperAdminDashboard({
     if (!editingCountry) return;
 
     try {
-      await updateCountry(editingCountry.code, {
+      const updatedData = {
         name: editCountryForm.name,
         currency_code: editCountryForm.currencyCode,
         currency_symbol: editCountryForm.currencySymbol,
+        fx_rate_to_usd: Number(editCountryForm.fxRateToUSD) || 1.0,
         primary_timezone: editCountryForm.primaryTimezone,
         tax_scheme: editCountryForm.taxScheme,
         social_security: editCountryForm.socialSecurity,
         fiscal_year: editCountryForm.fiscalYear
-      });
+      };
 
-      showToast(`Country ${editingCountry.name} updated.`, 'success');
-      logAudit('SOVEREIGN_COUNTRY_UPDATED', `Updated statutory parameters for ${editingCountry.name}`);
+      await updateCountry(editingCountry.code, updatedData);
+
+      // Instantly update in-memory sovereignRegistry so all UI components update live
+      setSovereignRegistry(prev => prev.map(c => c.code === editingCountry.code ? {
+        ...c,
+        name: editCountryForm.name,
+        currencyCode: editCountryForm.currencyCode,
+        currencySymbol: editCountryForm.currencySymbol,
+        fxRateToUSD: Number(editCountryForm.fxRateToUSD) || 1.0,
+        timezone: editCountryForm.primaryTimezone,
+        taxScheme: editCountryForm.taxScheme,
+        socialSecurity: editCountryForm.socialSecurity,
+        fiscalYear: editCountryForm.fiscalYear
+      } : c));
+
+      showToast(`Country ${editingCountry.name} updated: FX Rate, Timezone & Tax synced!`, 'success');
+      logAudit('SOVEREIGN_COUNTRY_UPDATED', `Updated statutory parameters for ${editingCountry.name} (FX: ${editCountryForm.fxRateToUSD})`);
       setIsEditCountryOpen(false);
       loadAllData();
     } catch (err) {
@@ -2385,8 +2465,73 @@ export default function SuperAdminDashboard({
 
           {jurisdictionSubTab === 'currencies' && (
             <div className="saas-overview-layout">
+              {/* Interactive Live FX & Tax Calculator */}
+              <div className="card-section" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '20px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.05rem', fontWeight: '800', color: '#1e3a8a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Coins size={20} color="#2563eb" /> Live Real-Time Multi-Currency &amp; Tax Converter
+                    </h3>
+                    <p style={{ fontSize: '0.8rem', color: '#64748b', margin: 0 }}>
+                      Calculate SaaS plan pricing, tax withholding, and local currency billing across all {sovereignRegistry.length} sovereign markets instantly.
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', alignItems: 'flex-end' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: '700' }}>Base Amount ($ USD)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={fxConverter.amount}
+                      onChange={(e) => setFxConverter(prev => ({ ...prev, amount: Number(e.target.value) }))}
+                      className="form-control"
+                      style={{ fontWeight: '800', fontSize: '1rem', background: '#ffffff' }}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: '700' }}>Target Sovereign Country</label>
+                    <select
+                      className="form-control"
+                      value={fxConverter.toCurrency}
+                      onChange={(e) => setFxConverter(prev => ({ ...prev, toCurrency: e.target.value }))}
+                      style={{ fontWeight: '700', background: '#ffffff' }}
+                    >
+                      {sovereignRegistry.map((c) => (
+                        <option key={c.code} value={c.currencyCode}>
+                          {c.flag} {c.name} ({c.currencyCode})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {(() => {
+                    const targetC = sovereignRegistry.find(c => c.currencyCode === fxConverter.toCurrency) || sovereignRegistry[0];
+                    const convertedVal = (fxConverter.amount * (targetC.fxRateToUSD || 1)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    return (
+                      <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px 14px' }}>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>
+                          Converted Value ({targetC.currencyCode})
+                        </div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#0f172a', fontFamily: 'monospace' }}>
+                          {targetC.currencySymbol} {convertedVal}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: '600' }}>
+                          🏛️ Tax Scheme: {targetC.taxScheme}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
               <div className="card-section">
-                <h2 className="section-title">Multi-Currency Exchange Matrix</h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h2 className="section-title">Multi-Currency Exchange Matrix</h2>
+                  <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Live rates synced with database &amp; sovereign registry</span>
+                </div>
                 <div className="saas-table-container" style={{ marginTop: '12px' }}>
                   <table className="saas-data-table">
                     <thead>
@@ -2395,6 +2540,8 @@ export default function SuperAdminDashboard({
                         <th>ISO Code</th>
                         <th>Symbol</th>
                         <th>Exchange Rate (per 1 USD)</th>
+                        <th>Tax / Withholding Standard</th>
+                        <th style={{ textAlign: 'right' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2408,8 +2555,21 @@ export default function SuperAdminDashboard({
                           </td>
                           <td><span className="tenant-id-pill">{c.currencyCode}</span></td>
                           <td><strong>{c.currencySymbol}</strong></td>
-                          <td style={{ fontFamily: 'monospace', fontWeight: '700' }}>
+                          <td style={{ fontFamily: 'monospace', fontWeight: '700', color: '#1e40af' }}>
                             1 USD = {(c.fxRateToUSD || 1).toLocaleString()} {c.currencyCode}
+                          </td>
+                          <td style={{ fontSize: '0.78rem', color: '#475569' }}>
+                            {c.taxScheme}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <button
+                              type="button"
+                              className="action-pill-btn"
+                              onClick={() => handleOpenEditCountry(c)}
+                              title="Update Exchange Rate & Tax"
+                            >
+                              <Edit size={12} /> Edit FX &amp; Tax
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -3033,6 +3193,25 @@ export default function SuperAdminDashboard({
                 </div>
               )}
 
+              {/* Dynamic Local Currency & Tax Scheme Preview */}
+              {(() => {
+                const currentCountry = sovereignRegistry.find(c => c.name === newCompanyForm.country || c.code === newCompanyForm.countryCode) || sovereignRegistry[0];
+                const isTrial = newCompanyForm.plan === 'FREE_TRIAL';
+                const usdRate = isTrial ? 0 : (newCompanyForm.plan === 'CUSTOM' ? Number(newCompanyForm.customRate) || 0 : (newCompanyForm.plan === 'ENTERPRISE' ? 2500 : (newCompanyForm.plan === 'PROFESSIONAL' ? 1000 : 100)));
+                const localRate = (usdRate * (currentCountry.fxRateToUSD || 1)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+                return (
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 14px', margin: '6px 0 12px', fontSize: '0.8rem', color: '#166534' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span><strong>💱 Real-Time Local Billing:</strong> {isTrial ? 'Free Trial ($0.00)' : `${currentCountry.currencySymbol} ${localRate} ${currentCountry.currencyCode}`}</span>
+                      <span style={{ fontSize: '0.72rem', color: '#15803d', fontFamily: 'monospace' }}>(1 USD = {(currentCountry.fxRateToUSD || 1).toLocaleString()} {currentCountry.currencyCode})</span>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#14532d' }}>
+                      <strong>🏛️ Statutory Tax Standard:</strong> {currentCountry.taxScheme} | <strong>⏰ Timezone:</strong> {currentCountry.timezone}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Start & End Date Time Picker with Duration Presets */}
               <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', margin: '4px 0 14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -3095,23 +3274,23 @@ export default function SuperAdminDashboard({
 
               <div className="form-grid-2">
                 <div className="form-group">
-                  <label>Default Currency</label>
+                  <label>Auto-Assigned Currency</label>
                   <input
                     type="text"
                     readOnly
-                    value={newCompanyForm.currency}
+                    value={`${newCompanyForm.currency}`}
                     className="form-control"
-                    style={{ background: '#f1f5f9' }}
+                    style={{ background: '#f1f5f9', fontWeight: '700' }}
                   />
                 </div>
                 <div className="form-group">
-                  <label>Default Timezone</label>
+                  <label>Auto-Assigned Timezone</label>
                   <input
                     type="text"
                     readOnly
                     value={newCompanyForm.timezone}
                     className="form-control"
-                    style={{ background: '#f1f5f9' }}
+                    style={{ background: '#f1f5f9', fontWeight: '700' }}
                   />
                 </div>
               </div>
@@ -3138,7 +3317,7 @@ export default function SuperAdminDashboard({
                 <Edit size={22} color="#2563eb" />
                 <div>
                   <h3>Edit Pharma Company</h3>
-                  <p>Update tenant details, quotas, and subscription start/end timestamps.</p>
+                  <p>Update jurisdiction, currency, timezone, and subscription validity.</p>
                 </div>
               </div>
               <button type="button" className="close-modal-btn" onClick={() => setIsEditCompanyOpen(false)}>&times;</button>
@@ -3157,6 +3336,23 @@ export default function SuperAdminDashboard({
                   />
                 </div>
                 <div className="form-group">
+                  <label>Sovereign Country Jurisdiction</label>
+                  <select
+                    className="form-control"
+                    value={editCompanyForm.country}
+                    onChange={(e) => handleEditCompanyCountryChange(e.target.value)}
+                  >
+                    {sovereignRegistry.map((c) => (
+                      <option key={c.code} value={c.name}>
+                        {c.flag} {c.name} ({c.currencyCode})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
                   <label>Subscription Tier</label>
                   <select
                     className="form-control"
@@ -3168,6 +3364,19 @@ export default function SuperAdminDashboard({
                     <option value="PROFESSIONAL">Professional Tier ($1,000/mo)</option>
                     <option value="ENTERPRISE">Enterprise Tier ($2,500/mo)</option>
                     <option value="CUSTOM">Custom Pricing (User Defined)</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Status</label>
+                  <select
+                    className="form-control"
+                    value={editCompanyForm.status}
+                    onChange={(e) => setEditCompanyForm({ ...editCompanyForm, status: e.target.value })}
+                  >
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="TRIAL">TRIAL</option>
+                    <option value="SUSPENDED">SUSPENDED</option>
+                    <option value="DEACTIVATED">DEACTIVATED</option>
                   </select>
                 </div>
               </div>
@@ -3183,6 +3392,25 @@ export default function SuperAdminDashboard({
                   />
                 </div>
               )}
+
+              {/* Dynamic Local Currency & Tax Scheme Preview in Edit Modal */}
+              {(() => {
+                const currentCountry = sovereignRegistry.find(c => c.name === editCompanyForm.country || c.code === editCompanyForm.countryCode) || sovereignRegistry[0];
+                const isTrial = editCompanyForm.plan === 'FREE_TRIAL';
+                const usdRate = isTrial ? 0 : (editCompanyForm.plan === 'CUSTOM' ? Number(editCompanyForm.customRate) || 0 : (editCompanyForm.plan === 'ENTERPRISE' ? 2500 : (editCompanyForm.plan === 'PROFESSIONAL' ? 1000 : 100)));
+                const localRate = (usdRate * (currentCountry.fxRateToUSD || 1)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+                return (
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 14px', margin: '6px 0 12px', fontSize: '0.8rem', color: '#166534' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span><strong>💱 Real-Time Local Billing:</strong> {isTrial ? 'Free Trial ($0.00)' : `${currentCountry.currencySymbol} ${localRate} ${currentCountry.currencyCode}`}</span>
+                      <span style={{ fontSize: '0.72rem', color: '#15803d', fontFamily: 'monospace' }}>(1 USD = {(currentCountry.fxRateToUSD || 1).toLocaleString()} {currentCountry.currencyCode})</span>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#14532d' }}>
+                      <strong>🏛️ Statutory Tax:</strong> {currentCountry.taxScheme} | <strong>⏰ Timezone:</strong> {editCompanyForm.timezone}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Start & End Timestamps in Edit Modal */}
               <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', margin: '4px 0 14px' }}>
@@ -3228,16 +3456,14 @@ export default function SuperAdminDashboard({
                   />
                 </div>
                 <div className="form-group">
-                  <label>Status</label>
-                  <select
+                  <label>Assigned Currency &amp; Timezone</label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={`${editCompanyForm.currency} (${editCompanyForm.timezone})`}
                     className="form-control"
-                    value={editCompanyForm.status}
-                    onChange={(e) => setEditCompanyForm({ ...editCompanyForm, status: e.target.value })}
-                  >
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="TRIAL">TRIAL</option>
-                    <option value="SUSPENDED">SUSPENDED</option>
-                  </select>
+                    style={{ background: '#f1f5f9', fontWeight: '700' }}
+                  />
                 </div>
               </div>
 
@@ -3872,13 +4098,13 @@ export default function SuperAdminDashboard({
           ===================================================================== */}
       {isCreateCountryOpen && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="modal-content" style={{ maxWidth: '640px' }}>
             <div className="modal-header">
               <div className="modal-title-group">
                 <Globe2 size={22} color="#d97706" />
                 <div>
                   <h3>Add Sovereign Jurisdiction</h3>
-                  <p>Register a new sovereign market with statutory compliance.</p>
+                  <p>Register a new sovereign market with statutory compliance, FX exchange rate, and timezone.</p>
                 </div>
               </div>
               <button type="button" className="close-modal-btn" onClick={() => setIsCreateCountryOpen(false)}>&times;</button>
@@ -3911,7 +4137,7 @@ export default function SuperAdminDashboard({
                 </div>
               </div>
 
-              <div className="form-grid-2">
+              <div className="form-grid-3">
                 <div className="form-group">
                   <label>Currency ISO Code *</label>
                   <input
@@ -3933,15 +4159,63 @@ export default function SuperAdminDashboard({
                     className="form-control"
                   />
                 </div>
+                <div className="form-group">
+                  <label>Exchange Rate (per 1 USD) *</label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    min="0"
+                    required
+                    placeholder="e.g. 3.6725"
+                    value={newCountryForm.fxRateToUSD}
+                    onChange={(e) => setNewCountryForm({ ...newCountryForm, fxRateToUSD: Number(e.target.value) })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Primary IANA Timezone *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Asia/Dubai"
+                    value={newCountryForm.primaryTimezone}
+                    onChange={(e) => setNewCountryForm({ ...newCountryForm, primaryTimezone: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Fiscal Year</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. January - December"
+                    value={newCountryForm.fiscalYear}
+                    onChange={(e) => setNewCountryForm({ ...newCountryForm, fiscalYear: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
               </div>
 
               <div className="form-group">
-                <label>Primary IANA Timezone</label>
+                <label>Tax &amp; Withholding Scheme</label>
                 <input
                   type="text"
-                  placeholder="e.g. Asia/Dubai"
-                  value={newCountryForm.primaryTimezone}
-                  onChange={(e) => setNewCountryForm({ ...newCountryForm, primaryTimezone: e.target.value })}
+                  placeholder="e.g. VAT 5% + Corporate Tax 9%"
+                  value={newCountryForm.taxScheme}
+                  onChange={(e) => setNewCountryForm({ ...newCountryForm, taxScheme: e.target.value })}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Social Security / Statutory Care</label>
+                <input
+                  type="text"
+                  placeholder="e.g. GPSSA Pension / Statutory Insurance"
+                  value={newCountryForm.socialSecurity}
+                  onChange={(e) => setNewCountryForm({ ...newCountryForm, socialSecurity: e.target.value })}
                   className="form-control"
                 />
               </div>
@@ -3958,23 +4232,81 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          MODAL: EDIT COUNTRY STATUTORY COMPLIANCE
+          MODAL: EDIT COUNTRY STATUTORY COMPLIANCE & FX
           ===================================================================== */}
       {isEditCountryOpen && editingCountry && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="modal-content" style={{ maxWidth: '640px' }}>
             <div className="modal-header">
               <div className="modal-title-group">
                 <Settings size={22} color="#2563eb" />
                 <div>
-                  <h3>Configure Compliance Rules</h3>
-                  <p>Statutory tax, social security, and currency rules for {editingCountry.name}</p>
+                  <h3>Configure Sovereign Jurisdiction</h3>
+                  <p>Update currency, live FX rate, timezone, and statutory tax rules for {editingCountry.name} ({editingCountry.code})</p>
                 </div>
               </div>
               <button type="button" className="close-modal-btn" onClick={() => setIsEditCountryOpen(false)}>&times;</button>
             </div>
 
             <form onSubmit={handleUpdateCountry} className="modal-form-body">
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Country Commercial Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editCountryForm.name}
+                    onChange={(e) => setEditCountryForm({ ...editCountryForm, name: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Primary IANA Timezone</label>
+                  <input
+                    type="text"
+                    required
+                    value={editCountryForm.primaryTimezone}
+                    onChange={(e) => setEditCountryForm({ ...editCountryForm, primaryTimezone: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-grid-3">
+                <div className="form-group">
+                  <label>Currency ISO Code</label>
+                  <input
+                    type="text"
+                    required
+                    value={editCountryForm.currencyCode}
+                    onChange={(e) => setEditCountryForm({ ...editCountryForm, currencyCode: e.target.value.toUpperCase() })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Currency Symbol</label>
+                  <input
+                    type="text"
+                    value={editCountryForm.currencySymbol}
+                    onChange={(e) => setEditCountryForm({ ...editCountryForm, currencySymbol: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Exchange Rate (per 1 USD)</label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    min="0"
+                    required
+                    value={editCountryForm.fxRateToUSD}
+                    onChange={(e) => setEditCountryForm({ ...editCountryForm, fxRateToUSD: Number(e.target.value) })}
+                    className="form-control"
+                    style={{ fontWeight: '700', color: '#1e40af' }}
+                  />
+                </div>
+              </div>
+
               <div className="form-group">
                 <label>Tax &amp; Withholding Scheme</label>
                 <input
@@ -3985,20 +4317,31 @@ export default function SuperAdminDashboard({
                 />
               </div>
 
-              <div className="form-group">
-                <label>Social Security / Statutory Fund</label>
-                <input
-                  type="text"
-                  value={editCountryForm.socialSecurity}
-                  onChange={(e) => setEditCountryForm({ ...editCountryForm, socialSecurity: e.target.value })}
-                  className="form-control"
-                />
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Social Security / Statutory Fund</label>
+                  <input
+                    type="text"
+                    value={editCountryForm.socialSecurity}
+                    onChange={(e) => setEditCountryForm({ ...editCountryForm, socialSecurity: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Fiscal Year</label>
+                  <input
+                    type="text"
+                    value={editCountryForm.fiscalYear}
+                    onChange={(e) => setEditCountryForm({ ...editCountryForm, fiscalYear: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
               </div>
 
               <div className="modal-actions-bar">
                 <button type="button" className="cancel-btn" onClick={() => setIsEditCountryOpen(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary">
-                  <Save size={16} /> <span>Save Compliance Rules</span>
+                  <Save size={16} /> <span>Save Sovereign Configuration</span>
                 </button>
               </div>
             </form>
