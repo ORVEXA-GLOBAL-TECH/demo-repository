@@ -322,7 +322,154 @@ CREATE INDEX IF NOT EXISTS idx_threat_alerts_severity ON platform_security_threa
 CREATE INDEX IF NOT EXISTS idx_threat_alerts_created_at ON platform_security_threat_alerts(created_at DESC);
 
 -- ==============================================================================
--- 13. GRANT ACCESS & DISABLE RLS FOR FRONTEND/SUPABASE COMPATIBILITY
+-- 13. COMPANY DATA EXPORTS & ARCHIVES (company_data_exports & archives)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS company_data_exports (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    export_code VARCHAR(100) UNIQUE NOT NULL,
+    tenant_id UUID REFERENCES tenants_companies(id) ON DELETE CASCADE,
+    company_name VARCHAR(255) NOT NULL,
+    data_scope VARCHAR(100) NOT NULL DEFAULT 'FULL_INSTANCE', -- FULL_INSTANCE | DCR_ORDERS | CLINICAL_GEO | AUDIT_COMPLIANCE
+    format VARCHAR(20) NOT NULL DEFAULT 'ZIP_JSON', -- ZIP_JSON | CSV_BUNDLE | ENCRYPTED_TAR_GZ
+    status VARCHAR(50) NOT NULL DEFAULT 'READY', -- PENDING | PROCESSING | READY | EXPIRED | FAILED
+    file_size_mb NUMERIC(10,2) DEFAULT 45.20,
+    download_url TEXT,
+    download_expires_at TIMESTAMP WITH TIME ZONE,
+    requested_by VARCHAR(255) NOT NULL,
+    encryption_mode VARCHAR(50) DEFAULT 'AES-256',
+    checksum VARCHAR(100),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS company_data_archives (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    archive_code VARCHAR(100) UNIQUE NOT NULL,
+    tenant_id UUID REFERENCES tenants_companies(id) ON DELETE CASCADE,
+    company_name VARCHAR(255) NOT NULL,
+    storage_tier VARCHAR(50) NOT NULL DEFAULT 'GLACIER_DEEP_COLD', -- GLACIER_FLEXIBLE | GLACIER_DEEP_COLD | SOVEREIGN_ISOLATED_VAULT
+    archive_reason VARCHAR(255) NOT NULL DEFAULT 'ANNUAL_COMPLIANCE_ARCHIVE',
+    status VARCHAR(50) NOT NULL DEFAULT 'ARCHIVED', -- ARCHIVED | RESTORING | ACCESSIBLE | PURGED
+    archive_size_gb NUMERIC(10,2) DEFAULT 12.40,
+    archived_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ==============================================================================
+-- 14. DATA RETENTION POLICIES (data_retention_policies)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS data_retention_policies (
+    id VARCHAR(100) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    entity VARCHAR(100) NOT NULL,
+    retention_days INT NOT NULL,
+    auto_purge BOOLEAN DEFAULT true,
+    archive_before_purge BOOLEAN DEFAULT true,
+    legal_hold_exempt BOOLEAN DEFAULT false,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ==============================================================================
+-- 15. DATA RESTORE & DELETION REQUESTS (data_restore_requests & data_deletion_requests)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS data_restore_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    request_code VARCHAR(100) UNIQUE NOT NULL,
+    tenant_id UUID REFERENCES tenants_companies(id) ON DELETE CASCADE,
+    company_name VARCHAR(255) NOT NULL,
+    backup_snapshot_id VARCHAR(100) NOT NULL,
+    point_in_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    reason TEXT NOT NULL,
+    target_environment VARCHAR(50) NOT NULL DEFAULT 'STAGING_SANDBOX', -- STAGING_SANDBOX | PRODUCTION_OVERWRITE | ISOLATED_AUDIT_CONTAINER
+    status VARCHAR(50) NOT NULL DEFAULT 'PENDING_APPROVAL', -- PENDING_APPROVAL | APPROVED | RESTORING | COMPLETED | REJECTED
+    requested_by VARCHAR(255) NOT NULL,
+    reviewed_by VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS data_deletion_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    request_code VARCHAR(100) UNIQUE NOT NULL,
+    tenant_id UUID REFERENCES tenants_companies(id) ON DELETE CASCADE,
+    company_name VARCHAR(255) NOT NULL,
+    deletion_type VARCHAR(50) NOT NULL DEFAULT 'GDPR_RIGHT_TO_BE_FORGOTTEN', -- GDPR_RIGHT_TO_BE_FORGOTTEN | FULL_TENANT_OFFBOARDING | SELECTIVE_PURGE
+    scope VARCHAR(100) NOT NULL DEFAULT 'DCR_GPS_AND_PERSONAL_DATA',
+    status VARCHAR(50) NOT NULL DEFAULT 'PENDING_CONFIRMATION', -- PENDING_CONFIRMATION | SCHEDULED_PURGE | PURGED | REJECTED
+    verification_token VARCHAR(100) NOT NULL DEFAULT 'CONFIRM_PURGE',
+    safety_grace_days INT DEFAULT 7,
+    requested_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    executed_at TIMESTAMP WITH TIME ZONE
+);
+
+-- ==============================================================================
+-- 16. API MANAGEMENT: KEYS, CLIENTS, WEBHOOKS, FAILED REQUESTS, INTEGRATIONS
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS platform_api_keys (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    key_name VARCHAR(255) NOT NULL,
+    key_prefix VARCHAR(50) NOT NULL,
+    key_hash VARCHAR(255) NOT NULL,
+    tenant_id UUID REFERENCES tenants_companies(id) ON DELETE SET NULL,
+    company_name VARCHAR(255) DEFAULT 'Global Platform Core',
+    tier VARCHAR(50) DEFAULT 'ENTERPRISE', -- BASIC | PRO | ENTERPRISE | UNLIMITED
+    scopes JSONB DEFAULT '["read:dcr", "write:orders", "read:inventory", "read:analytics"]'::jsonb,
+    rate_limit_rpm INT DEFAULT 1200,
+    daily_quota INT DEFAULT 500000,
+    status VARCHAR(50) DEFAULT 'ACTIVE', -- ACTIVE | SUSPENDED | REVOKED
+    last_used_at TIMESTAMP WITH TIME ZONE,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    created_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS platform_api_clients (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    client_name VARCHAR(255) NOT NULL,
+    client_id VARCHAR(100) UNIQUE NOT NULL,
+    client_secret_hash VARCHAR(255) NOT NULL,
+    client_type VARCHAR(50) DEFAULT 'ENTERPRISE_ERP', -- ENTERPRISE_ERP | THIRD_PARTY_CRM | WAREHOUSE_LOGISTICS | ANALYTICS_PIPELINE
+    tenant_id UUID REFERENCES tenants_companies(id) ON DELETE SET NULL,
+    company_name VARCHAR(255) DEFAULT 'Global Platform Core',
+    grant_types JSONB DEFAULT '["client_credentials", "authorization_code"]'::jsonb,
+    redirect_uris JSONB DEFAULT '[]'::jsonb,
+    status VARCHAR(50) DEFAULT 'ACTIVE',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS platform_webhooks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    webhook_name VARCHAR(255) NOT NULL,
+    target_url TEXT NOT NULL,
+    events JSONB DEFAULT '["order.created", "order.approved", "dcr.submitted", "user.lockout"]'::jsonb,
+    tenant_id UUID REFERENCES tenants_companies(id) ON DELETE SET NULL,
+    company_name VARCHAR(255) DEFAULT 'Global Platform Core',
+    secret_key VARCHAR(255) NOT NULL,
+    status VARCHAR(50) DEFAULT 'ACTIVE', -- ACTIVE | PAUSED | FAILING
+    consecutive_failures INT DEFAULT 0,
+    last_delivery_status INT DEFAULT 200,
+    last_delivery_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS platform_api_failed_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    request_id VARCHAR(100) UNIQUE NOT NULL,
+    endpoint VARCHAR(255) NOT NULL,
+    http_method VARCHAR(20) NOT NULL,
+    status_code INT NOT NULL,
+    client_id VARCHAR(100),
+    company_name VARCHAR(255),
+    error_reason TEXT NOT NULL,
+    payload JSONB DEFAULT '{}'::jsonb,
+    ip_address VARCHAR(64),
+    retry_count INT DEFAULT 0,
+    resolved BOOLEAN DEFAULT false,
+    occurred_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ==============================================================================
+-- 17. GRANT ACCESS & DISABLE RLS FOR FRONTEND/SUPABASE COMPATIBILITY
 -- ==============================================================================
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, postgres, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, postgres, service_role;
@@ -337,17 +484,21 @@ ALTER TABLE IF EXISTS background_queue_jobs DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS platform_system_health_logs DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS platform_active_sessions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS platform_security_threat_alerts DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS company_data_exports DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS company_data_archives DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS data_retention_policies DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS data_restore_requests DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS data_deletion_requests DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS platform_api_keys DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS platform_api_clients DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS platform_webhooks DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS platform_api_failed_requests DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS tenants_companies DISABLE ROW LEVEL SECURITY;
 
 -- ==============================================================================
--- 14. VERIFICATION QUERY OUTPUT
+-- 18. VERIFICATION QUERY OUTPUT
 -- ==============================================================================
-SELECT '🎉 Database successfully updated with all Global Configuration, RBAC, User Management, System Health, Security Governance, and Active Session schema enhancements!' as migration_status,
-       (SELECT count(*) FROM platform_settings) as platform_settings_count,
-       (SELECT count(*) FROM role_templates) as role_templates_count,
-       (SELECT count(*) FROM subscription_plans) as subscription_plans_count,
-       (SELECT count(*) FROM platform_backup_logs) as backup_logs_count,
-       (SELECT count(*) FROM users) as total_users;
+SELECT '🎉 Database successfully updated with all Global Configuration, RBAC, User Management, System Health, Security Governance, Data Management, and API Management schemas!' as migration_status;
 
 

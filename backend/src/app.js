@@ -29,6 +29,8 @@ import auditRoutes from './routes/auditRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
 import systemHealthRoutes from './routes/systemHealthRoutes.js';
 import securityRoutes from './routes/securityRoutes.js';
+import dataManagementRoutes from './routes/dataManagementRoutes.js';
+import apiManagementRoutes from './routes/apiManagementRoutes.js';
 
 const app = express();
 
@@ -101,6 +103,8 @@ app.use('/api/plans', subscriptionRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/system-health', systemHealthRoutes);
 app.use('/api/security', securityRoutes);
+app.use('/api/data-management', dataManagementRoutes);
+app.use('/api/api-management', apiManagementRoutes);
 app.use('/api', auditRoutes);
 app.use('/api', tenantRoutes);
 

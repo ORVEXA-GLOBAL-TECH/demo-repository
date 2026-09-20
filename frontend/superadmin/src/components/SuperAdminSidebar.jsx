@@ -17,7 +17,8 @@ import {
   Megaphone,
   UserCircle,
   FileCode2,
-  AlertOctagon
+  AlertOctagon,
+  Database
 } from 'lucide-react';
 
 export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
@@ -38,7 +39,7 @@ export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
         { id: 'features', label: 'Features & Rollouts', icon: Layers },
         { id: 'settings', label: 'Global Settings', icon: Settings },
         { id: 'roles', label: 'Role Templates', icon: ShieldCheck },
-        { id: 'integrations', label: 'Integrations & APIs', icon: Radio },
+        { id: 'integrations', label: 'API & Integrations', icon: Radio },
         { id: 'app-management', label: 'App Version Control', icon: Smartphone }
       ]
     },
@@ -47,7 +48,8 @@ export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
       items: [
         { id: 'analytics', label: 'Platform Analytics', icon: BarChart3 },
         { id: 'security', label: 'Security & Audit Logs', icon: Lock },
-        { id: 'system-health', label: 'System Health & Maintenance', icon: Server },
+        { id: 'system-health', label: 'System Health & Telemetry', icon: Server },
+        { id: 'data-management', label: 'Data Management & Backups', icon: Database },
         { id: 'support', label: 'Support Desk', icon: LifeBuoy },
         { id: 'communications', label: 'Announcements', icon: Megaphone }
       ]

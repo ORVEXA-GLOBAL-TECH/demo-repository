@@ -77,7 +77,19 @@ import {
   Award,
   Zap,
   Bell,
-  Cpu
+  Cpu,
+  Code,
+  Terminal,
+  Copy,
+  CheckCheck,
+  Archive,
+  FolderArchive,
+  FileSpreadsheet,
+  FileArchive,
+  Shield,
+  History,
+  AlertCircle,
+  Play
 } from 'lucide-react';
 
 import {
@@ -142,7 +154,34 @@ import {
   terminateSession,
   terminateAllSessions,
   getSecurityAlerts,
-  resolveSecurityAlert
+  resolveSecurityAlert,
+  getDataManagementOverview,
+  getCompanyDataExports,
+  triggerCompanyDataExport,
+  getCompanyDataArchives,
+  archiveCompanyData,
+  getDataRetentionPolicies,
+  updateDataRetentionPolicy,
+  getDataRestoreRequests,
+  submitDataRestoreRequest,
+  reviewDataRestoreRequest,
+  getDataDeletionRequests,
+  submitDataDeletionRequest,
+  confirmDataDeletionRequest,
+  getApiManagementOverview,
+  getApiKeys,
+  generateApiKey,
+  revokeApiKey,
+  getApiClients,
+  createApiClient,
+  getWebhooks,
+  createWebhook,
+  testWebhook,
+  getApiFailedRequests,
+  retryFailedApiRequest,
+  getLiveApiLogs,
+  getIntegrationAccessList,
+  toggleIntegrationAccess
 } from '../services/api';
 
 import { DEFAULT_SOVEREIGN_REGISTRY } from '../data/sovereignRegistry';
@@ -414,6 +453,48 @@ export default function SuperAdminDashboard({
   const [newWhitelistIpInput, setNewWhitelistIpInput] = useState('');
   const [newBlacklistIpInput, setNewBlacklistIpInput] = useState('');
 
+  // --------------------------------------------------------------------------
+  // DATA MANAGEMENT STATES
+  // --------------------------------------------------------------------------
+  const [dataSubTab, setDataSubTab] = useState('storage'); // storage | exports | retention | restores | deletions
+  const [dataOverview, setDataOverview] = useState(null);
+  const [dataExports, setDataExports] = useState([]);
+  const [dataRetentionPolicies, setDataRetentionPolicies] = useState([]);
+  const [dataRestoreRequests, setDataRestoreRequests] = useState([]);
+  const [dataDeletionRequests, setDataDeletionRequests] = useState([]);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportForm, setExportForm] = useState({ companyId: '', companyName: '', format: 'ZIP (JSON + CSV + Media Manifest)' });
+  const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
+  const [restoreForm, setRestoreForm] = useState({ tenantId: '', companyName: '', targetPointInTime: '', restoreType: 'POINT_IN_TIME_TRANSACTIONAL', reason: '' });
+  const [isDeletionModalOpen, setIsDeletionModalOpen] = useState(false);
+  const [deletionForm, setDeletionForm] = useState({ tenantId: '', companyName: '', scope: 'FULL_TENANT_DATA_PURGE', reason: '' });
+  const [isConfirmPurgeOpen, setIsConfirmPurgeOpen] = useState(false);
+  const [confirmPurgeTarget, setConfirmPurgeTarget] = useState(null);
+  const [confirmPurgeTokenInput, setConfirmPurgeTokenInput] = useState('');
+  const [isEditRetentionOpen, setIsEditRetentionOpen] = useState(false);
+  const [editingRetentionPolicy, setEditingRetentionPolicy] = useState(null);
+
+  // --------------------------------------------------------------------------
+  // API MANAGEMENT STATES
+  // --------------------------------------------------------------------------
+  const [apiSubTab, setApiSubTab] = useState('keys'); // keys | clients | webhooks | limits | dlq | logs | integrations
+  const [apiOverview, setApiOverview] = useState(null);
+  const [apiKeys, setApiKeys] = useState([]);
+  const [apiClients, setApiClients] = useState([]);
+  const [webhooks, setWebhooks] = useState([]);
+  const [apiFailedRequests, setApiFailedRequests] = useState([]);
+  const [liveApiLogs, setLiveApiLogs] = useState([]);
+  const [integrationAccessList, setIntegrationAccessList] = useState([]);
+  const [isCreateApiKeyOpen, setIsCreateApiKeyOpen] = useState(false);
+  const [newApiKeyForm, setNewApiKeyForm] = useState({ keyName: '', companyId: '', clientId: '', scopes: ['orders:read', 'catalog:read'], rateLimitRpm: 1200, expiresDays: 365 });
+  const [newApiKeyCreatedResult, setNewApiKeyCreatedResult] = useState(null);
+  const [isCreateApiClientOpen, setIsCreateApiClientOpen] = useState(false);
+  const [newApiClientForm, setNewApiClientForm] = useState({ clientName: '', clientType: 'M2M_BACKEND_SERVICE', companyId: '', authMethod: 'API_KEY_AND_BEARER_JWT' });
+  const [isCreateWebhookOpen, setIsCreateWebhookOpen] = useState(false);
+  const [newWebhookForm, setNewWebhookForm] = useState({ webhookName: '', companyId: '', targetUrl: '', subscribedEvents: ['order.created', 'order.approved'] });
+  const [selectedFailedReqInspect, setSelectedFailedReqInspect] = useState(null);
+  const [apiLogsFilter, setApiLogsFilter] = useState('ALL');
+
   // Active Multi-Currency Display Setting
   const [selectedDisplayCurrency, setSelectedDisplayCurrency] = useState('USD');
   const [selectedCountryFilter, setSelectedCountryFilter] = useState('ALL');
@@ -439,7 +520,13 @@ export default function SuperAdminDashboard({
   // --------------------------------------------------------------------------
   const loadAllData = async () => {
     try {
-      const [tenantsRes, usersRes, countriesRes, subsRes, alertsRes, auditRes, plansRes, settingsRes, rolesRes, analyticsRes, healthRes, secPolRes, activeSessRes, secAlertsRes] = await Promise.allSettled([
+      const [
+        tenantsRes, usersRes, countriesRes, subsRes, alertsRes, auditRes,
+        plansRes, settingsRes, rolesRes, analyticsRes, healthRes, secPolRes,
+        activeSessRes, secAlertsRes, dataOverRes, dataExpRes, dataRetRes,
+        dataRestRes, dataDelRes, apiOverRes, apiKeysRes, apiClientsRes,
+        apiWhkRes, apiDlqRes, apiLogsRes, apiIntRes
+      ] = await Promise.allSettled([
         getTenants(),
         getPlatformUsers(),
         getSovereignCountries(),
@@ -453,8 +540,34 @@ export default function SuperAdminDashboard({
         getSystemHealth(),
         getSecurityPolicies(),
         getActiveSessions(),
-        getSecurityAlerts()
+        getSecurityAlerts(),
+        getDataManagementOverview(),
+        getCompanyDataExports(),
+        getDataRetentionPolicies(),
+        getDataRestoreRequests(),
+        getDataDeletionRequests(),
+        getApiManagementOverview(),
+        getApiKeys(),
+        getApiClients(),
+        getWebhooks(),
+        getApiFailedRequests(),
+        getLiveApiLogs(),
+        getIntegrationAccessList()
       ]);
+
+      if (dataOverRes.status === 'fulfilled' && dataOverRes.value) setDataOverview(dataOverRes.value);
+      if (dataExpRes.status === 'fulfilled' && Array.isArray(dataExpRes.value)) setDataExports(dataExpRes.value);
+      if (dataRetRes.status === 'fulfilled' && Array.isArray(dataRetRes.value)) setDataRetentionPolicies(dataRetRes.value);
+      if (dataRestRes.status === 'fulfilled' && Array.isArray(dataRestRes.value)) setDataRestoreRequests(dataRestRes.value);
+      if (dataDelRes.status === 'fulfilled' && Array.isArray(dataDelRes.value)) setDataDeletionRequests(dataDelRes.value);
+
+      if (apiOverRes.status === 'fulfilled' && apiOverRes.value) setApiOverview(apiOverRes.value);
+      if (apiKeysRes.status === 'fulfilled' && Array.isArray(apiKeysRes.value)) setApiKeys(apiKeysRes.value);
+      if (apiClientsRes.status === 'fulfilled' && Array.isArray(apiClientsRes.value)) setApiClients(apiClientsRes.value);
+      if (apiWhkRes.status === 'fulfilled' && Array.isArray(apiWhkRes.value)) setWebhooks(apiWhkRes.value);
+      if (apiDlqRes.status === 'fulfilled' && Array.isArray(apiDlqRes.value)) setApiFailedRequests(apiDlqRes.value);
+      if (apiLogsRes.status === 'fulfilled' && Array.isArray(apiLogsRes.value)) setLiveApiLogs(apiLogsRes.value);
+      if (apiIntRes.status === 'fulfilled' && Array.isArray(apiIntRes.value)) setIntegrationAccessList(apiIntRes.value);
 
       if (secPolRes.status === 'fulfilled' && secPolRes.value) {
         setSecurityPolicies(secPolRes.value);
@@ -2470,6 +2583,280 @@ export default function SuperAdminDashboard({
       showToast('Exported audit trail to CSV successfully!', 'success');
     } catch (err) {
       showToast(`Export failed: ${err.message}`, 'error');
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // DATA MANAGEMENT ACTION HANDLERS
+  // --------------------------------------------------------------------------
+  const handleTriggerCompanyExport = async (e) => {
+    e.preventDefault();
+    if (!exportForm.companyId) {
+      showToast('Please select a company tenant.', 'error');
+      return;
+    }
+    const matchedComp = companies.find(c => c.id === exportForm.companyId);
+    try {
+      const res = await triggerCompanyDataExport({
+        tenantId: exportForm.companyId,
+        companyName: matchedComp ? matchedComp.name : exportForm.companyName,
+        format: exportForm.format
+      });
+      showToast(res.message || 'Export initiated and ready for download!', 'success');
+      logAudit('COMPANY_DATA_EXPORTED', `Super Admin generated full archive bundle for ${matchedComp?.name || exportForm.companyId}`, matchedComp?.name);
+      setIsExportModalOpen(false);
+      setExportForm({ companyId: '', companyName: '', format: 'ZIP (JSON + CSV + Media Manifest)' });
+      const exportsList = await getCompanyDataExports();
+      setDataExports(exportsList);
+    } catch (err) {
+      showToast(`Export failed: ${err.message}`, 'error');
+    }
+  };
+
+  const handleTriggerCompanyArchive = async (company) => {
+    if (!window.confirm(`Are you sure you want to move ${company.name} to Cold Storage Archive? Live operations will be placed on hold.`)) return;
+    try {
+      await archiveCompanyData({
+        tenantId: company.id,
+        reason: 'Super Admin cold storage compliance archive'
+      });
+      showToast(`${company.name} moved to cold-storage archive tier.`, 'success');
+      logAudit('COMPANY_ARCHIVED', `Super Admin transitioned ${company.name} to cold storage`, company.name);
+      loadAllData();
+    } catch (err) {
+      showToast(`Archive failed: ${err.message}`, 'error');
+    }
+  };
+
+  const handleSaveRetentionPolicy = async (e) => {
+    e.preventDefault();
+    if (!editingRetentionPolicy) return;
+    try {
+      const updatedList = dataRetentionPolicies.map(p =>
+        p.entityType === editingRetentionPolicy.entityType ? editingRetentionPolicy : p
+      );
+      await updateDataRetentionPolicy(editingRetentionPolicy.entityType, { policies: updatedList });
+      setDataRetentionPolicies(updatedList);
+      showToast(`Retention policy for "${editingRetentionPolicy.entityName}" updated!`, 'success');
+      logAudit('RETENTION_POLICY_SAVED', `Updated data retention schedule for ${editingRetentionPolicy.entityName} to ${editingRetentionPolicy.retentionDays} days`, 'Data Governance');
+      setIsEditRetentionOpen(false);
+      setEditingRetentionPolicy(null);
+    } catch (err) {
+      showToast(`Failed to update retention policy: ${err.message}`, 'error');
+    }
+  };
+
+  const handleSubmitRestoreRequest = async (e) => {
+    e.preventDefault();
+    if (!restoreForm.tenantId) {
+      showToast('Please select a company tenant.', 'error');
+      return;
+    }
+    const matchedComp = companies.find(c => c.id === restoreForm.tenantId);
+    try {
+      const res = await submitDataRestoreRequest({
+        ...restoreForm,
+        companyName: matchedComp ? matchedComp.name : 'Pharma Tenant'
+      });
+      showToast(res.message || 'Point-in-time restore request queued for approval.', 'success');
+      logAudit('RESTORE_REQUEST_SUBMITTED', `Queued data restore request for ${matchedComp?.name} (Point: ${restoreForm.targetPointInTime})`, matchedComp?.name);
+      setIsRestoreModalOpen(false);
+      setRestoreForm({ tenantId: '', companyName: '', targetPointInTime: '', restoreType: 'POINT_IN_TIME_TRANSACTIONAL', reason: '' });
+      const list = await getDataRestoreRequests();
+      setDataRestoreRequests(list);
+    } catch (err) {
+      showToast(`Restore submission failed: ${err.message}`, 'error');
+    }
+  };
+
+  const handleApproveRestoreRequest = async (reqId) => {
+    try {
+      await reviewDataRestoreRequest(reqId, 'approve', 'Approved by Super Admin');
+      showToast(`Restore request ${reqId} approved and executed. Data rollback completed.`, 'success');
+      logAudit('RESTORE_REQUEST_APPROVED', `Super Admin approved and executed rollback ${reqId}`, 'Disaster Recovery');
+      const list = await getDataRestoreRequests();
+      setDataRestoreRequests(list);
+    } catch (err) {
+      showToast(`Failed to approve restore: ${err.message}`, 'error');
+    }
+  };
+
+  const handleRejectRestoreRequest = async (reqId) => {
+    try {
+      await reviewDataRestoreRequest(reqId, 'reject', 'Rejected by Super Admin');
+      showToast(`Restore request ${reqId} rejected.`, 'info');
+      logAudit('RESTORE_REQUEST_REJECTED', `Super Admin rejected restore request ${reqId}`, 'Disaster Recovery');
+      const list = await getDataRestoreRequests();
+      setDataRestoreRequests(list);
+    } catch (err) {
+      showToast(`Failed to reject restore: ${err.message}`, 'error');
+    }
+  };
+
+  const handleSubmitDeletionRequest = async (e) => {
+    e.preventDefault();
+    if (!deletionForm.tenantId) {
+      showToast('Please select a company tenant.', 'error');
+      return;
+    }
+    const matchedComp = companies.find(c => c.id === deletionForm.tenantId);
+    try {
+      const res = await submitDataDeletionRequest({
+        ...deletionForm,
+        companyName: matchedComp ? matchedComp.name : 'Pharma Tenant'
+      });
+      showToast('Data deletion request queued. 2-Step strict confirmation required.', 'success');
+      logAudit('DELETION_REQUEST_QUEUED', `Queued deletion request for ${matchedComp?.name} (Scope: ${deletionForm.scope})`, matchedComp?.name);
+      setIsDeletionModalOpen(false);
+      setDeletionForm({ tenantId: '', companyName: '', scope: 'FULL_TENANT_DATA_PURGE', reason: '' });
+      const list = await getDataDeletionRequests();
+      setDataDeletionRequests(list);
+    } catch (err) {
+      showToast(`Deletion request failed: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenConfirmPurgeModal = (delReq) => {
+    setConfirmPurgeTarget(delReq);
+    setConfirmPurgeTokenInput('');
+    setIsConfirmPurgeOpen(true);
+  };
+
+  const handleExecutePermanentPurge = async (e) => {
+    e.preventDefault();
+    if (!confirmPurgeTarget) return;
+    if (confirmPurgeTokenInput.trim() !== 'CONFIRM_PURGE' && confirmPurgeTokenInput.trim() !== confirmPurgeTarget.confirmationCode) {
+      showToast('Verification confirmation token does not match. Purge aborted.', 'error');
+      return;
+    }
+    try {
+      const res = await confirmDataDeletionRequest(confirmPurgeTarget.id, confirmPurgeTokenInput.trim());
+      showToast(res.message || 'Permanent data purge executed with forensic audit confirmation.', 'success');
+      logAudit('PERMANENT_DATA_PURGED', `Super Admin executed permanent data purge for ${confirmPurgeTarget.companyName}. All data shredded with zero recovery possible.`, confirmPurgeTarget.companyName);
+      setIsConfirmPurgeOpen(false);
+      setConfirmPurgeTarget(null);
+      const list = await getDataDeletionRequests();
+      setDataDeletionRequests(list);
+    } catch (err) {
+      showToast(`Purge execution failed: ${err.message}`, 'error');
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // API MANAGEMENT ACTION HANDLERS
+  // --------------------------------------------------------------------------
+  const handleCreateApiKey = async (e) => {
+    e.preventDefault();
+    if (!newApiKeyForm.keyName.trim()) return;
+    const matchedComp = companies.find(c => c.id === newApiKeyForm.companyId);
+    try {
+      const res = await generateApiKey({
+        keyName: newApiKeyForm.keyName,
+        companyId: newApiKeyForm.companyId,
+        companyName: matchedComp ? matchedComp.name : 'Global Platform Core',
+        clientId: newApiKeyForm.clientId,
+        scopes: newApiKeyForm.scopes,
+        rateLimitRpm: Number(newApiKeyForm.rateLimitRpm) || 1200,
+        expiresDays: Number(newApiKeyForm.expiresDays) || 365
+      });
+      setNewApiKeyCreatedResult(res);
+      showToast(`API Key "${newApiKeyForm.keyName}" generated successfully!`, 'success');
+      logAudit('API_KEY_GENERATED', `Generated API Key for ${matchedComp?.name || 'Global'} with scopes: ${newApiKeyForm.scopes.join(', ')}`, matchedComp?.name || 'API');
+      const keys = await getApiKeys();
+      setApiKeys(keys);
+    } catch (err) {
+      showToast(`Failed to generate API Key: ${err.message}`, 'error');
+    }
+  };
+
+  const handleRevokeApiKey = async (keyId) => {
+    if (!window.confirm(`Are you sure you want to permanently revoke API Key ${keyId}? Any active integrations using this key will immediately fail.`)) return;
+    try {
+      await revokeApiKey(keyId);
+      showToast(`API Key ${keyId} revoked immediately.`, 'success');
+      logAudit('API_KEY_REVOKED', `Super Admin revoked API key ${keyId}`, 'API Security');
+      setApiKeys(prev => prev.map(k => k.id === keyId ? { ...k, status: 'REVOKED' } : k));
+    } catch (err) {
+      showToast(`Revocation failed: ${err.message}`, 'error');
+    }
+  };
+
+  const handleCreateApiClient = async (e) => {
+    e.preventDefault();
+    if (!newApiClientForm.clientName.trim()) return;
+    const matchedComp = companies.find(c => c.id === newApiClientForm.companyId);
+    try {
+      const res = await createApiClient({
+        clientName: newApiClientForm.clientName,
+        clientType: newApiClientForm.clientType,
+        companyId: newApiClientForm.companyId,
+        companyName: matchedComp ? matchedComp.name : 'Global Platform Core',
+        authMethod: newApiClientForm.authMethod
+      });
+      showToast(`API Client "${newApiClientForm.clientName}" registered!`, 'success');
+      logAudit('API_CLIENT_CREATED', `Registered Enterprise API Client ${newApiClientForm.clientName}`, matchedComp?.name || 'API Gateway');
+      setIsCreateApiClientOpen(false);
+      setNewApiClientForm({ clientName: '', clientType: 'M2M_BACKEND_SERVICE', companyId: '', authMethod: 'API_KEY_AND_BEARER_JWT' });
+      const clients = await getApiClients();
+      setApiClients(clients);
+    } catch (err) {
+      showToast(`Failed to register client: ${err.message}`, 'error');
+    }
+  };
+
+  const handleCreateWebhook = async (e) => {
+    e.preventDefault();
+    if (!newWebhookForm.webhookName.trim() || !newWebhookForm.targetUrl.trim()) return;
+    const matchedComp = companies.find(c => c.id === newWebhookForm.companyId);
+    try {
+      const res = await createWebhook({
+        webhookName: newWebhookForm.webhookName,
+        targetUrl: newWebhookForm.targetUrl,
+        subscribedEvents: newWebhookForm.subscribedEvents,
+        companyId: newWebhookForm.companyId,
+        companyName: matchedComp ? matchedComp.name : 'Global Platform Core'
+      });
+      showToast(`Webhook endpoint "${newWebhookForm.webhookName}" created!`, 'success');
+      logAudit('WEBHOOK_CREATED', `Created Webhook ${newWebhookForm.webhookName} pointing to ${newWebhookForm.targetUrl}`, matchedComp?.name || 'API Webhooks');
+      setIsCreateWebhookOpen(false);
+      setNewWebhookForm({ webhookName: '', companyId: '', targetUrl: '', subscribedEvents: ['order.created', 'order.approved'] });
+      const whks = await getWebhooks();
+      setWebhooks(whks);
+    } catch (err) {
+      showToast(`Failed to create webhook: ${err.message}`, 'error');
+    }
+  };
+
+  const handleTestWebhook = async (webhookId) => {
+    try {
+      const res = await testWebhook(webhookId);
+      showToast(res.message || `Test event dispatched to webhook ${webhookId}. HTTP 200 OK received!`, 'success');
+    } catch (err) {
+      showToast(`Webhook test failed: ${err.message}`, 'error');
+    }
+  };
+
+  const handleRetryFailedApiRequest = async (reqId) => {
+    try {
+      const res = await retryFailedApiRequest(reqId);
+      showToast(res.message || `Failed request ${reqId} re-dispatched and resolved!`, 'success');
+      logAudit('FAILED_API_REQ_RETRIED', `Super Admin re-dispatched failed API request ${reqId}`, 'API Gateway DLQ');
+      setApiFailedRequests(prev => prev.map(r => r.id === reqId ? { ...r, status: 'RESOLVED', retryCount: (r.retryCount || 0) + 1 } : r));
+      setSelectedFailedReqInspect(null);
+    } catch (err) {
+      showToast(`Retry failed: ${err.message}`, 'error');
+    }
+  };
+
+  const handleToggleIntegration = async (integrationKey, currentStatus) => {
+    const nextStatus = currentStatus === 'OPERATIONAL' ? 'DISABLED' : 'OPERATIONAL';
+    try {
+      await toggleIntegrationAccess(integrationKey, nextStatus === 'OPERATIONAL');
+      showToast(`Integration "${integrationKey}" set to ${nextStatus}`, 'success');
+      logAudit('INTEGRATION_ACCESS_TOGGLED', `Super Admin toggled integration ${integrationKey} to ${nextStatus}`, 'Enterprise Integrations');
+      setIntegrationAccessList(prev => prev.map(item => item.key === integrationKey ? { ...item, status: nextStatus } : item));
+    } catch (err) {
+      showToast(`Failed to toggle integration: ${err.message}`, 'error');
     }
   };
 
@@ -7197,6 +7584,1207 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
+          9. DATA MANAGEMENT & STORAGE OPERATIONS
+          ===================================================================== */}
+      {activeTab === 'data-management' && (
+        <div className="tab-pane-content">
+          {/* Header & Title */}
+          <div className="pane-action-bar">
+            <div>
+              <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Database size={22} color="#0284c7" />
+                Platform Data Management &amp; Storage Governance
+              </h2>
+              <p className="section-desc">
+                Storage quotas, company data archives, point-in-time restore, retention schedules, and controlled multi-tenant data deletion.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  getDataManagementOverview().then(d => setDataOverview(d));
+                  getCompanyDataExports().then(e => setDataExports(e));
+                  getDataRetentionPolicies().then(p => setDataRetentionPolicies(p));
+                  getDataRestoreRequests().then(r => setDataRestoreRequests(r));
+                  getDataDeletionRequests().then(del => setDataDeletionRequests(del));
+                  showToast('Data management state refreshed!', 'success');
+                }}
+              >
+                <RefreshCw size={15} /> Refresh Storage Telemetry
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setIsExportModalOpen(true)}
+              >
+                <Download size={15} /> Trigger Company Export
+              </button>
+            </div>
+          </div>
+
+          {/* Sub-Navigation Tabs */}
+          <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+            {[
+              { key: 'storage', label: '💾 Storage & Quotas', icon: HardDrive },
+              { key: 'exports', label: '📦 Exports & Cold Archives', icon: Archive },
+              { key: 'retention', label: '⏳ Retention Policies', icon: Clock },
+              { key: 'restores', label: '🔄 Restore & Rollback Requests', icon: RotateCcw },
+              { key: 'deletions', label: '🗑️ Data Deletion Queue', icon: Trash2 }
+            ].map(tab => {
+              const Icon = tab.icon;
+              const isActive = dataSubTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setDataSubTab(tab.key)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid',
+                    borderColor: isActive ? '#0284c7' : '#cbd5e1',
+                    background: isActive ? '#0284c7' : '#ffffff',
+                    color: isActive ? '#ffffff' : '#475569',
+                    fontWeight: '700',
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <Icon size={15} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ===================================================================
+              SUB-TAB 1: STORAGE & QUOTAS
+              =================================================================== */}
+          {dataSubTab === 'storage' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {/* Storage KPI Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                <div className="card-section" style={{ margin: 0, padding: '16px 18px', background: '#f8fafc' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '800', textTransform: 'uppercase' }}>Total Cloud Storage Quota</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#0f172a', margin: '4px 0' }}>
+                    {((dataOverview?.totalStorageAllocatedGB || 10240) / 1024).toFixed(1)} TB
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: '#0284c7' }}>Elastic AWS S3 Multi-Region Vault</div>
+                </div>
+
+                <div className="card-section" style={{ margin: 0, padding: '16px 18px', background: '#f8fafc' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '800', textTransform: 'uppercase' }}>Used Platform Storage</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#166534', margin: '4px 0' }}>
+                    {(dataOverview?.totalStorageUsedGB || 1280.4).toFixed(1)} GB
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: '#15803d' }}>
+                    <strong>{dataOverview?.usedPercentage || 12.5}%</strong> of capacity utilized
+                  </div>
+                </div>
+
+                <div className="card-section" style={{ margin: 0, padding: '16px 18px', background: '#f8fafc' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '800', textTransform: 'uppercase' }}>Free Capacity Remaining</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#2563eb', margin: '4px 0' }}>
+                    {((dataOverview?.totalStorageAllocatedGB || 10240) - (dataOverview?.totalStorageUsedGB || 1280.4)).toFixed(1)} GB
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: '#3b82f6' }}>87.5% Available Headroom</div>
+                </div>
+
+                <div className="card-section" style={{ margin: 0, padding: '16px 18px', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#166534', fontWeight: '800', textTransform: 'uppercase' }}>Automated Backup Health</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#15803d', margin: '4px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ShieldCheck size={18} color="#16a34a" /> VERIFIED
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: '#14532d' }}>AES-256 Encrypted (Daily 02:00 UTC)</div>
+                </div>
+              </div>
+
+              {/* Storage Breakdown Distribution Bar */}
+              <div className="card-section" style={{ margin: 0, padding: '20px' }}>
+                <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: '800', color: '#0f172a', marginBottom: '12px' }}>
+                  Platform Storage Breakdown by Asset Type
+                </h3>
+                <div style={{ height: '22px', display: 'flex', borderRadius: '6px', overflow: 'hidden', marginBottom: '14px', background: '#e2e8f0' }}>
+                  <div style={{ width: '59%', background: '#3b82f6' }} title="Prescriptions & Media Docs: 758 GB (59%)"></div>
+                  <div style={{ width: '27%', background: '#8b5cf6' }} title="Encrypted Backups: 340 GB (27%)"></div>
+                  <div style={{ width: '11%', background: '#10b981' }} title="Report Exports & PDF: 140 GB (11%)"></div>
+                  <div style={{ width: '3%', background: '#f59e0b' }} title="PostgreSQL Tables: 42.4 GB (3%)"></div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', fontSize: '0.78rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#3b82f6' }}></span>
+                    <span><strong>Media &amp; Doctor Prescriptions:</strong> 758 GB (59%)</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#8b5cf6' }}></span>
+                    <span><strong>Encrypted Backup Snapshots:</strong> 340 GB (27%)</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#10b981' }}></span>
+                    <span><strong>Report Exports &amp; Invoices:</strong> 140 GB (11%)</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#f59e0b' }}></span>
+                    <span><strong>PostgreSQL Database Tables:</strong> 42.4 GB (3%)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tenant Quotas & Utilization Table */}
+              <div className="card-section" style={{ margin: 0, padding: 0, overflow: 'hidden' }}>
+                <div style={{ padding: '14px 18px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: '#0f172a' }}>
+                    Tenant Storage Quotas &amp; Isolation Trackers
+                  </h3>
+                  <span style={{ fontSize: '0.74rem', color: '#64748b' }}>Strict multi-tenant storage quotas enforced at object storage gateway</span>
+                </div>
+
+                <div className="saas-table-container">
+                  <table className="saas-data-table" style={{ margin: 0 }}>
+                    <thead>
+                      <tr>
+                        <th>Company Tenant</th>
+                        <th>Plan Tier</th>
+                        <th>Storage Allocated</th>
+                        <th>Storage Used</th>
+                        <th>Utilization %</th>
+                        <th>Quota Alert Status</th>
+                        <th style={{ textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(dataOverview?.tenantQuotas || [
+                        { tenantId: 't_pfizer_02', companyName: 'Pfizer BioPharma Ltd', plan: 'ENTERPRISE', allocatedGB: 2048, usedGB: 485.2, pct: 23.7, alertStatus: 'NORMAL' },
+                        { tenantId: 't_novartis_01', companyName: 'Novartis Pharma Global', plan: 'ENTERPRISE', allocatedGB: 2048, usedGB: 390.8, pct: 19.1, alertStatus: 'NORMAL' },
+                        { tenantId: 't_astra_03', companyName: 'AstraZeneca Healthcare', plan: 'PROFESSIONAL', allocatedGB: 512, usedGB: 218.4, pct: 42.6, alertStatus: 'NORMAL' },
+                        { tenantId: 't_sanofi_04', companyName: 'Sanofi Healthcare Ltd', plan: 'PROFESSIONAL', allocatedGB: 512, usedGB: 144.0, pct: 28.1, alertStatus: 'NORMAL' }
+                      ]).map((tq, i) => (
+                        <tr key={i}>
+                          <td><strong>{tq.companyName}</strong></td>
+                          <td><span className="plan-pill plan-pro">{tq.plan}</span></td>
+                          <td>{tq.allocatedGB} GB</td>
+                          <td><strong>{tq.usedGB} GB</strong></td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{ width: '80px', height: '6px', borderRadius: '3px', background: '#e2e8f0', overflow: 'hidden' }}>
+                                <div style={{ width: `${tq.pct}%`, height: '100%', background: tq.pct > 80 ? '#dc2626' : (tq.pct > 50 ? '#f59e0b' : '#059669') }}></div>
+                              </div>
+                              <span style={{ fontSize: '0.74rem', fontWeight: '700' }}>{tq.pct}%</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="status-badge-green">● NORMAL</span>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              style={{ padding: '3px 8px', fontSize: '0.72rem' }}
+                              onClick={() => {
+                                setExportForm({ companyId: tq.tenantId, companyName: tq.companyName, format: 'ZIP (JSON + CSV + Media Manifest)' });
+                                setIsExportModalOpen(true);
+                              }}
+                            >
+                              <Download size={12} /> Export Data
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 2: EXPORTS & COLD ARCHIVES
+              =================================================================== */}
+          {dataSubTab === 'exports' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div className="card-section" style={{ margin: 0, padding: '16px 20px', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: '800', color: '#0f172a' }}>
+                    Company Data Export Packages &amp; Compliance Bundles
+                  </h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: '#64748b' }}>
+                    Full database JSON dumps, tabular CSVs, and cryptographic media manifests ready for sovereign compliance audits.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setIsExportModalOpen(true)}
+                >
+                  <Plus size={15} /> New Export Job
+                </button>
+              </div>
+
+              {/* Exports List Table */}
+              <div className="card-section" style={{ margin: 0, padding: 0, overflow: 'hidden' }}>
+                <div className="saas-table-container">
+                  <table className="saas-data-table" style={{ margin: 0 }}>
+                    <thead>
+                      <tr>
+                        <th>Export ID</th>
+                        <th>Company Tenant</th>
+                        <th>Format &amp; Scope</th>
+                        <th>Archive Size</th>
+                        <th>Status</th>
+                        <th>Generated Timestamp</th>
+                        <th>Expiry</th>
+                        <th style={{ textAlign: 'right' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dataExports.map((exp, i) => (
+                        <tr key={i}>
+                          <td><code>{exp.exportId || exp.id}</code></td>
+                          <td><strong>{exp.companyName}</strong></td>
+                          <td>
+                            <div style={{ fontWeight: '700', fontSize: '0.78rem' }}>{exp.format}</div>
+                            <div style={{ fontSize: '0.7rem', color: '#64748b' }}>AES-256 Encrypted</div>
+                          </td>
+                          <td><strong>{exp.sizeMB} MB</strong></td>
+                          <td><span className="status-badge-green">● READY</span></td>
+                          <td>{new Date(exp.createdAt).toLocaleString()}</td>
+                          <td style={{ color: '#dc2626', fontSize: '0.74rem' }}>{new Date(exp.expiresAt).toLocaleDateString()}</td>
+                          <td style={{ textAlign: 'right' }}>
+                            <a
+                              href="#download"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                showToast(`Downloading compliance bundle ${exp.exportId}...`, 'success');
+                              }}
+                              className="btn btn-secondary btn-sm"
+                              style={{ padding: '4px 10px', fontSize: '0.74rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <Download size={13} /> Download
+                            </a>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Company Data Archive (Cold Storage Tier) */}
+              <div className="card-section" style={{ margin: 0, padding: '20px' }}>
+                <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: '800', color: '#0f172a', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FolderArchive size={18} color="#7c3aed" />
+                  Tenant Cold-Storage Archival Vault
+                </h3>
+                <p style={{ fontSize: '0.76rem', color: '#64748b', marginBottom: '16px' }}>
+                  Move inactive or offboarded pharma companies into deep cold storage (AWS S3 Glacier Deep Archive). Saves 90% storage cost while preserving full regulatory record integrity.
+                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px' }}>
+                  {companies.slice(0, 3).map((comp) => (
+                    <div key={comp.id} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: '800', fontSize: '0.86rem', color: '#0f172a' }}>{comp.name}</div>
+                        <div style={{ fontSize: '0.74rem', color: '#64748b' }}>Plan: {comp.plan} &bull; Users: {comp.usersCount || 1}</div>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        style={{ color: '#7c3aed', borderColor: '#ddd6fe', background: '#f5f3ff' }}
+                        onClick={() => handleTriggerCompanyArchive(comp)}
+                      >
+                        <Archive size={13} /> Archive Tenant
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 3: DATA RETENTION POLICIES
+              =================================================================== */}
+          {dataSubTab === 'retention' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div className="card-section" style={{ margin: 0, padding: '16px 20px', background: '#f8fafc' }}>
+                <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: '800', color: '#0f172a' }}>
+                  Statutory Data Retention Schedules &amp; Auto-Purging Policies
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: '#64748b' }}>
+                  Enforce pharmaceutical compliance standards (FDA 21 CFR Part 11 &amp; GAMP 5) by defining lifespan rules per entity type.
+                </p>
+              </div>
+
+              <div className="saas-table-container">
+                <table className="saas-data-table" style={{ margin: 0 }}>
+                  <thead>
+                    <tr>
+                      <th>Entity Category</th>
+                      <th>Description</th>
+                      <th>Retention Lifespan</th>
+                      <th>Automated Action</th>
+                      <th>Legal Hold Safe</th>
+                      <th style={{ textAlign: 'right' }}>Configure</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dataRetentionPolicies.map((pol, i) => (
+                      <tr key={i}>
+                        <td><strong>{pol.entityName}</strong></td>
+                        <td style={{ fontSize: '0.75rem', color: '#475569' }}>{pol.description}</td>
+                        <td>
+                          <span style={{ fontWeight: '800', color: '#0284c7', fontSize: '0.86rem' }}>
+                            {pol.retentionDays} Days ({(pol.retentionDays / 365).toFixed(1)} yrs)
+                          </span>
+                        </td>
+                        <td>
+                          {pol.autoPurge ? (
+                            <span className="status-tag status-trial" style={{ background: '#fef2f2', color: '#dc2626' }}>
+                              ⚡ Auto-Purge Expired
+                            </span>
+                          ) : (
+                            <span className="status-badge-green">
+                              📦 Cold Archive First
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="status-badge-green">✓ PROTECTED</span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => {
+                              setEditingRetentionPolicy(pol);
+                              setIsEditRetentionOpen(true);
+                            }}
+                          >
+                            <Edit size={13} /> Edit Policy
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 4: RESTORE REQUESTS (DISASTER RECOVERY)
+              =================================================================== */}
+          {dataSubTab === 'restores' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div className="card-section" style={{ margin: 0, padding: '16px 20px', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: '800', color: '#0f172a' }}>
+                    Point-In-Time Disaster Recovery &amp; Data Restore Requests
+                  </h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: '#64748b' }}>
+                    Revert tenant databases or selective tables back to any historic snapshot with zero data loss to other tenants.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setIsRestoreModalOpen(true)}
+                >
+                  <Plus size={15} /> Request Point-in-Time Restore
+                </button>
+              </div>
+
+              <div className="saas-table-container">
+                <table className="saas-data-table" style={{ margin: 0 }}>
+                  <thead>
+                    <tr>
+                      <th>Request Code</th>
+                      <th>Company Tenant</th>
+                      <th>Target Timestamp</th>
+                      <th>Restore Scope</th>
+                      <th>Justification / Reason</th>
+                      <th>Status</th>
+                      <th>Requested At</th>
+                      <th style={{ textAlign: 'right' }}>Super Admin Decision</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dataRestoreRequests.map((rst, i) => (
+                      <tr key={i}>
+                        <td><code>{rst.id}</code></td>
+                        <td><strong>{rst.companyName}</strong></td>
+                        <td>
+                          <div style={{ fontWeight: '700', fontSize: '0.8rem', color: '#0f172a' }}>
+                            {new Date(rst.targetPointInTime).toLocaleString()}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Snapshot: {rst.backupSnapshotId || 'BKP-SNAP-INIT-01'}</div>
+                        </td>
+                        <td><span className="plan-pill plan-starter">{rst.restoreType}</span></td>
+                        <td style={{ fontSize: '0.76rem', color: '#334155', maxWidth: '240px' }}>{rst.reason}</td>
+                        <td>
+                          <span
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.72rem',
+                              fontWeight: '800',
+                              background: rst.status === 'COMPLETED' ? '#dcfce7' : (rst.status === 'PENDING_APPROVAL' ? '#fef3c7' : '#fee2e2'),
+                              color: rst.status === 'COMPLETED' ? '#166534' : (rst.status === 'PENDING_APPROVAL' ? '#92400e' : '#991b1b')
+                            }}
+                          >
+                            {rst.status}
+                          </span>
+                        </td>
+                        <td>{new Date(rst.createdAt).toLocaleString()}</td>
+                        <td style={{ textAlign: 'right' }}>
+                          {rst.status === 'PENDING_APPROVAL' ? (
+                            <div style={{ display: 'inline-flex', gap: '6px' }}>
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                style={{ background: '#16a34a', borderColor: '#15803d', padding: '3px 8px', fontSize: '0.72rem' }}
+                                onClick={() => handleApproveRestoreRequest(rst.id)}
+                              >
+                                <CheckCircle2 size={12} /> Approve Rollback
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                style={{ color: '#dc2626', borderColor: '#fecaca', background: '#fef2f2', padding: '3px 8px', fontSize: '0.72rem' }}
+                                onClick={() => handleRejectRestoreRequest(rst.id)}
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '0.74rem', color: '#64748b' }}>Decision finalized</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 5: CONTROLLED DATA DELETION REQUESTS
+              =================================================================== */}
+          {dataSubTab === 'deletions' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {/* Deletion Warning Banner */}
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <AlertOctagon size={28} color="#dc2626" />
+                  <div>
+                    <div style={{ fontWeight: '800', color: '#991b1b', fontSize: '0.94rem' }}>
+                      Controlled &amp; Audited Data Purging Center (2-Step Verification Barrier)
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#7f1d1d', marginTop: '2px' }}>
+                      Permanent deletion physically erases database partitions, relational tables, and encrypted cloud media. Purges require typing an exact safety token.
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ background: '#dc2626', borderColor: '#b91c1c' }}
+                  onClick={() => setIsDeletionModalOpen(true)}
+                >
+                  <Trash2 size={15} /> Submit Deletion Request
+                </button>
+              </div>
+
+              <div className="card-section" style={{ margin: 0, padding: 0, overflow: 'hidden' }}>
+                <div className="saas-table-container">
+                  <table className="saas-data-table" style={{ margin: 0 }}>
+                    <thead>
+                      <tr>
+                        <th>Request ID</th>
+                        <th>Company Tenant</th>
+                        <th>Purge Scope</th>
+                        <th>Compliance Reason</th>
+                        <th>Grace Period Window</th>
+                        <th>Status</th>
+                        <th>Created Timestamp</th>
+                        <th style={{ textAlign: 'right' }}>Authoritative Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dataDeletionRequests.map((del, i) => (
+                        <tr key={i}>
+                          <td><code>{del.id}</code></td>
+                          <td><strong>{del.companyName}</strong></td>
+                          <td><span className="status-tag status-trial" style={{ background: '#fee2e2', color: '#991b1b' }}>{del.scope}</span></td>
+                          <td style={{ fontSize: '0.76rem', color: '#334155' }}>{del.reason}</td>
+                          <td style={{ fontSize: '0.76rem', color: '#b45309', fontWeight: '700' }}>
+                            {del.scheduledPurgeAt ? `Purge Scheduled: ${new Date(del.scheduledPurgeAt).toLocaleDateString()}` : 'Immediate'}
+                          </td>
+                          <td>
+                            <span
+                              style={{
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                fontSize: '0.72rem',
+                                fontWeight: '800',
+                                background: del.status === 'EXECUTED' ? '#f3f4f6' : (del.status === 'PENDING_CONFIRMATION' ? '#fee2e2' : '#dcfce7'),
+                                color: del.status === 'EXECUTED' ? '#6b7280' : (del.status === 'PENDING_CONFIRMATION' ? '#991b1b' : '#166534')
+                              }}
+                            >
+                              {del.status}
+                            </span>
+                          </td>
+                          <td>{new Date(del.createdAt).toLocaleString()}</td>
+                          <td style={{ textAlign: 'right' }}>
+                            {del.status === 'PENDING_CONFIRMATION' ? (
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                style={{ background: '#dc2626', borderColor: '#b91c1c', padding: '4px 10px', fontSize: '0.74rem' }}
+                                onClick={() => handleOpenConfirmPurgeModal(del)}
+                              >
+                                <Trash2 size={12} /> Execute Purge
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: '0.74rem', color: '#16a34a', fontWeight: '700' }}>✓ Forensic Shred Complete</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =====================================================================
+          10. API MANAGEMENT & ENTERPRISE INTEGRATIONS
+          ===================================================================== */}
+      {activeTab === 'integrations' && (
+        <div className="tab-pane-content">
+          {/* Header & Title */}
+          <div className="pane-action-bar">
+            <div>
+              <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Radio size={22} color="#0284c7" />
+                Enterprise API Management &amp; Integrations Control Center
+              </h2>
+              <p className="section-desc">
+                API keys, enterprise OAuth clients, webhook dispatchers, rate limits, dead-letter failed request queue, and live telemetry logs.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  getApiManagementOverview().then(d => setApiOverview(d));
+                  getApiKeys().then(k => setApiKeys(k));
+                  getApiClients().then(c => setApiClients(c));
+                  getWebhooks().then(w => setWebhooks(w));
+                  getApiFailedRequests().then(f => setApiFailedRequests(f));
+                  getLiveApiLogs().then(l => setLiveApiLogs(l));
+                  getIntegrationAccessList().then(i => setIntegrationAccessList(i));
+                  showToast('API telemetry & gateway streams refreshed!', 'success');
+                }}
+              >
+                <RefreshCw size={15} /> Refresh API Telemetry
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setIsCreateApiKeyOpen(true)}
+              >
+                <Key size={15} /> Generate API Key
+              </button>
+            </div>
+          </div>
+
+          {/* Sub-Navigation Tabs */}
+          <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+            {[
+              { key: 'keys', label: '🔑 API Keys', icon: Key },
+              { key: 'clients', label: '🏢 API Clients', icon: Building2 },
+              { key: 'webhooks', label: '⚡ Webhooks', icon: Zap },
+              { key: 'limits', label: '📊 Limits & Usage', icon: BarChart3 },
+              { key: 'dlq', label: '⚠️ Dead-Letter Queue (DLQ)', icon: AlertTriangle },
+              { key: 'logs', label: '📜 Live API Logs', icon: FileText },
+              { key: 'integrations', label: '🔌 3rd-Party Integrations', icon: Radio }
+            ].map(tab => {
+              const Icon = tab.icon;
+              const isActive = apiSubTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setApiSubTab(tab.key)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid',
+                    borderColor: isActive ? '#0284c7' : '#cbd5e1',
+                    background: isActive ? '#0284c7' : '#ffffff',
+                    color: isActive ? '#ffffff' : '#475569',
+                    fontWeight: '700',
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <Icon size={15} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ===================================================================
+              SUB-TAB 1: API KEYS
+              =================================================================== */}
+          {apiSubTab === 'keys' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div className="card-section" style={{ margin: 0, padding: '16px 20px', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: '800', color: '#0f172a' }}>
+                    Active Platform API Keys &amp; Credentials
+                  </h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: '#64748b' }}>
+                    Cryptographically generated live keys for ERP synchronizations, CRM connectors, and developer integrations.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setIsCreateApiKeyOpen(true)}
+                >
+                  <Plus size={15} /> Generate API Key
+                </button>
+              </div>
+
+              <div className="saas-table-container">
+                <table className="saas-data-table" style={{ margin: 0 }}>
+                  <thead>
+                    <tr>
+                      <th>Key Name &amp; Description</th>
+                      <th>Masked Secret</th>
+                      <th>Company Tenant</th>
+                      <th>Authorized Scopes</th>
+                      <th>Rate Limit</th>
+                      <th>Status</th>
+                      <th>Last Used</th>
+                      <th style={{ textAlign: 'right' }}>Revoke</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {apiKeys.map((k, i) => (
+                      <tr key={i}>
+                        <td>
+                          <div style={{ fontWeight: '800', fontSize: '0.82rem', color: '#0f172a' }}>{k.keyName}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#64748b' }}>ID: <code>{k.id}</code></div>
+                        </td>
+                        <td>
+                          <code style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontSize: '0.78rem', color: '#0f172a' }}>
+                            {k.maskedKey || `${k.keyPrefix || 'allv_live_'}••••••••••••`}
+                          </code>
+                        </td>
+                        <td><strong>{k.companyName || 'Global Platform Core'}</strong></td>
+                        <td>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {(k.scopes || ['read:all']).map((sc, sci) => (
+                              <span key={sci} className="status-tag status-trial" style={{ fontSize: '0.66rem', padding: '1px 6px' }}>
+                                {sc}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td><strong>{k.rateLimitRpm || 1200} RPM</strong></td>
+                        <td>
+                          <span className={k.status === 'ACTIVE' ? 'status-badge-green' : 'status-tag status-trial'} style={k.status === 'REVOKED' ? { background: '#fee2e2', color: '#991b1b' } : {}}>
+                            ● {k.status}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '0.74rem', color: '#475569' }}>
+                          {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Never'}
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          {k.status === 'ACTIVE' && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              style={{ color: '#dc2626', borderColor: '#fecaca', background: '#fef2f2', padding: '3px 8px', fontSize: '0.72rem' }}
+                              onClick={() => handleRevokeApiKey(k.id)}
+                            >
+                              <Lock size={12} /> Revoke
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 2: API CLIENTS (ENTERPRISE M2M / OAUTH2)
+              =================================================================== */}
+          {apiSubTab === 'clients' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div className="card-section" style={{ margin: 0, padding: '16px 20px', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: '800', color: '#0f172a' }}>
+                    Enterprise M2M &amp; OAuth2 Connected Clients
+                  </h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: '#64748b' }}>
+                    Direct machine-to-machine integrations for SAP, Salesforce, Oracle NetSuite, and warehouse ERPs.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setIsCreateApiClientOpen(true)}
+                >
+                  <Plus size={15} /> Register API Client
+                </button>
+              </div>
+
+              <div className="saas-table-container">
+                <table className="saas-data-table" style={{ margin: 0 }}>
+                  <thead>
+                    <tr>
+                      <th>Client Name</th>
+                      <th>Client ID</th>
+                      <th>Client Type</th>
+                      <th>Company Tenant</th>
+                      <th>Auth Mechanism</th>
+                      <th>24h Request Volume</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {apiClients.map((cli, i) => (
+                      <tr key={i}>
+                        <td><strong>{cli.clientName}</strong></td>
+                        <td><code>{cli.id}</code></td>
+                        <td><span className="plan-pill plan-pro">{cli.clientType}</span></td>
+                        <td><strong>{cli.companyName}</strong></td>
+                        <td><code style={{ fontSize: '0.72rem' }}>{cli.authMethod}</code></td>
+                        <td><strong>{(cli.totalRequests24h || 18400).toLocaleString()} req</strong></td>
+                        <td><span className="status-badge-green">● ACTIVE</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 3: WEBHOOKS
+              =================================================================== */}
+          {apiSubTab === 'webhooks' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div className="card-section" style={{ margin: 0, padding: '16px 20px', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: '800', color: '#0f172a' }}>
+                    Real-Time Event Webhook Relays
+                  </h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: '#64748b' }}>
+                    Signed HTTP POST webhook dispatchers sending instant events on order bookings, DCR submissions, and user lockouts.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setIsCreateWebhookOpen(true)}
+                >
+                  <Plus size={15} /> Add Webhook Endpoint
+                </button>
+              </div>
+
+              <div className="saas-table-container">
+                <table className="saas-data-table" style={{ margin: 0 }}>
+                  <thead>
+                    <tr>
+                      <th>Webhook Name</th>
+                      <th>Target Endpoint URL</th>
+                      <th>Subscribed Event Triggers</th>
+                      <th>Company Tenant</th>
+                      <th>Delivery SLA</th>
+                      <th>Status</th>
+                      <th style={{ textAlign: 'right' }}>Test Event</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {webhooks.map((whk, i) => (
+                      <tr key={i}>
+                        <td><strong>{whk.webhookName}</strong></td>
+                        <td>
+                          <code style={{ fontSize: '0.75rem', color: '#0369a1', wordBreak: 'break-all' }}>
+                            {whk.targetUrl}
+                          </code>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {(whk.subscribedEvents || []).map((ev, evi) => (
+                              <span key={evi} className="status-tag status-trial" style={{ fontSize: '0.66rem', padding: '1px 6px' }}>
+                                {ev}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td><strong>{whk.companyName}</strong></td>
+                        <td>
+                          <div style={{ fontWeight: '800', color: '#166534', fontSize: '0.8rem' }}>{whk.successRate || '99.9%'}</div>
+                          <div style={{ fontSize: '0.68rem', color: '#64748b' }}>{(whk.totalDeliveries || 0).toLocaleString()} sent</div>
+                        </td>
+                        <td>
+                          <span className={whk.status === 'ACTIVE' ? 'status-badge-green' : 'status-tag status-trial'}>
+                            ● {whk.status}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '3px 8px', fontSize: '0.72rem' }}
+                            onClick={() => handleTestWebhook(whk.id)}
+                          >
+                            <Play size={11} /> Ping Test
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 4: RATE LIMITS & LIVE USAGE TELEMETRY
+              =================================================================== */}
+          {apiSubTab === 'limits' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {/* Telemetry Summary Strip */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                <div className="card-section" style={{ margin: 0, padding: '16px 18px', background: '#f8fafc' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '800', textTransform: 'uppercase' }}>24h Total API Calls</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#0f172a', margin: '4px 0' }}>3,482,910</div>
+                  <div style={{ fontSize: '0.74rem', color: '#16a34a' }}>+12.4% vs previous 24h</div>
+                </div>
+
+                <div className="card-section" style={{ margin: 0, padding: '16px 18px', background: '#f8fafc' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '800', textTransform: 'uppercase' }}>Average API Latency</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#0284c7', margin: '4px 0' }}>24ms</div>
+                  <div style={{ fontSize: '0.74rem', color: '#0369a1' }}>p95: 58ms &bull; p99: 112ms</div>
+                </div>
+
+                <div className="card-section" style={{ margin: 0, padding: '16px 18px', background: '#f8fafc' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '800', textTransform: 'uppercase' }}>Gateway Success Rate</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#166534', margin: '4px 0' }}>99.94%</div>
+                  <div style={{ fontSize: '0.74rem', color: '#15803d' }}>3,480,820 2xx Responses</div>
+                </div>
+
+                <div className="card-section" style={{ margin: 0, padding: '16px 18px', background: '#f8fafc' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '800', textTransform: 'uppercase' }}>Current Gateway RPM</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#7c3aed', margin: '4px 0' }}>2,420 RPM</div>
+                  <div style={{ fontSize: '0.74rem', color: '#6d28d9' }}>Peak: 4,100 RPM at 14:00 UTC</div>
+                </div>
+              </div>
+
+              {/* Rate Limit Tiers Matrix */}
+              <div className="card-section" style={{ margin: 0, padding: '20px' }}>
+                <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: '800', color: '#0f172a', marginBottom: '14px' }}>
+                  Platform Rate Limit Matrix by Subscription Tier
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+                  <div style={{ border: '1px solid #ddd6fe', borderRadius: '8px', padding: '16px', background: '#fbfaff' }}>
+                    <div style={{ fontSize: '0.86rem', fontWeight: '800', color: '#7c3aed' }}>👑 ENTERPRISE TIER</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#0f172a', margin: '8px 0 4px' }}>1,200 RPM</div>
+                    <div style={{ fontSize: '0.75rem', color: '#475569' }}>Daily Quota: <strong>500,000 requests</strong></div>
+                    <div style={{ fontSize: '0.75rem', color: '#475569' }}>Burst Allowance: <strong>2,500 burst</strong></div>
+                  </div>
+
+                  <div style={{ border: '1px solid #bfdbfe', borderRadius: '8px', padding: '16px', background: '#f8fbff' }}>
+                    <div style={{ fontSize: '0.86rem', fontWeight: '800', color: '#0284c7' }}>⚡ PROFESSIONAL TIER</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#0f172a', margin: '8px 0 4px' }}>600 RPM</div>
+                    <div style={{ fontSize: '0.75rem', color: '#475569' }}>Daily Quota: <strong>200,000 requests</strong></div>
+                    <div style={{ fontSize: '0.75rem', color: '#475569' }}>Burst Allowance: <strong>1,000 burst</strong></div>
+                  </div>
+
+                  <div style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '16px', background: '#f8fafc' }}>
+                    <div style={{ fontSize: '0.86rem', fontWeight: '800', color: '#475569' }}>🌱 STARTER TIER</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#0f172a', margin: '8px 0 4px' }}>120 RPM</div>
+                    <div style={{ fontSize: '0.75rem', color: '#475569' }}>Daily Quota: <strong>50,000 requests</strong></div>
+                    <div style={{ fontSize: '0.75rem', color: '#475569' }}>Burst Allowance: <strong>300 burst</strong></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 5: DEAD-LETTER FAILED REQUESTS QUEUE
+              =================================================================== */}
+          {apiSubTab === 'dlq' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div className="card-section" style={{ margin: 0, padding: '16px 20px', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <AlertTriangle size={18} color="#dc2626" />
+                    Failed API Requests Dead-Letter Queue (DLQ)
+                  </h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: '#64748b' }}>
+                    Captures 4xx/5xx integration handshake failures, timeout exceptions, and downstream ERP rejections with 1-click retry.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => getApiFailedRequests().then(f => setApiFailedRequests(f))}
+                >
+                  <RefreshCw size={14} /> Refresh Dead-Letter Stream
+                </button>
+              </div>
+
+              <div className="saas-table-container">
+                <table className="saas-data-table" style={{ margin: 0 }}>
+                  <thead>
+                    <tr>
+                      <th>Request ID</th>
+                      <th>Method &amp; Endpoint</th>
+                      <th>Status Code</th>
+                      <th>Error Code &amp; Reason</th>
+                      <th>Company Tenant</th>
+                      <th>Origin IP</th>
+                      <th>Retries</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {apiFailedRequests.map((fl, i) => (
+                      <tr key={i}>
+                        <td><code>{fl.id}</code></td>
+                        <td>
+                          <span style={{ fontWeight: '800', color: fl.method === 'POST' ? '#16a34a' : (fl.method === 'PUT' ? '#d97706' : '#2563eb'), fontSize: '0.76rem' }}>
+                            {fl.method}
+                          </span>{' '}
+                          <code style={{ fontSize: '0.74rem' }}>{fl.endpoint}</code>
+                        </td>
+                        <td>
+                          <span
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.74rem',
+                              fontWeight: '800',
+                              background: fl.httpStatus >= 500 ? '#fee2e2' : '#ffedd5',
+                              color: fl.httpStatus >= 500 ? '#991b1b' : '#9a3412'
+                            }}
+                          >
+                            HTTP {fl.httpStatus}
+                          </span>
+                        </td>
+                        <td style={{ maxWidth: '280px' }}>
+                          <div style={{ fontWeight: '700', fontSize: '0.76rem', color: '#0f172a' }}>{fl.errorCode}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {fl.errorMessage}
+                          </div>
+                        </td>
+                        <td><strong>{fl.companyName}</strong></td>
+                        <td><code>{fl.ipAddress}</code></td>
+                        <td><strong>{fl.retryCount || 0}</strong></td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '6px' }}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              style={{ padding: '3px 8px', fontSize: '0.72rem' }}
+                              onClick={() => setSelectedFailedReqInspect(fl)}
+                            >
+                              <Eye size={12} /> Inspect
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              style={{ padding: '3px 8px', fontSize: '0.72rem', background: '#0284c7' }}
+                              onClick={() => handleRetryFailedApiRequest(fl.id)}
+                            >
+                              <RotateCcw size={12} /> Retry
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 6: LIVE API ACCESS LOGS
+              =================================================================== */}
+          {apiSubTab === 'logs' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="card-section" style={{ padding: '14px 18px', margin: 0, background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Terminal size={18} color="#0284c7" />
+                  <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: '800', color: '#0f172a' }}>
+                    Live Gateway Ingress &amp; Egress Request Stream
+                  </h3>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.76rem', color: '#475569', fontWeight: '700' }}>Filter Status:</span>
+                  <select
+                    className="form-control"
+                    style={{ height: '32px', fontSize: '0.76rem' }}
+                    value={apiLogsFilter}
+                    onChange={(e) => setApiLogsFilter(e.target.value)}
+                  >
+                    <option value="ALL">All HTTP Responses</option>
+                    <option value="2XX">2xx Successful Only</option>
+                    <option value="4XX">4xx Client Errors Only</option>
+                    <option value="5XX">5xx Server Errors Only</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="saas-table-container">
+                <table className="saas-data-table" style={{ margin: 0, fontSize: '0.78rem' }}>
+                  <thead>
+                    <tr>
+                      <th>Timestamp</th>
+                      <th>Method</th>
+                      <th>Route / Endpoint</th>
+                      <th>HTTP Status</th>
+                      <th>Latency</th>
+                      <th>Caller / Client ID</th>
+                      <th>Origin IP</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(liveApiLogs.length > 0 ? liveApiLogs : [
+                      { time: new Date().toLocaleTimeString(), method: 'GET', endpoint: '/api/v1/orders', status: 200, latencyMs: 18, client: 'cli_sap_01', ip: '142.250.190.46' },
+                      { time: new Date(Date.now() - 3000).toLocaleTimeString(), method: 'POST', endpoint: '/api/v1/dcr/submit', status: 201, latencyMs: 24, client: 'cli_sfdc_02', ip: '103.21.244.18' },
+                      { time: new Date(Date.now() - 6000).toLocaleTimeString(), method: 'GET', endpoint: '/api/v1/catalog/products', status: 200, latencyMs: 14, client: 'cli_netsuite_03', ip: '49.37.112.80' },
+                      { time: new Date(Date.now() - 9000).toLocaleTimeString(), method: 'PUT', endpoint: '/api/v1/chemists/verify', status: 422, latencyMs: 32, client: 'cli_netsuite_03', ip: '49.37.112.80' },
+                      { time: new Date(Date.now() - 12000).toLocaleTimeString(), method: 'POST', endpoint: '/api/v1/orders/bulk-sync', status: 504, latencyMs: 15000, client: 'cli_sap_01', ip: '142.250.190.46' }
+                    ])
+                      .filter(l => {
+                        if (apiLogsFilter === '2XX') return l.status >= 200 && l.status < 300;
+                        if (apiLogsFilter === '4XX') return l.status >= 400 && l.status < 500;
+                        if (apiLogsFilter === '5XX') return l.status >= 500;
+                        return true;
+                      })
+                      .map((log, i) => (
+                        <tr key={i}>
+                          <td style={{ fontFamily: 'monospace' }}>{log.time}</td>
+                          <td>
+                            <span style={{ fontWeight: '800', color: log.method === 'POST' ? '#16a34a' : (log.method === 'PUT' ? '#d97706' : (log.method === 'DELETE' ? '#dc2626' : '#2563eb')) }}>
+                              {log.method}
+                            </span>
+                          </td>
+                          <td><code>{log.endpoint}</code></td>
+                          <td>
+                            <span className={log.status < 300 ? 'status-badge-green' : 'status-tag status-trial'} style={log.status >= 500 ? { background: '#fee2e2', color: '#991b1b' } : (log.status >= 400 ? { background: '#ffedd5', color: '#9a3412' } : {})}>
+                              {log.status}
+                            </span>
+                          </td>
+                          <td><strong>{log.latencyMs}ms</strong></td>
+                          <td><code>{log.client}</code></td>
+                          <td><code>{log.ip}</code></td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 7: 3RD-PARTY ENTERPRISE INTEGRATIONS
+              =================================================================== */}
+          {apiSubTab === 'integrations' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div className="card-section" style={{ margin: 0, padding: '16px 20px', background: '#f8fafc' }}>
+                <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: '800', color: '#0f172a' }}>
+                  3rd-Party Enterprise Connector Connectors &amp; Adapter Gateway
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: '#64748b' }}>
+                  Enable or suspend native pre-built connectors for ERP, CRM, Geolocation, SMS, and Email pipelines across all tenant organizations.
+                </p>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '14px' }}>
+                {integrationAccessList.map((item) => {
+                  const isEnabled = item.status === 'OPERATIONAL';
+                  return (
+                    <div key={item.key} className="card-section" style={{ margin: 0, padding: '18px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '1.3rem' }}>🔌</span>
+                            <strong style={{ fontSize: '0.92rem', color: '#0f172a' }}>{item.name}</strong>
+                          </div>
+                          <span className={isEnabled ? 'status-badge-green' : 'status-tag status-trial'} style={!isEnabled ? { background: '#fee2e2', color: '#991b1b' } : {}}>
+                            ● {item.status}
+                          </span>
+                        </div>
+
+                        <div style={{ fontSize: '0.74rem', color: '#0284c7', fontWeight: '700', marginBottom: '6px' }}>
+                          {item.category}
+                        </div>
+
+                        <p style={{ fontSize: '0.76rem', color: '#475569', lineHeight: 1.5, marginBottom: '14px' }}>
+                          {item.description}
+                        </p>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+                        <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                          Active in <strong>{item.enabledTenantsCount}</strong> Tenants
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          style={{
+                            color: isEnabled ? '#dc2626' : '#16a34a',
+                            borderColor: isEnabled ? '#fecaca' : '#bbf7d0',
+                            background: isEnabled ? '#fef2f2' : '#f0fdf4'
+                          }}
+                          onClick={() => handleToggleIntegration(item.key, item.status)}
+                        >
+                          {isEnabled ? 'Disable Adapter' : 'Enable Adapter'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =====================================================================
           MODAL: PROVISION TENANT (FREE TRIAL, STARTER, PRO, ENTERPRISE, CUSTOM)
           ===================================================================== */}
       {isCreateCompanyOpen && (
@@ -10282,6 +11870,696 @@ export default function SuperAdminDashboard({
                 >
                   <RotateCcw size={16} />
                   <span>Confirm Force Logout</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: TRIGGER COMPANY DATA EXPORT
+          ===================================================================== */}
+      {isExportModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '580px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Download size={22} color="#0284c7" />
+                <div>
+                  <h3>Generate Company Data Export</h3>
+                  <p>Compile a complete cryptographic archive package for a tenant</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsExportModalOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleTriggerCompanyExport} className="modal-form-body">
+              <div className="form-group">
+                <label>Select Tenant Organization *</label>
+                <select
+                  required
+                  className="form-control"
+                  value={exportForm.companyId}
+                  onChange={(e) => {
+                    const comp = companies.find(c => c.id === e.target.value);
+                    setExportForm({ ...exportForm, companyId: e.target.value, companyName: comp?.name || '' });
+                  }}
+                >
+                  <option value="">-- Choose Tenant Company --</option>
+                  {companies.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.plan})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Export Format &amp; Compression *</label>
+                <select
+                  className="form-control"
+                  value={exportForm.format}
+                  onChange={(e) => setExportForm({ ...exportForm, format: e.target.value })}
+                >
+                  <option value="ZIP (JSON + CSV + Media Manifest)">ZIP (JSON DB Tables + CSVs + Media Manifest)</option>
+                  <option value="ENCRYPTED_ARCHIVE_GZ">Encrypted Tarball (.tar.gz with AES-256 Checksum)</option>
+                  <option value="STANDALONE_CSV_BUNDLE">Standalone CSV Bundle (Spreadsheet Ready)</option>
+                </select>
+              </div>
+
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', fontSize: '0.78rem', color: '#166534' }}>
+                🔒 <strong>Compliance Guarantee:</strong> Exports contain DCR logs, chemist orders, attendance pings, and product catalogs formatted strictly under ISO/IEC 27001 export standards.
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsExportModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <Download size={15} /> <span>Generate Archive Bundle</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: SUBMIT DATA RESTORE REQUEST
+          ===================================================================== */}
+      {isRestoreModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '600px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <RotateCcw size={22} color="#0284c7" />
+                <div>
+                  <h3>Request Point-in-Time Restore</h3>
+                  <p>Restore tenant data to a previous historic snapshot</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsRestoreModalOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleSubmitRestoreRequest} className="modal-form-body">
+              <div className="form-group">
+                <label>Select Tenant Organization *</label>
+                <select
+                  required
+                  className="form-control"
+                  value={restoreForm.tenantId}
+                  onChange={(e) => {
+                    const comp = companies.find(c => c.id === e.target.value);
+                    setRestoreForm({ ...restoreForm, tenantId: e.target.value, companyName: comp?.name || '' });
+                  }}
+                >
+                  <option value="">-- Choose Tenant Company --</option>
+                  {companies.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Target Point-in-Time *</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    className="form-control"
+                    value={restoreForm.targetPointInTime}
+                    onChange={(e) => setRestoreForm({ ...restoreForm, targetPointInTime: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Restore Scope</label>
+                  <select
+                    className="form-control"
+                    value={restoreForm.restoreType}
+                    onChange={(e) => setRestoreForm({ ...restoreForm, restoreType: e.target.value })}
+                  >
+                    <option value="POINT_IN_TIME_TRANSACTIONAL">Full Database Transactional Revert</option>
+                    <option value="CATALOG_METADATA_ONLY">Product &amp; SKU Catalog Only</option>
+                    <option value="DCR_AND_DOCTORS_ONLY">DCR &amp; Doctor Master Only</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Business Justification / Disaster Reason *</label>
+                <textarea
+                  required
+                  rows={3}
+                  className="form-control"
+                  placeholder="e.g. Accidental bulk deletion of North Territory chemist accounts..."
+                  value={restoreForm.reason}
+                  onChange={(e) => setRestoreForm({ ...restoreForm, reason: e.target.value })}
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsRestoreModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <RotateCcw size={15} /> <span>Submit Restore Request</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: SUBMIT CONTROLLED DATA DELETION REQUEST
+          ===================================================================== */}
+      {isDeletionModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '600px' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid #fee2e2' }}>
+              <div className="modal-title-group">
+                <Trash2 size={22} color="#dc2626" />
+                <div>
+                  <h3 style={{ color: '#991b1b' }}>Queue Controlled Data Deletion</h3>
+                  <p>Initiate a multi-tenant deletion workflow with safety grace window</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsDeletionModalOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleSubmitDeletionRequest} className="modal-form-body">
+              <div className="form-group">
+                <label>Tenant Organization to Purge *</label>
+                <select
+                  required
+                  className="form-control"
+                  value={deletionForm.tenantId}
+                  onChange={(e) => {
+                    const comp = companies.find(c => c.id === e.target.value);
+                    setDeletionForm({ ...deletionForm, tenantId: e.target.value, companyName: comp?.name || '' });
+                  }}
+                >
+                  <option value="">-- Select Company Tenant --</option>
+                  {companies.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.status})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Deletion Scope *</label>
+                <select
+                  className="form-control"
+                  value={deletionForm.scope}
+                  onChange={(e) => setDeletionForm({ ...deletionForm, scope: e.target.value })}
+                >
+                  <option value="FULL_TENANT_DATA_PURGE">Full Tenant Data Purge (Complete Instance Destruction)</option>
+                  <option value="GDPR_RIGHT_TO_BE_FORGOTTEN">GDPR PII &amp; Personal User Data Only</option>
+                  <option value="HISTORIC_GPS_AND_TELEMETRY">Historic GPS Logs &amp; Breadcrumb Trails Only</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Compliance Justification / Regulatory Reason *</label>
+                <textarea
+                  required
+                  rows={3}
+                  className="form-control"
+                  placeholder="e.g. Contract termination and statutory right-to-be-forgotten compliance request."
+                  value={deletionForm.reason}
+                  onChange={(e) => setDeletionForm({ ...deletionForm, reason: e.target.value })}
+                />
+              </div>
+
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 14px', fontSize: '0.78rem', color: '#991b1b' }}>
+                ⚠️ A 7-day safety grace window will be attached. Final execution requires entering a 2-step verification token.
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsDeletionModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ background: '#dc2626', borderColor: '#b91c1c' }}>
+                  <Trash2 size={15} /> <span>Queue Deletion Request</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: 2-STEP CONFIRMATION FOR PERMANENT DATA PURGE
+          ===================================================================== */}
+      {isConfirmPurgeOpen && confirmPurgeTarget && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '540px' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid #fee2e2' }}>
+              <div className="modal-title-group">
+                <AlertOctagon size={24} color="#dc2626" />
+                <div>
+                  <h3 style={{ color: '#991b1b' }}>Permanent Data Purge Confirmation</h3>
+                  <p>Target: <strong>{confirmPurgeTarget.companyName}</strong></p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsConfirmPurgeOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleExecutePermanentPurge} className="modal-form-body">
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '14px', fontSize: '0.8rem', color: '#7f1d1d', lineHeight: 1.5, marginBottom: '16px' }}>
+                <strong>CRITICAL WARNING:</strong> You are about to permanently destroy all database records, file assets, and audit logs for <strong>{confirmPurgeTarget.companyName}</strong>. This operation is physically irreversible.
+              </div>
+
+              <div className="form-group">
+                <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#0f172a' }}>
+                  To confirm, type <code style={{ color: '#dc2626', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px' }}>CONFIRM_PURGE</code> below:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Type CONFIRM_PURGE to confirm"
+                  className="form-control"
+                  style={{ fontFamily: 'monospace', fontWeight: '800', borderColor: '#dc2626' }}
+                  value={confirmPurgeTokenInput}
+                  onChange={(e) => setConfirmPurgeTokenInput(e.target.value)}
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsConfirmPurgeOpen(false)}>Cancel</button>
+                <button
+                  type="submit"
+                  disabled={confirmPurgeTokenInput.trim() !== 'CONFIRM_PURGE'}
+                  className="btn btn-primary"
+                  style={{
+                    background: confirmPurgeTokenInput.trim() === 'CONFIRM_PURGE' ? '#dc2626' : '#94a3b8',
+                    borderColor: confirmPurgeTokenInput.trim() === 'CONFIRM_PURGE' ? '#b91c1c' : '#94a3b8',
+                    cursor: confirmPurgeTokenInput.trim() === 'CONFIRM_PURGE' ? 'pointer' : 'not-allowed'
+                  }}
+                >
+                  <Trash2 size={16} /> <span>Execute Permanent Purge</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: EDIT RETENTION POLICY
+          ===================================================================== */}
+      {isEditRetentionOpen && editingRetentionPolicy && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Clock size={22} color="#0284c7" />
+                <div>
+                  <h3>Configure Retention Policy</h3>
+                  <p>{editingRetentionPolicy.entityName}</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsEditRetentionOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleSaveRetentionPolicy} className="modal-form-body">
+              <div className="form-group">
+                <label>Retention Duration (Days) *</label>
+                <input
+                  type="number"
+                  min="7"
+                  max="3650"
+                  required
+                  className="form-control"
+                  value={editingRetentionPolicy.retentionDays}
+                  onChange={(e) => setEditingRetentionPolicy({ ...editingRetentionPolicy, retentionDays: Number(e.target.value) })}
+                />
+              </div>
+
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(editingRetentionPolicy.autoPurge)}
+                    onChange={(e) => setEditingRetentionPolicy({ ...editingRetentionPolicy, autoPurge: e.target.checked })}
+                    style={{ accentColor: '#dc2626' }}
+                  />
+                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#0f172a' }}>
+                    Auto-Purge Expired Records Automatically
+                  </span>
+                </label>
+              </div>
+
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(editingRetentionPolicy.archiveBeforePurge)}
+                    onChange={(e) => setEditingRetentionPolicy({ ...editingRetentionPolicy, archiveBeforePurge: e.target.checked })}
+                    style={{ accentColor: '#0284c7' }}
+                  />
+                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#0f172a' }}>
+                    Move to Glacier Cold Archive Before Purging
+                  </span>
+                </label>
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsEditRetentionOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <Save size={15} /> <span>Save Retention Policy</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: GENERATE API KEY
+          ===================================================================== */}
+      {isCreateApiKeyOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '620px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Key size={22} color="#0284c7" />
+                <div>
+                  <h3>Generate New Platform API Key</h3>
+                  <p>Issue scoped cryptographic API credentials for tenant integrations</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => { setIsCreateApiKeyOpen(false); setNewApiKeyCreatedResult(null); }}>&times;</button>
+            </div>
+
+            <div className="modal-form-body">
+              {newApiKeyCreatedResult ? (
+                <div>
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '16px', marginBottom: '16px', color: '#166534' }}>
+                    <div style={{ fontWeight: '800', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <CheckCircle2 size={18} color="#16a34a" /> API Key Generated Successfully!
+                    </div>
+                    <p style={{ fontSize: '0.78rem', margin: '6px 0 12px', color: '#15803d' }}>
+                      Please copy the secret key below immediately. For security, you will not be able to view it again.
+                    </p>
+                    <div style={{ background: '#ffffff', border: '1px solid #86efac', borderRadius: '6px', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <code style={{ fontSize: '0.88rem', fontWeight: '800', color: '#0f172a', wordBreak: 'break-all' }}>
+                        {newApiKeyCreatedResult.rawSecretKey || `allv_live_${Math.random().toString(36).slice(2)}${Date.now()}`}
+                      </code>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(newApiKeyCreatedResult.rawSecretKey || '');
+                          showToast('Secret key copied to clipboard!', 'success');
+                        }}
+                      >
+                        <Copy size={13} /> Copy
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="modal-actions-bar">
+                    <button type="button" className="btn btn-primary" onClick={() => { setIsCreateApiKeyOpen(false); setNewApiKeyCreatedResult(null); }}>
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleCreateApiKey}>
+                  <div className="form-group">
+                    <label>Key Name / Integration Label *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Novartis SAP S/4HANA Connector"
+                      className="form-control"
+                      value={newApiKeyForm.keyName}
+                      onChange={(e) => setNewApiKeyForm({ ...newApiKeyForm, keyName: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-grid-2">
+                    <div className="form-group">
+                      <label>Associated Company Tenant</label>
+                      <select
+                        className="form-control"
+                        value={newApiKeyForm.companyId}
+                        onChange={(e) => setNewApiKeyForm({ ...newApiKeyForm, companyId: e.target.value })}
+                      >
+                        <option value="">Global Platform Core</option>
+                        {companies.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Rate Limit (RPM)</label>
+                      <input
+                        type="number"
+                        min="60"
+                        max="5000"
+                        className="form-control"
+                        value={newApiKeyForm.rateLimitRpm}
+                        onChange={(e) => setNewApiKeyForm({ ...newApiKeyForm, rateLimitRpm: Number(e.target.value) })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Authorized Scopes</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+                      {[
+                        { id: 'orders:read', label: '📖 Read Orders' },
+                        { id: 'orders:write', label: '✍️ Create/Update Orders' },
+                        { id: 'catalog:read', label: '💊 Read Product Catalog' },
+                        { id: 'dcr:read', label: '📋 Read DCR Visit Logs' },
+                        { id: 'dcr:write', label: '✍️ Submit DCR Reports' },
+                        { id: 'analytics:read', label: '📊 Read Analytics' }
+                      ].map(sc => {
+                        const isChecked = newApiKeyForm.scopes.includes(sc.id);
+                        return (
+                          <label key={sc.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', cursor: 'pointer', padding: '6px', background: isChecked ? '#eff6ff' : '#f8fafc', border: isChecked ? '1px solid #bfdbfe' : '1px solid #e2e8f0', borderRadius: '6px' }}>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                const next = e.target.checked
+                                  ? [...newApiKeyForm.scopes, sc.id]
+                                  : newApiKeyForm.scopes.filter(s => s !== sc.id);
+                                setNewApiKeyForm({ ...newApiKeyForm, scopes: next });
+                              }}
+                              style={{ accentColor: '#0284c7' }}
+                            />
+                            <span>{sc.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="modal-actions-bar">
+                    <button type="button" className="cancel-btn" onClick={() => setIsCreateApiKeyOpen(false)}>Cancel</button>
+                    <button type="submit" className="btn btn-primary">
+                      <Key size={15} /> <span>Generate API Key</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: REGISTER API CLIENT
+          ===================================================================== */}
+      {isCreateApiClientOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '560px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Building2 size={22} color="#0284c7" />
+                <div>
+                  <h3>Register Enterprise API Client</h3>
+                  <p>Configure an M2M backend client or OAuth2 enterprise connection</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsCreateApiClientOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleCreateApiClient} className="modal-form-body">
+              <div className="form-group">
+                <label>Client Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. SAP S/4HANA Enterprise Connector"
+                  className="form-control"
+                  value={newApiClientForm.clientName}
+                  onChange={(e) => setNewApiClientForm({ ...newApiClientForm, clientName: e.target.value })}
+                />
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Client Type</label>
+                  <select
+                    className="form-control"
+                    value={newApiClientForm.clientType}
+                    onChange={(e) => setNewApiClientForm({ ...newApiClientForm, clientType: e.target.value })}
+                  >
+                    <option value="M2M_BACKEND_SERVICE">Machine-to-Machine (M2M)</option>
+                    <option value="OAUTH2_CONFIDENTIAL_CLIENT">OAuth2 Confidential Client</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Associated Company</label>
+                  <select
+                    className="form-control"
+                    value={newApiClientForm.companyId}
+                    onChange={(e) => setNewApiClientForm({ ...newApiClientForm, companyId: e.target.value })}
+                  >
+                    <option value="">Global Platform Core</option>
+                    {companies.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsCreateApiClientOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <Building2 size={15} /> <span>Register Client</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: ADD WEBHOOK ENDPOINT
+          ===================================================================== */}
+      {isCreateWebhookOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '580px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Zap size={22} color="#0284c7" />
+                <div>
+                  <h3>Add Webhook Endpoint</h3>
+                  <p>Receive asynchronous HTTP push alerts on platform events</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsCreateWebhookOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleCreateWebhook} className="modal-form-body">
+              <div className="form-group">
+                <label>Webhook Label / Purpose *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Real-Time Order Booking Relay"
+                  className="form-control"
+                  value={newWebhookForm.webhookName}
+                  onChange={(e) => setNewWebhookForm({ ...newWebhookForm, webhookName: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Target HTTPS Endpoint URL *</label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://api.company.com/webhooks/alleviare"
+                  className="form-control"
+                  value={newWebhookForm.targetUrl}
+                  onChange={(e) => setNewWebhookForm({ ...newWebhookForm, targetUrl: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Event Triggers</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+                  {[
+                    { id: 'order.created', label: '📦 order.created' },
+                    { id: 'order.approved', label: '✅ order.approved' },
+                    { id: 'dcr.submitted', label: '📋 dcr.submitted' },
+                    { id: 'user.lockout', label: '🔒 user.lockout' }
+                  ].map(ev => {
+                    const isChecked = newWebhookForm.subscribedEvents.includes(ev.id);
+                    return (
+                      <label key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', cursor: 'pointer', padding: '6px', background: isChecked ? '#eff6ff' : '#f8fafc', border: isChecked ? '1px solid #bfdbfe' : '1px solid #e2e8f0', borderRadius: '6px' }}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const next = e.target.checked
+                              ? [...newWebhookForm.subscribedEvents, ev.id]
+                              : newWebhookForm.subscribedEvents.filter(s => s !== ev.id);
+                            setNewWebhookForm({ ...newWebhookForm, subscribedEvents: next });
+                          }}
+                          style={{ accentColor: '#0284c7' }}
+                        />
+                        <span>{ev.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsCreateWebhookOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <Zap size={15} /> <span>Create Webhook</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: FAILED API REQUEST INSPECTOR (DEAD-LETTER QUEUE)
+          ===================================================================== */}
+      {selectedFailedReqInspect && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '650px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <AlertTriangle size={22} color="#dc2626" />
+                <div>
+                  <h3>Failed Request Diagnostics</h3>
+                  <p>Request ID: <code>{selectedFailedReqInspect.id}</code></p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setSelectedFailedReqInspect(null)}>&times;</button>
+            </div>
+
+            <div className="modal-form-body">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '14px' }}>
+                <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>HTTP Status</div>
+                  <div style={{ fontWeight: '800', fontSize: '0.92rem', color: '#991b1b' }}>{selectedFailedReqInspect.httpStatus}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Tenant</div>
+                  <div style={{ fontWeight: '800', fontSize: '0.84rem', color: '#0f172a' }}>{selectedFailedReqInspect.companyName}</div>
+                </div>
+                <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Retries</div>
+                  <div style={{ fontWeight: '800', fontSize: '0.84rem', color: '#0f172a' }}>{selectedFailedReqInspect.retryCount || 0} Attempts</div>
+                </div>
+              </div>
+
+              <div style={{ background: '#fef2f2', border: '1px solid #fee2e2', borderRadius: '6px', padding: '12px', marginBottom: '14px', fontSize: '0.78rem', color: '#991b1b' }}>
+                <strong>Error Reason:</strong> {selectedFailedReqInspect.errorMessage}
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setSelectedFailedReqInspect(null)}>Close</button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => handleRetryFailedApiRequest(selectedFailedReqInspect.id)}
+                >
+                  <RotateCcw size={15} /> <span>Re-Dispatch / Retry Request</span>
                 </button>
               </div>
             </div>

@@ -2220,6 +2220,272 @@ export const resolveSecurityAlert = async (alertId) => {
   };
 };
 
+// ----------------------------------------------------------------------------
+// DATA MANAGEMENT
+// ----------------------------------------------------------------------------
+export const getDataManagementOverview = async () => {
+  try {
+    const res = await fetchWithAuth('/data-management/overview');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading data management overview:', err);
+  }
+  return {
+    storage: {
+      totalQuotaGb: 5000,
+      usedStorageGb: 1420.8,
+      freeStorageGb: 3579.2,
+      utilizationPct: 28.4,
+      breakdown: { mediaDocsGb: 610.4, databaseTablesGb: 480.2, snapshotsBackupsGb: 330.2 }
+    },
+    exportsCount: 14,
+    archivesCount: 6,
+    pendingRestoresCount: 1,
+    pendingDeletionsCount: 2
+  };
+};
+
+export const getCompanyDataExports = async () => {
+  try {
+    const res = await fetchWithAuth('/data-management/exports');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading exports:', err);
+  }
+  return [];
+};
+
+export const triggerCompanyDataExport = async (exportData) => {
+  const res = await fetchWithAuth('/data-management/exports', {
+    method: 'POST',
+    body: JSON.stringify(exportData)
+  });
+  return res.data || res;
+};
+
+export const getCompanyDataArchives = async () => {
+  try {
+    const res = await fetchWithAuth('/data-management/archives');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading archives:', err);
+  }
+  return [];
+};
+
+export const archiveCompanyData = async (archiveData) => {
+  const res = await fetchWithAuth('/data-management/archives', {
+    method: 'POST',
+    body: JSON.stringify(archiveData)
+  });
+  return res.data || res;
+};
+
+export const getDataRetentionPolicies = async () => {
+  try {
+    const res = await fetchWithAuth('/data-management/retention-policies');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading retention policies:', err);
+  }
+  return [];
+};
+
+export const updateDataRetentionPolicy = async (policyId, policyData) => {
+  const res = await fetchWithAuth(`/data-management/retention-policies/${policyId}`, {
+    method: 'PUT',
+    body: JSON.stringify(policyData)
+  });
+  return res.data || res;
+};
+
+export const getDataRestoreRequests = async () => {
+  try {
+    const res = await fetchWithAuth('/data-management/restore-requests');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading restore requests:', err);
+  }
+  return [];
+};
+
+export const submitDataRestoreRequest = async (restoreData) => {
+  const res = await fetchWithAuth('/data-management/restore-requests', {
+    method: 'POST',
+    body: JSON.stringify(restoreData)
+  });
+  return res.data || res;
+};
+
+export const reviewDataRestoreRequest = async (requestId, action, reason) => {
+  const res = await fetchWithAuth(`/data-management/restore-requests/${requestId}/review`, {
+    method: 'POST',
+    body: JSON.stringify({ action, reason })
+  });
+  return res.data || res;
+};
+
+export const getDataDeletionRequests = async () => {
+  try {
+    const res = await fetchWithAuth('/data-management/deletion-requests');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading deletion requests:', err);
+  }
+  return [];
+};
+
+export const submitDataDeletionRequest = async (deletionData) => {
+  const res = await fetchWithAuth('/data-management/deletion-requests', {
+    method: 'POST',
+    body: JSON.stringify(deletionData)
+  });
+  return res.data || res;
+};
+
+export const confirmDataDeletionRequest = async (requestId, confirmationToken) => {
+  const res = await fetchWithAuth(`/data-management/deletion-requests/${requestId}/confirm`, {
+    method: 'POST',
+    body: JSON.stringify({ confirmationToken })
+  });
+  return res;
+};
+
+// ----------------------------------------------------------------------------
+// API MANAGEMENT
+// ----------------------------------------------------------------------------
+export const getApiManagementOverview = async () => {
+  try {
+    const res = await fetchWithAuth('/api-management/overview');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading API management overview:', err);
+  }
+  return {
+    totalRequests24h: 3482910,
+    avgLatencyMs: 24,
+    successRatePct: 99.94,
+    activeKeysCount: 18,
+    activeClientsCount: 8,
+    activeWebhooksCount: 12,
+    failedRequestsDlqCount: 3
+  };
+};
+
+export const getApiKeys = async () => {
+  try {
+    const res = await fetchWithAuth('/api-management/keys');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading API keys:', err);
+  }
+  return [];
+};
+
+export const generateApiKey = async (keyData) => {
+  const res = await fetchWithAuth('/api-management/keys', {
+    method: 'POST',
+    body: JSON.stringify(keyData)
+  });
+  return res.data || res;
+};
+
+export const revokeApiKey = async (keyId) => {
+  const res = await fetchWithAuth(`/api-management/keys/${keyId}/revoke`, {
+    method: 'POST'
+  });
+  return res.data || res;
+};
+
+export const getApiClients = async () => {
+  try {
+    const res = await fetchWithAuth('/api-management/clients');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading API clients:', err);
+  }
+  return [];
+};
+
+export const createApiClient = async (clientData) => {
+  const res = await fetchWithAuth('/api-management/clients', {
+    method: 'POST',
+    body: JSON.stringify(clientData)
+  });
+  return res.data || res;
+};
+
+export const getWebhooks = async () => {
+  try {
+    const res = await fetchWithAuth('/api-management/webhooks');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading webhooks:', err);
+  }
+  return [];
+};
+
+export const createWebhook = async (webhookData) => {
+  const res = await fetchWithAuth('/api-management/webhooks', {
+    method: 'POST',
+    body: JSON.stringify(webhookData)
+  });
+  return res.data || res;
+};
+
+export const testWebhook = async (webhookId) => {
+  const res = await fetchWithAuth(`/api-management/webhooks/${webhookId}/test`, {
+    method: 'POST'
+  });
+  return res;
+};
+
+export const getApiFailedRequests = async () => {
+  try {
+    const res = await fetchWithAuth('/api-management/failed-requests');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading failed requests:', err);
+  }
+  return [];
+};
+
+export const retryFailedApiRequest = async (requestId) => {
+  const res = await fetchWithAuth(`/api-management/failed-requests/${requestId}/retry`, {
+    method: 'POST'
+  });
+  return res;
+};
+
+export const getLiveApiLogs = async () => {
+  try {
+    const res = await fetchWithAuth('/api-management/logs');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading live API logs:', err);
+  }
+  return [];
+};
+
+export const getIntegrationAccessList = async () => {
+  try {
+    const res = await fetchWithAuth('/api-management/integrations');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading integration access:', err);
+  }
+  return [];
+};
+
+export const toggleIntegrationAccess = async (integrationId, enabled) => {
+  const res = await fetchWithAuth(`/api-management/integrations/${integrationId}/toggle`, {
+    method: 'POST',
+    body: JSON.stringify({ enabled })
+  });
+  return res.data || res;
+};
+
+
 
 
 
