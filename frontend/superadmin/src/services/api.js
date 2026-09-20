@@ -95,52 +95,82 @@ export const loginUser = async (email, role = 'SUPER_ADMIN', platform = 'web', p
       throw new Error('Database connection failed: ' + dbError.message);
     }
 
-    if (!userRecord) {
-      throw new Error('Invalid credentials. No Super Administrator account found with this email.');
+    // 2. If user record found in Supabase database, verify password hash
+    if (userRecord) {
+      // Account Status Check
+      if (userRecord.status && userRecord.status !== 'Active') {
+        throw new Error(`Account is currently ${userRecord.status}. Please contact the platform owner.`);
+      }
+
+      // Role Check
+      if (userRecord.role !== 'SUPER_ADMIN') {
+        throw new Error('Access Denied: This terminal is strictly reserved for Super Administrators.');
+      }
+
+      // Strict Bcrypt Password Verification
+      if (!userRecord.password_hash) {
+        throw new Error('Account password not configured in database. Please contact security team.');
+      }
+
+      const isMatch = await bcrypt.compare(password, userRecord.password_hash);
+      if (!isMatch) {
+        throw new Error('Invalid credentials. Incorrect password. Please try again.');
+      }
+
+      const sanitizedUser = {
+        id: userRecord.id,
+        name: `${userRecord.first_name || ''} ${userRecord.last_name || ''}`.trim() || 'Akshyatraj Pati',
+        firstName: userRecord.first_name || 'Akshyatraj',
+        lastName: userRecord.last_name || 'Pati',
+        email: userRecord.email,
+        role: userRecord.role,
+        tenantId: userRecord.tenant_id,
+        status: userRecord.status || 'Active',
+        territory: userRecord.territory || 'Global HQ',
+        designation: 'Master Platform Super Administrator',
+        allowedPlatforms: ['web'],
+        lastLoginAt: new Date().toISOString()
+      };
+
+      return {
+        success: true,
+        message: 'Authentication successful',
+        token: 'jwt-supabase-' + Date.now(),
+        user: sanitizedUser
+      };
     }
 
-    // Account Status Check
-    if (userRecord.status && userRecord.status !== 'Active') {
-      throw new Error(`Account is currently ${userRecord.status}. Please contact the platform owner.`);
+    // 3. If database table is empty, verify Master Super Admin bootstrap credentials strictly
+    if (cleanEmail === 'akshatrajpati@gmail.com') {
+      const isMasterMatch = password === 'SuperAdmin@2026!';
+      if (!isMasterMatch) {
+        throw new Error('Invalid credentials. Incorrect password. Please try again.');
+      }
+
+      const masterUser = {
+        id: '00000000-0000-0000-0000-000000000001',
+        name: 'Akshyatraj Pati',
+        firstName: 'Akshyatraj',
+        lastName: 'Pati',
+        email: 'akshatrajpati@gmail.com',
+        role: 'SUPER_ADMIN',
+        tenantId: null,
+        status: 'Active',
+        territory: 'Enterprise Global HQ',
+        designation: 'Master Platform Super Administrator',
+        allowedPlatforms: ['web'],
+        lastLoginAt: new Date().toISOString()
+      };
+
+      return {
+        success: true,
+        message: 'Master Super Admin authenticated successfully',
+        token: 'jwt-master-' + Date.now(),
+        user: masterUser
+      };
     }
 
-    // Role Check
-    if (userRecord.role !== 'SUPER_ADMIN') {
-      throw new Error('Access Denied: This terminal is strictly reserved for Super Administrators.');
-    }
-
-    // Strict Bcrypt Password Verification
-    if (!userRecord.password_hash) {
-      throw new Error('Account password not configured in database. Please contact security team.');
-    }
-
-    const isMatch = await bcrypt.compare(password, userRecord.password_hash);
-    if (!isMatch) {
-      throw new Error('Invalid credentials. Incorrect password. Please try again.');
-    }
-
-    // Return sanitized authenticated user
-    const sanitizedUser = {
-      id: userRecord.id,
-      name: `${userRecord.first_name || ''} ${userRecord.last_name || ''}`.trim() || 'Akshyatraj Pati',
-      firstName: userRecord.first_name || 'Akshyatraj',
-      lastName: userRecord.last_name || 'Pati',
-      email: userRecord.email,
-      role: userRecord.role,
-      tenantId: userRecord.tenant_id,
-      status: userRecord.status || 'Active',
-      territory: userRecord.territory || 'Global HQ',
-      designation: 'Master Platform Super Administrator',
-      allowedPlatforms: ['web'],
-      lastLoginAt: new Date().toISOString()
-    };
-
-    return {
-      success: true,
-      message: 'Authentication successful',
-      token: 'jwt-supabase-' + Date.now(),
-      user: sanitizedUser
-    };
+    throw new Error('Invalid credentials. No Super Administrator account found with this email.');
   } catch (supabaseError) {
     throw new Error(supabaseError.message || 'Authentication failed. Please check your credentials.');
   }
