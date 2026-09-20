@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -9,6 +9,13 @@ export default function SuperAdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Clear any existing stale session tokens when login screen is displayed
+  useEffect(() => {
+    localStorage.removeItem('orvexa_superadmin_user');
+    localStorage.removeItem('orvexa_superadmin_token');
+    sessionStorage.clear();
+  }, []);
 
   const handleLogin = async (e) => {
     if (e) e.preventDefault();
@@ -21,7 +28,7 @@ export default function SuperAdminLoginPage() {
         password
       });
     } catch (err) {
-      setErrorMessage(err.message || 'Super Admin authentication failed.');
+      setErrorMessage(err.message || 'Super Admin authentication failed. Please check credentials.');
     } finally {
       setIsLoading(false);
     }
