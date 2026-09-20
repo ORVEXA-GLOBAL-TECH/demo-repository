@@ -135,7 +135,14 @@ import {
   getSystemHealth,
   triggerPlatformBackup,
   retryFailedJobs,
-  runSystemDiagnostic
+  runSystemDiagnostic,
+  getSecurityPolicies,
+  updateSecurityPolicies,
+  getActiveSessions,
+  terminateSession,
+  terminateAllSessions,
+  getSecurityAlerts,
+  resolveSecurityAlert
 } from '../services/api';
 
 import { DEFAULT_SOVEREIGN_REGISTRY } from '../data/sovereignRegistry';
@@ -339,6 +346,74 @@ export default function SuperAdminDashboard({
   const [auditActionFilter, setAuditActionFilter] = useState('ALL');
   const [selectedAuditDiff, setSelectedAuditDiff] = useState(null);
 
+  // Platform Security Governance & Active Sessions State
+  const [securitySubTab, setSecuritySubTab] = useState('policies'); // policies | sessions | alerts | audit
+  const [securityPolicies, setSecurityPolicies] = useState({
+    mfaPolicy: {
+      mode: 'MANDATORY_ADMINS',
+      allowedMethods: ['TOTP', 'SMS', 'EMAIL'],
+      gracePeriodDays: 7,
+      enforceRememberDeviceDays: 30
+    },
+    passwordPolicy: {
+      minLength: 8,
+      requireUppercase: true,
+      requireLowercase: true,
+      requireNumbers: true,
+      requireSpecialChars: true,
+      expiryDays: 90,
+      preventReuseCount: 5
+    },
+    sessionPolicy: {
+      maxConcurrentSessions: 3,
+      idleTimeoutMinutes: 60,
+      absoluteTimeoutHours: 24,
+      rememberMeDays: 30,
+      invalidateOnPasswordChange: true
+    },
+    loginLimits: {
+      maxFailedAttempts: 5,
+      attemptWindowMinutes: 15
+    },
+    accountLockout: {
+      lockoutType: 'TEMPORARY',
+      lockoutDurationMinutes: 30,
+      autoNotifyAdmin: true,
+      notifyUserEmail: true
+    },
+    ipRestrictions: {
+      enabled: false,
+      enforceForAdminsOnly: true,
+      whitelist: ['103.21.144.0/24', '142.250.190.0/24'],
+      blacklist: ['185.220.101.5', '45.148.10.0/24']
+    },
+    deviceRestrictions: {
+      enabled: true,
+      allowedDeviceTypes: ['DESKTOP', 'MOBILE', 'TABLET'],
+      maxDevicesPerUser: 3,
+      blockRootedJailbroken: true,
+      requireDeviceApproval: false
+    },
+    suspiciousLoginDetection: {
+      enabled: true,
+      alertOnNewCountry: true,
+      alertOnNewDevice: true,
+      impossibleTravelCheck: true,
+      autoChallengeOtp: true,
+      velocityThresholdKmPerHour: 500
+    }
+  });
+  const [isSavingSecurityPolicies, setIsSavingSecurityPolicies] = useState(false);
+  const [activeSessionsList, setActiveSessionsList] = useState([]);
+  const [activeSessionsSearch, setActiveSessionsSearch] = useState('');
+  const [activeSessionsTenantFilter, setActiveSessionsTenantFilter] = useState('ALL');
+  const [securityThreatAlerts, setSecurityThreatAlerts] = useState([]);
+  const [isEmergencyLogoutOpen, setIsEmergencyLogoutOpen] = useState(false);
+  const [isForceLogoutUserModalOpen, setIsForceLogoutUserModalOpen] = useState(false);
+  const [forceLogoutTargetUser, setForceLogoutTargetUser] = useState(null);
+  const [newWhitelistIpInput, setNewWhitelistIpInput] = useState('');
+  const [newBlacklistIpInput, setNewBlacklistIpInput] = useState('');
+
   // Active Multi-Currency Display Setting
   const [selectedDisplayCurrency, setSelectedDisplayCurrency] = useState('USD');
   const [selectedCountryFilter, setSelectedCountryFilter] = useState('ALL');
@@ -364,7 +439,7 @@ export default function SuperAdminDashboard({
   // --------------------------------------------------------------------------
   const loadAllData = async () => {
     try {
-      const [tenantsRes, usersRes, countriesRes, subsRes, alertsRes, auditRes, plansRes, settingsRes, rolesRes, analyticsRes, healthRes] = await Promise.allSettled([
+      const [tenantsRes, usersRes, countriesRes, subsRes, alertsRes, auditRes, plansRes, settingsRes, rolesRes, analyticsRes, healthRes, secPolRes, activeSessRes, secAlertsRes] = await Promise.allSettled([
         getTenants(),
         getPlatformUsers(),
         getSovereignCountries(),
@@ -375,8 +450,23 @@ export default function SuperAdminDashboard({
         getGlobalSettings(),
         getRoleTemplates(),
         getPlatformAnalytics(),
-        getSystemHealth()
+        getSystemHealth(),
+        getSecurityPolicies(),
+        getActiveSessions(),
+        getSecurityAlerts()
       ]);
+
+      if (secPolRes.status === 'fulfilled' && secPolRes.value) {
+        setSecurityPolicies(secPolRes.value);
+      }
+
+      if (activeSessRes.status === 'fulfilled' && Array.isArray(activeSessRes.value)) {
+        setActiveSessionsList(activeSessRes.value);
+      }
+
+      if (secAlertsRes.status === 'fulfilled' && Array.isArray(secAlertsRes.value)) {
+        setSecurityThreatAlerts(secAlertsRes.value);
+      }
 
       if (healthRes.status === 'fulfilled' && healthRes.value) {
         setSystemHealth(healthRes.value);
@@ -2166,6 +2256,134 @@ export default function SuperAdminDashboard({
     } catch (err) {
       setDiagnosticModal({ isOpen: true, loading: false, data: { success: false, error: err.message } });
     }
+  };
+
+  // --------------------------------------------------------------------------
+  // PLATFORM SECURITY MANAGEMENT HANDLERS
+  // --------------------------------------------------------------------------
+  const handleSaveSecurityPolicies = async (e) => {
+    if (e) e.preventDefault();
+    setIsSavingSecurityPolicies(true);
+    try {
+      await updateSecurityPolicies(securityPolicies);
+      showToast('Global platform security policies saved & enforced across all tenants!', 'success');
+      logAudit('SECURITY_POLICIES_UPDATED', 'Super Admin updated global authentication & perimeter security policies', 'Platform Security Governance');
+      loadAllData();
+    } catch (err) {
+      showToast(`Failed to update security policies: ${err.message}`, 'error');
+    } finally {
+      setIsSavingSecurityPolicies(false);
+    }
+  };
+
+  const handleTerminateActiveSession = async (sessionId) => {
+    if (!window.confirm(`Are you sure you want to immediately terminate active session ${sessionId}?`)) return;
+    try {
+      await terminateSession(sessionId);
+      showToast(`Session ${sessionId} terminated. Client JWT invalidated.`, 'success');
+      logAudit('SESSION_TERMINATED', `Super Admin terminated active session ${sessionId}`, 'Active Session Security');
+      setActiveSessionsList(prev => prev.filter(s => s.sessionId !== sessionId));
+    } catch (err) {
+      showToast(`Failed to terminate session: ${err.message}`, 'error');
+    }
+  };
+
+  const handleOpenForceLogoutModal = (userOrSession) => {
+    setForceLogoutTargetUser(userOrSession);
+    setIsForceLogoutUserModalOpen(true);
+  };
+
+  const handleConfirmForceLogoutUser = async () => {
+    if (!forceLogoutTargetUser) return;
+    const identifier = forceLogoutTargetUser.userId || forceLogoutTargetUser.userEmail || forceLogoutTargetUser.id || forceLogoutTargetUser.email;
+    const name = forceLogoutTargetUser.userName || forceLogoutTargetUser.name || identifier;
+    try {
+      await forceLogoutUser(identifier);
+      showToast(`Forced logout executed for "${name}". All sessions terminated.`, 'success');
+      logAudit('USER_FORCE_LOGOUT_ALL_DEVICES', `Super Admin forced logout on all devices for ${name} (${identifier})`, 'Platform Security');
+      setActiveSessionsList(prev => prev.filter(s => s.userId !== identifier && s.userEmail !== identifier));
+      setIsForceLogoutUserModalOpen(false);
+      setForceLogoutTargetUser(null);
+    } catch (err) {
+      showToast(`Force logout failed: ${err.message}`, 'error');
+    }
+  };
+
+  const handleEmergencyGlobalLogout = async () => {
+    try {
+      const res = await terminateAllSessions();
+      showToast(res.message || 'Platform-wide emergency force logout executed.', 'success');
+      logAudit('GLOBAL_FORCE_LOGOUT_ALL_USERS', 'Emergency platform killswitch: revoked all non-superadmin active sessions', 'Emergency Security');
+      setActiveSessionsList(prev => prev.filter(s => s.isCurrentSession));
+      setIsEmergencyLogoutOpen(false);
+    } catch (err) {
+      showToast(`Emergency logout failed: ${err.message}`, 'error');
+    }
+  };
+
+  const handleResolveThreatAlert = async (alertId) => {
+    try {
+      await resolveSecurityAlert(alertId);
+      showToast(`Threat alert ${alertId} resolved.`, 'success');
+      logAudit('SECURITY_ALERT_RESOLVED', `Super Admin resolved threat alert ${alertId}`, 'Threat Detection');
+      setSecurityThreatAlerts(prev => prev.map(a => a.id === alertId ? { ...a, status: 'RESOLVED' } : a));
+    } catch (err) {
+      showToast(`Failed to resolve alert: ${err.message}`, 'error');
+    }
+  };
+
+  const handleAddWhitelistIp = () => {
+    if (!newWhitelistIpInput.trim()) return;
+    const trimmed = newWhitelistIpInput.trim();
+    if (securityPolicies.ipRestrictions.whitelist.includes(trimmed)) {
+      showToast('IP/CIDR already in whitelist.', 'info');
+      return;
+    }
+    setSecurityPolicies(prev => ({
+      ...prev,
+      ipRestrictions: {
+        ...prev.ipRestrictions,
+        whitelist: [...prev.ipRestrictions.whitelist, trimmed]
+      }
+    }));
+    setNewWhitelistIpInput('');
+  };
+
+  const handleRemoveWhitelistIp = (ipToRemove) => {
+    setSecurityPolicies(prev => ({
+      ...prev,
+      ipRestrictions: {
+        ...prev.ipRestrictions,
+        whitelist: prev.ipRestrictions.whitelist.filter(ip => ip !== ipToRemove)
+      }
+    }));
+  };
+
+  const handleAddBlacklistIp = () => {
+    if (!newBlacklistIpInput.trim()) return;
+    const trimmed = newBlacklistIpInput.trim();
+    if (securityPolicies.ipRestrictions.blacklist.includes(trimmed)) {
+      showToast('IP/CIDR already in blacklist.', 'info');
+      return;
+    }
+    setSecurityPolicies(prev => ({
+      ...prev,
+      ipRestrictions: {
+        ...prev.ipRestrictions,
+        blacklist: [...prev.ipRestrictions.blacklist, trimmed]
+      }
+    }));
+    setNewBlacklistIpInput('');
+  };
+
+  const handleRemoveBlacklistIp = (ipToRemove) => {
+    setSecurityPolicies(prev => ({
+      ...prev,
+      ipRestrictions: {
+        ...prev.ipRestrictions,
+        blacklist: prev.ipRestrictions.blacklist.filter(ip => ip !== ipToRemove)
+      }
+    }));
   };
 
   const handleRefreshAuditLogs = async () => {
@@ -5553,258 +5771,1371 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          7. GLOBAL PLATFORM AUDIT LOGS (8-DIMENSIONAL TRACKING)
+          7. PLATFORM SECURITY MANAGEMENT & DEFENSE GOVERNANCE
           ===================================================================== */}
       {activeTab === 'security' && (
         <div className="tab-pane-content">
-          {/* Header Action & Filter Bar */}
+          {/* Header Action & Status Bar */}
           <div className="pane-action-bar" style={{ marginBottom: '16px' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h2 className="section-title" style={{ margin: 0 }}>Global Platform Audit Logs</h2>
+                <h2 className="section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShieldCheck size={22} color="#0284c7" />
+                  Platform Security Management &amp; Defense Center
+                </h2>
                 <span className="status-badge-green" style={{ fontSize: '0.74rem', fontWeight: '800' }}>
-                  🔒 IMMUTABLE COMPLIANCE LEDGER
+                  ● DEFENSE ACTIVE
                 </span>
               </div>
               <p className="section-desc" style={{ marginTop: '4px' }}>
-                Full forensic change history tracking <strong>Who</strong>, <strong>Company</strong>, <strong>Action</strong>, <strong>Date/Time</strong>, <strong>IP</strong>, <strong>Device</strong>, <strong>Old Value</strong>, and <strong>New Value</strong>.
+                Super Admin centralized governance for <strong>MFA</strong>, <strong>Password &amp; Session policies</strong>, <strong>Lockouts</strong>, <strong>IP/Device perimeter restrictions</strong>, <strong>Suspicious login anomalies</strong>, <strong>Active session monitoring</strong>, and <strong>Force logout</strong>.
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
-                onClick={handleRefreshAuditLogs}
+                onClick={() => {
+                  loadAllData();
+                  showToast('Security telemetry and active sessions refreshed.', 'info');
+                }}
               >
                 <RefreshCw size={14} />
-                <span>Refresh Logs</span>
+                <span>Refresh Telemetry</span>
               </button>
               <button
                 type="button"
-                className="btn btn-primary btn-sm"
-                onClick={handleExportAuditLogs}
-                style={{ background: '#0284c7' }}
+                className="btn btn-secondary btn-sm"
+                onClick={() => setIsEmergencyLogoutOpen(true)}
+                style={{ borderColor: '#fca5a5', color: '#b91c1c', background: '#fef2f2' }}
               >
-                <Download size={14} />
-                <span>Export Audit Trail (CSV)</span>
+                <AlertOctagon size={14} color="#dc2626" />
+                <span>Emergency Global Logout</span>
               </button>
-            </div>
-          </div>
-
-          {/* Filter & Search Strip */}
-          <div className="card-section" style={{ padding: '14px 16px', marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-            <div style={{ position: 'relative', flex: '1 1 240px' }}>
-              <Search size={15} color="#64748b" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
-              <input
-                type="text"
-                placeholder="Search by Actor, Email, Action, Company, IP or Device..."
-                value={auditSearchQuery}
-                onChange={(e) => setAuditSearchQuery(e.target.value)}
-                className="form-control"
-                style={{ paddingLeft: '32px', fontSize: '0.82rem', height: '36px' }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '0.78rem', color: '#475569', fontWeight: '700' }}>Company:</span>
-              <select
-                className="form-control"
-                style={{ height: '36px', fontSize: '0.8rem', minWidth: '160px' }}
-                value={auditCompanyFilter}
-                onChange={(e) => setAuditCompanyFilter(e.target.value)}
-              >
-                <option value="ALL">All Companies (Platform-Wide)</option>
-                {companies.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '0.78rem', color: '#475569', fontWeight: '700' }}>Action Type:</span>
-              <select
-                className="form-control"
-                style={{ height: '36px', fontSize: '0.8rem', minWidth: '160px' }}
-                value={auditActionFilter}
-                onChange={(e) => setAuditActionFilter(e.target.value)}
-              >
-                <option value="ALL">All Action Categories</option>
-                <option value="SUBSCRIPTION">Subscription &amp; Billing</option>
-                <option value="ROLE">Role &amp; Permissions</option>
-                <option value="SETTINGS">Global Platform Settings</option>
-                <option value="ACCOUNT">Account Security &amp; Locks</option>
-                <option value="IMPERSONATION">Impersonation Audits</option>
-                <option value="USER">User Management</option>
-                <option value="BACKUP">Database Backups</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Audit Logs Table */}
-          <div className="card-section" style={{ padding: 0, overflow: 'hidden' }}>
-            <div className="saas-table-container">
-              {auditLogsList.length === 0 ? (
-                <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
-                  <Inbox size={38} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
-                  <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Audit Logs Found</div>
-                  <p style={{ fontSize: '0.8rem', margin: '4px auto 14px' }}>Platform changes and administrative actions will be recorded here.</p>
-                </div>
-              ) : (
-                <table className="saas-data-table" style={{ margin: 0 }}>
-                  <thead>
-                    <tr>
-                      <th style={{ minWidth: '160px' }}>Who (Actor)</th>
-                      <th style={{ minWidth: '150px' }}>Company</th>
-                      <th style={{ minWidth: '140px' }}>Action</th>
-                      <th style={{ minWidth: '140px' }}>Date / Time</th>
-                      <th style={{ minWidth: '110px' }}>IP Address</th>
-                      <th style={{ minWidth: '150px' }}>Device</th>
-                      <th style={{ minWidth: '220px' }}>Old Value &rarr; New Value</th>
-                      <th style={{ textAlign: 'right', minWidth: '90px' }}>Details</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {auditLogsList
-                      .filter(log => {
-                        const matchesSearch = !auditSearchQuery.trim() || 
-                          (log.who && log.who.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
-                          (log.actorEmail && log.actorEmail.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
-                          (log.company && log.company.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
-                          (log.action && log.action.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
-                          (log.ip && log.ip.includes(auditSearchQuery)) ||
-                          (log.device && log.device.toLowerCase().includes(auditSearchQuery.toLowerCase()));
-
-                        const matchesCompany = auditCompanyFilter === 'ALL' || log.tenantId === auditCompanyFilter || log.company === auditCompanyFilter;
-                        const matchesAction = auditActionFilter === 'ALL' || (log.action && log.action.toUpperCase().includes(auditActionFilter.toUpperCase()));
-
-                        return matchesSearch && matchesCompany && matchesAction;
-                      })
-                      .map(log => {
-                        const isDanger = log.action.includes('LOCKED') || log.action.includes('SUSPEND') || log.action.includes('DELETE');
-                        const isUpgrade = log.action.includes('UPGRADE') || log.action.includes('EXTEND') || log.action.includes('RESTORE');
-                        const isSecurity = log.action.includes('SECURITY') || log.action.includes('SETTINGS') || log.action.includes('ROLE');
-
-                        return (
-                          <tr key={log.id}>
-                            {/* 1. Who (Actor) */}
-                            <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#0284c7', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '0.72rem' }}>
-                                  {(log.actorName || log.who || 'S').charAt(0).toUpperCase()}
-                                </div>
-                                <div>
-                                  <div style={{ fontWeight: '700', fontSize: '0.8rem', color: '#0f172a' }}>
-                                    {log.actorName || log.who || 'Super Admin'}
-                                  </div>
-                                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                                    {log.actorEmail}
-                                  </div>
-                                  <span className={`status-tag ${log.actorRole === 'SUPER_ADMIN' ? 'status-active' : 'status-trial'}`} style={{ fontSize: '0.62rem', padding: '1px 5px', marginTop: '2px', display: 'inline-block' }}>
-                                    {log.actorRole}
-                                  </span>
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* 2. Company */}
-                            <td>
-                              <div style={{ fontWeight: '700', fontSize: '0.8rem', color: '#1e293b' }}>
-                                {log.company}
-                              </div>
-                              {log.tenantId && (
-                                <div style={{ fontSize: '0.68rem', color: '#64748b', fontFamily: 'monospace' }}>
-                                  {log.tenantId}
-                                </div>
-                              )}
-                            </td>
-
-                            {/* 3. Action */}
-                            <td>
-                              <span
-                                style={{
-                                  display: 'inline-block',
-                                  padding: '3px 8px',
-                                  borderRadius: '4px',
-                                  fontSize: '0.72rem',
-                                  fontWeight: '800',
-                                  background: isDanger ? '#fee2e2' : (isUpgrade ? '#dcfce7' : (isSecurity ? '#fef3c7' : '#e0f2fe')),
-                                  color: isDanger ? '#991b1b' : (isUpgrade ? '#166534' : (isSecurity ? '#92400e' : '#0369a1')),
-                                  border: `1px solid ${isDanger ? '#fecaca' : (isUpgrade ? '#bbf7d0' : (isSecurity ? '#fde68a' : '#bae6fd'))}`
-                                }}
-                              >
-                                {log.action}
-                              </span>
-                              <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '3px' }}>
-                                Target: {log.targetEntity}
-                              </div>
-                            </td>
-
-                            {/* 4. Date / Time */}
-                            <td>
-                              <div style={{ fontSize: '0.78rem', fontWeight: '700', color: '#0f172a' }}>
-                                {log.time}
-                              </div>
-                              <div style={{ fontSize: '0.68rem', color: '#64748b', fontFamily: 'monospace' }}>
-                                {log.createdAt ? new Date(log.createdAt).toISOString().slice(0, 10) : ''}
-                              </div>
-                            </td>
-
-                            {/* 5. IP Address */}
-                            <td>
-                              <span style={{ fontFamily: 'monospace', fontSize: '0.76rem', background: '#f1f5f9', color: '#334155', padding: '2px 6px', borderRadius: '4px' }}>
-                                {log.ip}
-                              </span>
-                            </td>
-
-                            {/* 6. Device */}
-                            <td>
-                              <div style={{ fontSize: '0.74rem', color: '#334155', fontWeight: '500' }}>
-                                {log.device}
-                              </div>
-                            </td>
-
-                            {/* 7. Old Value -> New Value */}
-                            <td>
-                              {(log.oldValue || log.newValue) ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                  {log.oldValue && (
-                                    <div style={{ fontSize: '0.7rem', color: '#991b1b', background: '#fef2f2', border: '1px solid #fee2e2', borderRadius: '4px', padding: '2px 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '210px' }}>
-                                      <strong>Old:</strong> {typeof log.oldValue === 'object' ? JSON.stringify(log.oldValue) : String(log.oldValue)}
-                                    </div>
-                                  )}
-                                  {log.newValue && (
-                                    <div style={{ fontSize: '0.7rem', color: '#166534', background: '#f0fdf4', border: '1px solid #dcfce7', borderRadius: '4px', padding: '2px 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '210px' }}>
-                                      <strong>New:</strong> {typeof log.newValue === 'object' ? JSON.stringify(log.newValue) : String(log.newValue)}
-                                    </div>
-                                  )}
-                                </div>
-                              ) : (
-                                <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>
-                                  {log.detail || 'No direct state mutation'}
-                                </span>
-                              )}
-                            </td>
-
-                            {/* 8. Details / Action Inspector */}
-                            <td style={{ textAlign: 'right' }}>
-                              <button
-                                type="button"
-                                className="btn btn-secondary btn-sm"
-                                style={{ padding: '3px 8px', fontSize: '0.72rem' }}
-                                onClick={() => setSelectedAuditDiff(log)}
-                              >
-                                <Eye size={12} />
-                                <span>Inspect</span>
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
+              {securitySubTab === 'policies' && (
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={handleSaveSecurityPolicies}
+                  disabled={isSavingSecurityPolicies}
+                  style={{ background: '#0284c7' }}
+                >
+                  <Save size={14} />
+                  <span>{isSavingSecurityPolicies ? 'Enforcing Policies...' : 'Save & Enforce Policies'}</span>
+                </button>
               )}
             </div>
           </div>
+
+          {/* Sub-Navigation Tabs */}
+          <div className="sub-nav-tabs" style={{ marginBottom: '18px' }}>
+            <button
+              type="button"
+              className={`sub-nav-pill ${securitySubTab === 'policies' ? 'active' : ''}`}
+              onClick={() => setSecuritySubTab('policies')}
+            >
+              <Lock size={14} /> 🛡️ Security Policies (MFA, Passwords, Sessions, Lockout, IP/Device)
+            </button>
+            <button
+              type="button"
+              className={`sub-nav-pill ${securitySubTab === 'sessions' ? 'active' : ''}`}
+              onClick={() => setSecuritySubTab('sessions')}
+            >
+              <Radio size={14} /> ⚡ Live Active Sessions ({activeSessionsList.length}) &amp; Force Logout
+            </button>
+            <button
+              type="button"
+              className={`sub-nav-pill ${securitySubTab === 'alerts' ? 'active' : ''}`}
+              onClick={() => setSecuritySubTab('alerts')}
+            >
+              <AlertTriangle size={14} /> 🚨 Threat Alerts &amp; Anomaly Detection ({securityThreatAlerts.filter(a => a.status === 'UNRESOLVED').length})
+            </button>
+            <button
+              type="button"
+              className={`sub-nav-pill ${securitySubTab === 'audit' ? 'active' : ''}`}
+              onClick={() => setSecuritySubTab('audit')}
+            >
+              <FileText size={14} /> 📋 Platform Audit Logs &amp; Forensic Diff Ledger ({auditLogsList.length})
+            </button>
+          </div>
+
+          {/* ===================================================================
+              SUB-TAB 1: SECURITY POLICIES & PERIMETER GOVERNANCE
+              =================================================================== */}
+          {securitySubTab === 'policies' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {/* Row 1: MFA & Password Policy */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '18px' }}>
+                
+                {/* 1. Multi-Factor Authentication (MFA) Policy */}
+                <div className="card-section" style={{ margin: 0, padding: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Key size={18} color="#0284c7" />
+                      <h3 style={{ margin: 0, fontSize: '0.96rem', fontWeight: '800', color: '#0f172a' }}>
+                        Multi-Factor Authentication (MFA / 2FA) Policy
+                      </h3>
+                    </div>
+                    <span className="status-badge-green" style={{ fontSize: '0.72rem' }}>
+                      {securityPolicies.mfaPolicy.mode.replace('_', ' ')}
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: '0.76rem', color: '#64748b', marginBottom: '14px' }}>
+                    Control step-up multi-factor authentication enforcement across Super Admins, Company Admins, and Field Sales Reps.
+                  </p>
+
+                  <div className="form-group" style={{ marginBottom: '14px' }}>
+                    <label style={{ fontSize: '0.78rem', fontWeight: '700' }}>MFA Enforcement Mode</label>
+                    <select
+                      className="form-control"
+                      value={securityPolicies.mfaPolicy.mode}
+                      onChange={(e) => setSecurityPolicies({
+                        ...securityPolicies,
+                        mfaPolicy: { ...securityPolicies.mfaPolicy, mode: e.target.value }
+                      })}
+                    >
+                      <option value="DISABLED">Disabled (Single Factor Password Only)</option>
+                      <option value="OPTIONAL">Optional (User Decides in Profile Settings)</option>
+                      <option value="MANDATORY_ADMINS">Mandatory for Super Admins &amp; Company Admins</option>
+                      <option value="MANDATORY_ALL">Mandatory for All Users Platform-Wide</option>
+                    </select>
+                  </div>
+
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ fontSize: '0.78rem', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
+                      Allowed MFA Verification Methods
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                      {[
+                        { key: 'TOTP', label: '📱 TOTP Authenticator (Google / MS)' },
+                        { key: 'SMS', label: '💬 SMS Telephony OTP' },
+                        { key: 'EMAIL', label: '✉️ Secure Email OTP' }
+                      ].map((m) => {
+                        const isChecked = securityPolicies.mfaPolicy.allowedMethods.includes(m.key);
+                        return (
+                          <label
+                            key={m.key}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '8px 10px',
+                              background: isChecked ? '#eff6ff' : '#f8fafc',
+                              border: isChecked ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+                              borderRadius: '6px',
+                              fontSize: '0.74rem',
+                              cursor: 'pointer',
+                              fontWeight: isChecked ? '700' : '500',
+                              color: isChecked ? '#1e40af' : '#475569'
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                const list = securityPolicies.mfaPolicy.allowedMethods;
+                                const nextList = e.target.checked
+                                  ? [...list, m.key]
+                                  : list.filter(k => k !== m.key);
+                                setSecurityPolicies({
+                                  ...securityPolicies,
+                                  mfaPolicy: { ...securityPolicies.mfaPolicy, allowedMethods: nextList }
+                                });
+                              }}
+                              style={{ accentColor: '#0284c7' }}
+                            />
+                            <span>{m.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="form-grid-2">
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '0.74rem' }}>Enforcement Grace Period (Days)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="30"
+                        className="form-control"
+                        value={securityPolicies.mfaPolicy.gracePeriodDays}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          mfaPolicy: { ...securityPolicies.mfaPolicy, gracePeriodDays: Number(e.target.value) }
+                        })}
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '0.74rem' }}>Remember Trusted Device (Days)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="90"
+                        className="form-control"
+                        value={securityPolicies.mfaPolicy.enforceRememberDeviceDays}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          mfaPolicy: { ...securityPolicies.mfaPolicy, enforceRememberDeviceDays: Number(e.target.value) }
+                        })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Password Policy */}
+                <div className="card-section" style={{ margin: 0, padding: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Lock size={18} color="#0284c7" />
+                      <h3 style={{ margin: 0, fontSize: '0.96rem', fontWeight: '800', color: '#0f172a' }}>
+                        Password Complexity &amp; Rotation Policy
+                      </h3>
+                    </div>
+                    <span className="plan-pill plan-pro" style={{ fontSize: '0.72rem' }}>
+                      Min {securityPolicies.passwordPolicy.minLength} Chars
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: '0.76rem', color: '#64748b', marginBottom: '14px' }}>
+                    Enforce NIST/HIPAA compliant password complexity algorithms across all user authentications.
+                  </p>
+
+                  <div className="form-grid-2" style={{ marginBottom: '14px' }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '0.74rem' }}>Minimum Password Length</label>
+                      <input
+                        type="number"
+                        min="6"
+                        max="32"
+                        className="form-control"
+                        value={securityPolicies.passwordPolicy.minLength}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          passwordPolicy: { ...securityPolicies.passwordPolicy, minLength: Number(e.target.value) }
+                        })}
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '0.74rem' }}>Password Expiry (Days, 0 = Never)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="365"
+                        className="form-control"
+                        value={securityPolicies.passwordPolicy.expiryDays}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          passwordPolicy: { ...securityPolicies.passwordPolicy, expiryDays: Number(e.target.value) }
+                        })}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginBottom: '14px' }}>
+                    {[
+                      { key: 'requireUppercase', label: 'Require Uppercase Letter (A-Z)' },
+                      { key: 'requireLowercase', label: 'Require Lowercase Letter (a-z)' },
+                      { key: 'requireNumbers', label: 'Require Numeric Digits (0-9)' },
+                      { key: 'requireSpecialChars', label: 'Require Special Characters (!@#$)' }
+                    ].map((item) => (
+                      <label
+                        key={item.key}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '8px 10px',
+                          background: securityPolicies.passwordPolicy[item.key] ? '#f0fdf4' : '#f8fafc',
+                          border: securityPolicies.passwordPolicy[item.key] ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
+                          borderRadius: '6px',
+                          fontSize: '0.74rem',
+                          cursor: 'pointer',
+                          fontWeight: securityPolicies.passwordPolicy[item.key] ? '700' : '500',
+                          color: securityPolicies.passwordPolicy[item.key] ? '#166534' : '#475569'
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={Boolean(securityPolicies.passwordPolicy[item.key])}
+                          onChange={(e) => setSecurityPolicies({
+                            ...securityPolicies,
+                            passwordPolicy: { ...securityPolicies.passwordPolicy, [item.key]: e.target.checked }
+                          })}
+                          style={{ accentColor: '#16a34a' }}
+                        />
+                        <span>{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label style={{ fontSize: '0.74rem' }}>Prevent Password Reuse (Last N Passwords)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="20"
+                      className="form-control"
+                      value={securityPolicies.passwordPolicy.preventReuseCount}
+                      onChange={(e) => setSecurityPolicies({
+                        ...securityPolicies,
+                        passwordPolicy: { ...securityPolicies.passwordPolicy, preventReuseCount: Number(e.target.value) }
+                      })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2: Session Policy & Login Attempt Limits / Lockouts */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '18px' }}>
+                
+                {/* 3. Session Policy */}
+                <div className="card-section" style={{ margin: 0, padding: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Clock size={18} color="#0284c7" />
+                      <h3 style={{ margin: 0, fontSize: '0.96rem', fontWeight: '800', color: '#0f172a' }}>
+                        Session Lifespan &amp; Concurrency Governance
+                      </h3>
+                    </div>
+                    <span className="plan-pill plan-enterprise" style={{ fontSize: '0.72rem' }}>
+                      Max {securityPolicies.sessionPolicy.maxConcurrentSessions} Sessions
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: '0.76rem', color: '#64748b', marginBottom: '14px' }}>
+                    Control token expiration intervals, idle timeouts, and maximum concurrent multi-device logins.
+                  </p>
+
+                  <div className="form-grid-2" style={{ marginBottom: '14px' }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '0.74rem' }}>Max Concurrent Sessions Per User</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        className="form-control"
+                        value={securityPolicies.sessionPolicy.maxConcurrentSessions}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          sessionPolicy: { ...securityPolicies.sessionPolicy, maxConcurrentSessions: Number(e.target.value) }
+                        })}
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '0.74rem' }}>Idle Session Timeout (Minutes)</label>
+                      <input
+                        type="number"
+                        min="5"
+                        max="720"
+                        className="form-control"
+                        value={securityPolicies.sessionPolicy.idleTimeoutMinutes}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          sessionPolicy: { ...securityPolicies.sessionPolicy, idleTimeoutMinutes: Number(e.target.value) }
+                        })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-grid-2" style={{ marginBottom: '14px' }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '0.74rem' }}>Absolute Session Timeout (Hours)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="168"
+                        className="form-control"
+                        value={securityPolicies.sessionPolicy.absoluteTimeoutHours}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          sessionPolicy: { ...securityPolicies.sessionPolicy, absoluteTimeoutHours: Number(e.target.value) }
+                        })}
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '0.74rem' }}>Remember-Me Token Lifetime (Days)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="90"
+                        className="form-control"
+                        value={securityPolicies.sessionPolicy.rememberMeDays}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          sessionPolicy: { ...securityPolicies.sessionPolicy, rememberMeDays: Number(e.target.value) }
+                        })}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px 12px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(securityPolicies.sessionPolicy.invalidateOnPasswordChange)}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          sessionPolicy: { ...securityPolicies.sessionPolicy, invalidateOnPasswordChange: e.target.checked }
+                        })}
+                        style={{ accentColor: '#0284c7' }}
+                      />
+                      <span style={{ fontSize: '0.76rem', fontWeight: '700', color: '#0f172a' }}>
+                        Invalidate All Active Sessions on Password Reset / Token Version Bump
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* 4. Login Attempt Limits & Account Lockout */}
+                <div className="card-section" style={{ margin: 0, padding: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <ShieldAlert size={18} color="#dc2626" />
+                      <h3 style={{ margin: 0, fontSize: '0.96rem', fontWeight: '800', color: '#0f172a' }}>
+                        Login Attempt Limits &amp; Account Lockout
+                      </h3>
+                    </div>
+                    <span className="status-tag status-suspended" style={{ fontSize: '0.72rem' }}>
+                      Lockout @ {securityPolicies.loginLimits.maxFailedAttempts} Fails
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: '0.76rem', color: '#64748b', marginBottom: '14px' }}>
+                    Safeguard against credential stuffing and brute force password guessing attacks.
+                  </p>
+
+                  <div className="form-grid-2" style={{ marginBottom: '14px' }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '0.74rem' }}>Max Failed Login Attempts</label>
+                      <input
+                        type="number"
+                        min="3"
+                        max="20"
+                        className="form-control"
+                        value={securityPolicies.loginLimits.maxFailedAttempts}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          loginLimits: { ...securityPolicies.loginLimits, maxFailedAttempts: Number(e.target.value) }
+                        })}
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '0.74rem' }}>Failed Attempt Window (Minutes)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="60"
+                        className="form-control"
+                        value={securityPolicies.loginLimits.attemptWindowMinutes}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          loginLimits: { ...securityPolicies.loginLimits, attemptWindowMinutes: Number(e.target.value) }
+                        })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '14px' }}>
+                    <label style={{ fontSize: '0.74rem', fontWeight: '700' }}>Lockout Enforcement Strategy</label>
+                    <select
+                      className="form-control"
+                      value={securityPolicies.accountLockout.lockoutType}
+                      onChange={(e) => setSecurityPolicies({
+                        ...securityPolicies,
+                        accountLockout: { ...securityPolicies.accountLockout, lockoutType: e.target.value }
+                      })}
+                    >
+                      <option value="TEMPORARY">Temporary Time-Based Lockout (Auto-Unlock)</option>
+                      <option value="PERMANENT_ADMIN_UNLOCK">Permanent Lockout (Requires Super Admin Manual Unlock)</option>
+                    </select>
+                  </div>
+
+                  {securityPolicies.accountLockout.lockoutType === 'TEMPORARY' && (
+                    <div className="form-group" style={{ marginBottom: '14px' }}>
+                      <label style={{ fontSize: '0.74rem' }}>Lockout Duration (Minutes)</label>
+                      <input
+                        type="number"
+                        min="5"
+                        max="1440"
+                        className="form-control"
+                        value={securityPolicies.accountLockout.lockoutDurationMinutes}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          accountLockout: { ...securityPolicies.accountLockout, lockoutDurationMinutes: Number(e.target.value) }
+                        })}
+                      />
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(securityPolicies.accountLockout.autoNotifyAdmin)}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          accountLockout: { ...securityPolicies.accountLockout, autoNotifyAdmin: e.target.checked }
+                        })}
+                        style={{ accentColor: '#dc2626' }}
+                      />
+                      <span style={{ fontSize: '0.75rem', color: '#0f172a', fontWeight: '600' }}>
+                        Send Real-Time Security Alert to Super Admin when Account is Locked
+                      </span>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(securityPolicies.accountLockout.notifyUserEmail)}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          accountLockout: { ...securityPolicies.accountLockout, notifyUserEmail: e.target.checked }
+                        })}
+                        style={{ accentColor: '#dc2626' }}
+                      />
+                      <span style={{ fontSize: '0.75rem', color: '#0f172a', fontWeight: '600' }}>
+                        Send Password Recovery &amp; Security Warning to User's Email
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 3: IP Restrictions & Device Restrictions */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '18px' }}>
+                
+                {/* 5. IP Restrictions */}
+                <div className="card-section" style={{ margin: 0, padding: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Globe2 size={18} color="#0284c7" />
+                      <h3 style={{ margin: 0, fontSize: '0.96rem', fontWeight: '800', color: '#0f172a' }}>
+                        IP Perimeter Restrictions &amp; CIDR Filtering
+                      </h3>
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(securityPolicies.ipRestrictions.enabled)}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          ipRestrictions: { ...securityPolicies.ipRestrictions, enabled: e.target.checked }
+                        })}
+                        style={{ accentColor: '#0284c7', width: '16px', height: '16px' }}
+                      />
+                      <span style={{ fontSize: '0.75rem', fontWeight: '800', color: securityPolicies.ipRestrictions.enabled ? '#166534' : '#64748b' }}>
+                        {securityPolicies.ipRestrictions.enabled ? '🟢 ENABLED' : '⚪ DISABLED'}
+                      </span>
+                    </label>
+                  </div>
+
+                  <p style={{ fontSize: '0.76rem', color: '#64748b', marginBottom: '14px' }}>
+                    Restrict access by static IP ranges or block known proxy / malicious CIDR subnets.
+                  </p>
+
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px 12px', marginBottom: '14px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(securityPolicies.ipRestrictions.enforceForAdminsOnly)}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          ipRestrictions: { ...securityPolicies.ipRestrictions, enforceForAdminsOnly: e.target.checked }
+                        })}
+                        style={{ accentColor: '#0284c7' }}
+                      />
+                      <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#0f172a' }}>
+                        Enforce IP Restrictions for Super Admins &amp; Company Admins Only
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Whitelist Tag Chips */}
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ fontSize: '0.74rem', fontWeight: '700', color: '#166534', display: 'block', marginBottom: '4px' }}>
+                      Allowed IP / CIDR Whitelist
+                    </label>
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
+                      <input
+                        type="text"
+                        placeholder="e.g. 103.21.144.0/24 or 192.168.1.1"
+                        className="form-control"
+                        style={{ fontSize: '0.78rem', height: '32px' }}
+                        value={newWhitelistIpInput}
+                        onChange={(e) => setNewWhitelistIpInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddWhitelistIp(); } }}
+                      />
+                      <button type="button" className="btn btn-secondary btn-sm" style={{ padding: '0 12px' }} onClick={handleAddWhitelistIp}>
+                        + Add
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {securityPolicies.ipRestrictions.whitelist.map((ip, i) => (
+                        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '2px 8px', borderRadius: '4px', fontSize: '0.72rem', fontFamily: 'monospace' }}>
+                          <span>{ip}</span>
+                          <button type="button" onClick={() => handleRemoveWhitelistIp(ip)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 0, fontWeight: '800' }}>&times;</button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Blacklist Tag Chips */}
+                  <div>
+                    <label style={{ fontSize: '0.74rem', fontWeight: '700', color: '#991b1b', display: 'block', marginBottom: '4px' }}>
+                      Blocked Threat IP / CIDR Blacklist
+                    </label>
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
+                      <input
+                        type="text"
+                        placeholder="e.g. 185.220.101.5 or 45.148.10.0/24"
+                        className="form-control"
+                        style={{ fontSize: '0.78rem', height: '32px' }}
+                        value={newBlacklistIpInput}
+                        onChange={(e) => setNewBlacklistIpInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddBlacklistIp(); } }}
+                      />
+                      <button type="button" className="btn btn-secondary btn-sm" style={{ padding: '0 12px' }} onClick={handleAddBlacklistIp}>
+                        + Block
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {securityPolicies.ipRestrictions.blacklist.map((ip, i) => (
+                        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: '2px 8px', borderRadius: '4px', fontSize: '0.72rem', fontFamily: 'monospace' }}>
+                          <span>{ip}</span>
+                          <button type="button" onClick={() => handleRemoveBlacklistIp(ip)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 0, fontWeight: '800' }}>&times;</button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 6. Device Restrictions */}
+                <div className="card-section" style={{ margin: 0, padding: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Smartphone size={18} color="#0284c7" />
+                      <h3 style={{ margin: 0, fontSize: '0.96rem', fontWeight: '800', color: '#0f172a' }}>
+                        Device Hardware &amp; Platform Integrity
+                      </h3>
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(securityPolicies.deviceRestrictions.enabled)}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          deviceRestrictions: { ...securityPolicies.deviceRestrictions, enabled: e.target.checked }
+                        })}
+                        style={{ accentColor: '#0284c7', width: '16px', height: '16px' }}
+                      />
+                      <span style={{ fontSize: '0.75rem', fontWeight: '800', color: securityPolicies.deviceRestrictions.enabled ? '#166534' : '#64748b' }}>
+                        {securityPolicies.deviceRestrictions.enabled ? '🟢 ENFORCING' : '⚪ RELAXED'}
+                      </span>
+                    </label>
+                  </div>
+
+                  <p style={{ fontSize: '0.76rem', color: '#64748b', marginBottom: '14px' }}>
+                    Enforce hardware verification, jailbreak/root detection, and limit registered devices per field rep.
+                  </p>
+
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ fontSize: '0.74rem', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
+                      Authorized Platform Types
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                      {[
+                        { key: 'DESKTOP', label: '💻 Desktop / PC' },
+                        { key: 'MOBILE', label: '📱 Mobile Phone' },
+                        { key: 'TABLET', label: '📋 Tablet Device' }
+                      ].map((d) => {
+                        const isChecked = securityPolicies.deviceRestrictions.allowedDeviceTypes.includes(d.key);
+                        return (
+                          <label
+                            key={d.key}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '8px',
+                              background: isChecked ? '#eff6ff' : '#f8fafc',
+                              border: isChecked ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+                              borderRadius: '6px',
+                              fontSize: '0.74rem',
+                              cursor: 'pointer',
+                              fontWeight: isChecked ? '700' : '500',
+                              color: isChecked ? '#1e40af' : '#475569'
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                const list = securityPolicies.deviceRestrictions.allowedDeviceTypes;
+                                const nextList = e.target.checked
+                                  ? [...list, d.key]
+                                  : list.filter(k => k !== d.key);
+                                setSecurityPolicies({
+                                  ...securityPolicies,
+                                  deviceRestrictions: { ...securityPolicies.deviceRestrictions, allowedDeviceTypes: nextList }
+                                });
+                              }}
+                              style={{ accentColor: '#0284c7' }}
+                            />
+                            <span>{d.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '14px' }}>
+                    <label style={{ fontSize: '0.74rem' }}>Max Registered Hardware Devices Per User</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      className="form-control"
+                      value={securityPolicies.deviceRestrictions.maxDevicesPerUser}
+                      onChange={(e) => setSecurityPolicies({
+                        ...securityPolicies,
+                        deviceRestrictions: { ...securityPolicies.deviceRestrictions, maxDevicesPerUser: Number(e.target.value) }
+                      })}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(securityPolicies.deviceRestrictions.blockRootedJailbroken)}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          deviceRestrictions: { ...securityPolicies.deviceRestrictions, blockRootedJailbroken: e.target.checked }
+                        })}
+                        style={{ accentColor: '#dc2626' }}
+                      />
+                      <span style={{ fontSize: '0.75rem', color: '#0f172a', fontWeight: '700' }}>
+                        🚫 Block Rooted Android &amp; Jailbroken iOS Devices Automatically
+                      </span>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(securityPolicies.deviceRestrictions.requireDeviceApproval)}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          deviceRestrictions: { ...securityPolicies.deviceRestrictions, requireDeviceApproval: e.target.checked }
+                        })}
+                        style={{ accentColor: '#0284c7' }}
+                      />
+                      <span style={{ fontSize: '0.75rem', color: '#0f172a', fontWeight: '700' }}>
+                        🛡️ Require Company Admin Approval for New Device Registrations
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 4: Suspicious Login Detection & Anomaly Intelligence */}
+              <div className="card-section" style={{ margin: 0, padding: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Flame size={18} color="#ea580c" />
+                    <h3 style={{ margin: 0, fontSize: '0.96rem', fontWeight: '800', color: '#0f172a' }}>
+                      Suspicious Login Anomaly Detection &amp; Impossible Travel Engine
+                    </h3>
+                  </div>
+                  <span className="status-badge-green" style={{ fontSize: '0.72rem' }}>
+                    AI ANOMALY ENGINE ACTIVE
+                  </span>
+                </div>
+
+                <p style={{ fontSize: '0.76rem', color: '#64748b', marginBottom: '14px' }}>
+                  Real-time algorithmic detection of geographic impossibility, velocity anomalies, and credential breaches.
+                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '14px' }}>
+                  {[
+                    { key: 'alertOnNewCountry', label: '🌐 Alert & Challenge on Unrecognized Country Login', desc: 'Trigger alert when user logs in from a new geographic territory' },
+                    { key: 'alertOnNewDevice', label: '💻 Alert & Challenge on New Browser / Device Fingerprint', desc: 'Challenge OTP when unverified browser user-agent is detected' },
+                    { key: 'impossibleTravelCheck', label: '✈️ Impossible Travel Velocity Anomaly Check', desc: 'Block authentication if velocity exceeds physical flight speeds (e.g. 500+ km/h)' },
+                    { key: 'autoChallengeOtp', label: '🔐 Automatic Step-Up MFA Challenge on High Risk Anomaly', desc: 'Require immediate OTP verification before issuing JWT session token' }
+                  ].map((item) => (
+                    <label
+                      key={item.key}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '8px',
+                        padding: '10px 12px',
+                        background: securityPolicies.suspiciousLoginDetection[item.key] ? '#fff7ed' : '#f8fafc',
+                        border: securityPolicies.suspiciousLoginDetection[item.key] ? '1px solid #fed7aa' : '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        fontSize: '0.75rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={Boolean(securityPolicies.suspiciousLoginDetection[item.key])}
+                        onChange={(e) => setSecurityPolicies({
+                          ...securityPolicies,
+                          suspiciousLoginDetection: { ...securityPolicies.suspiciousLoginDetection, [item.key]: e.target.checked }
+                        })}
+                        style={{ marginTop: '2px', accentColor: '#ea580c' }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: '700', color: '#9a3412' }}>{item.label}</div>
+                        <div style={{ fontSize: '0.7rem', color: '#7c2d12', marginTop: '2px' }}>{item.desc}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="form-group" style={{ margin: 0, maxWidth: '340px' }}>
+                  <label style={{ fontSize: '0.74rem' }}>Impossible Travel Velocity Threshold (km / hour)</label>
+                  <input
+                    type="number"
+                    min="100"
+                    max="1000"
+                    className="form-control"
+                    value={securityPolicies.suspiciousLoginDetection.velocityThresholdKmPerHour}
+                    onChange={(e) => setSecurityPolicies({
+                      ...securityPolicies,
+                      suspiciousLoginDetection: { ...securityPolicies.suspiciousLoginDetection, velocityThresholdKmPerHour: Number(e.target.value) }
+                    })}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 2: LIVE ACTIVE SESSIONS & FORCE LOGOUT
+              =================================================================== */}
+          {securitySubTab === 'sessions' && (
+            <div>
+              {/* Sessions Filter Strip */}
+              <div className="card-section" style={{ padding: '14px 16px', marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <div style={{ position: 'relative', flex: '1 1 240px' }}>
+                  <Search size={15} color="#64748b" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+                  <input
+                    type="text"
+                    placeholder="Search by User, Email, Company, IP or Device..."
+                    value={activeSessionsSearch}
+                    onChange={(e) => setActiveSessionsSearch(e.target.value)}
+                    className="form-control"
+                    style={{ paddingLeft: '32px', fontSize: '0.82rem', height: '36px' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.78rem', color: '#475569', fontWeight: '700' }}>Tenant:</span>
+                  <select
+                    className="form-control"
+                    style={{ height: '36px', fontSize: '0.8rem', minWidth: '160px' }}
+                    value={activeSessionsTenantFilter}
+                    onChange={(e) => setActiveSessionsTenantFilter(e.target.value)}
+                  >
+                    <option value="ALL">All Tenants (Platform-Wide)</option>
+                    {companies.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setIsEmergencyLogoutOpen(true)}
+                  style={{ marginLeft: 'auto', background: '#fef2f2', borderColor: '#fca5a5', color: '#b91c1c' }}
+                >
+                  <AlertOctagon size={14} color="#dc2626" />
+                  <span>Terminate All Tenant Sessions</span>
+                </button>
+              </div>
+
+              {/* Active Sessions Table */}
+              <div className="card-section" style={{ padding: 0, overflow: 'hidden' }}>
+                <div className="saas-table-container">
+                  {activeSessionsList.length === 0 ? (
+                    <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
+                      <Radio size={38} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
+                      <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Active Sessions</div>
+                      <p style={{ fontSize: '0.8rem', margin: '4px auto 14px' }}>Live authenticated user sessions will be tracked in real-time.</p>
+                    </div>
+                  ) : (
+                    <table className="saas-data-table" style={{ margin: 0 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ minWidth: '180px' }}>User &amp; Role</th>
+                          <th style={{ minWidth: '140px' }}>Company</th>
+                          <th style={{ minWidth: '130px' }}>IP &amp; Location</th>
+                          <th style={{ minWidth: '160px' }}>Device &amp; Client</th>
+                          <th style={{ minWidth: '100px' }}>MFA Verified</th>
+                          <th style={{ minWidth: '130px' }}>Login / Last Active</th>
+                          <th style={{ textAlign: 'right', minWidth: '180px' }}>Security Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeSessionsList
+                          .filter(s => {
+                            const q = activeSessionsSearch.toLowerCase();
+                            const matchesSearch = !q ||
+                              s.userName.toLowerCase().includes(q) ||
+                              s.userEmail.toLowerCase().includes(q) ||
+                              s.companyName.toLowerCase().includes(q) ||
+                              s.ipAddress.includes(q) ||
+                              s.deviceInfo.toLowerCase().includes(q);
+                            const matchesTenant = activeSessionsTenantFilter === 'ALL' || s.tenantId === activeSessionsTenantFilter;
+                            return matchesSearch && matchesTenant;
+                          })
+                          .map(sess => (
+                            <tr key={sess.sessionId} style={{ background: sess.isCurrentSession ? '#f0fdf4' : 'transparent' }}>
+                              {/* 1. User & Role */}
+                              <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: sess.role === 'SUPER_ADMIN' ? '#0284c7' : '#475569', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '0.76rem' }}>
+                                    {sess.userName.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <div style={{ fontWeight: '700', fontSize: '0.82rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span>{sess.userName}</span>
+                                      {sess.isCurrentSession && (
+                                        <span className="status-badge-green" style={{ fontSize: '0.62rem', padding: '1px 5px' }}>YOU</span>
+                                      )}
+                                    </div>
+                                    <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{sess.userEmail}</div>
+                                    <span className={`status-tag ${sess.role === 'SUPER_ADMIN' ? 'status-active' : 'status-trial'}`} style={{ fontSize: '0.62rem', padding: '1px 5px', marginTop: '2px', display: 'inline-block' }}>
+                                      {sess.role}
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* 2. Company */}
+                              <td>
+                                <div style={{ fontWeight: '700', fontSize: '0.8rem', color: '#1e293b' }}>
+                                  {sess.companyName}
+                                </div>
+                                <div style={{ fontSize: '0.68rem', color: '#64748b', fontFamily: 'monospace' }}>
+                                  {sess.tenantId || 'GLOBAL_HQ'}
+                                </div>
+                              </td>
+
+                              {/* 3. IP & Location */}
+                              <td>
+                                <div style={{ fontFamily: 'monospace', fontSize: '0.76rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', fontWeight: '700' }}>
+                                  {sess.ipAddress}
+                                </div>
+                                <div style={{ fontSize: '0.72rem', color: '#334155', marginTop: '3px' }}>
+                                  {sess.location}
+                                </div>
+                              </td>
+
+                              {/* 4. Device */}
+                              <td>
+                                <div style={{ fontSize: '0.76rem', color: '#0f172a', fontWeight: '600' }}>
+                                  {sess.deviceInfo}
+                                </div>
+                                <div style={{ fontSize: '0.68rem', color: '#64748b', fontFamily: 'monospace' }}>
+                                  ID: {sess.sessionId}
+                                </div>
+                              </td>
+
+                              {/* 5. MFA Status */}
+                              <td>
+                                {sess.mfaVerified ? (
+                                  <span className="status-badge-green" style={{ fontSize: '0.68rem', padding: '2px 6px' }}>
+                                    ✓ 2FA VERIFIED
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: '0.68rem', color: '#94a3b8', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>
+                                    Single Factor
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* 6. Login / Last Active */}
+                              <td>
+                                <div style={{ fontSize: '0.74rem', color: '#0f172a' }}>
+                                  Active: <strong>{new Date(sess.lastActivity).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong>
+                                </div>
+                                <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
+                                  Login: {new Date(sess.loginTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                              </td>
+
+                              {/* 7. Actions */}
+                              <td style={{ textAlign: 'right' }}>
+                                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                  <button
+                                    type="button"
+                                    className="btn btn-secondary btn-sm"
+                                    style={{ padding: '3px 8px', fontSize: '0.72rem', color: '#dc2626', borderColor: '#fecaca', background: '#fff5f5' }}
+                                    onClick={() => handleTerminateActiveSession(sess.sessionId)}
+                                    disabled={sess.isCurrentSession}
+                                    title={sess.isCurrentSession ? 'Cannot terminate current Super Admin session' : 'Terminate this session'}
+                                  >
+                                    <LogOut size={12} />
+                                    <span>Terminate</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    className="btn btn-secondary btn-sm"
+                                    style={{ padding: '3px 8px', fontSize: '0.72rem', color: '#991b1b', background: '#fee2e2', borderColor: '#fca5a5' }}
+                                    onClick={() => handleOpenForceLogoutModal(sess)}
+                                    disabled={sess.isCurrentSession}
+                                    title="Force logout all devices for this user"
+                                  >
+                                    <RotateCcw size={12} />
+                                    <span>Force Logout</span>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 3: SECURITY THREAT ALERTS & ANOMALY DETECTION
+              =================================================================== */}
+          {securitySubTab === 'alerts' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="card-section" style={{ padding: '16px 20px', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ShieldAlert size={18} color="#dc2626" />
+                    Real-Time Perimeter Threats &amp; Suspicious Anomaly Alerts
+                  </h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: '#64748b' }}>
+                    Automated anomaly detection stream monitoring credential stuffing, impossible travels, and blocked CIDR breaches.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => getSecurityAlerts().then(data => setSecurityThreatAlerts(data))}
+                >
+                  <RefreshCw size={14} /> Refresh Threat Feed
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {securityThreatAlerts.map(alert => {
+                  const isCritical = alert.severity === 'CRITICAL';
+                  const isHigh = alert.severity === 'HIGH';
+                  const isResolved = alert.status === 'RESOLVED';
+
+                  return (
+                    <div
+                      key={alert.id}
+                      className="card-section"
+                      style={{
+                        margin: 0,
+                        padding: '16px 20px',
+                        borderLeft: `5px solid ${isResolved ? '#10b981' : (isCritical ? '#dc2626' : (isHigh ? '#ea580c' : '#0284c7'))}`,
+                        background: isResolved ? '#f0fdf4' : '#ffffff'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.72rem',
+                              fontWeight: '800',
+                              background: isResolved ? '#dcfce7' : (isCritical ? '#fee2e2' : (isHigh ? '#ffedd5' : '#e0f2fe')),
+                              color: isResolved ? '#166534' : (isCritical ? '#991b1b' : (isHigh ? '#9a3412' : '#0369a1'))
+                            }}
+                          >
+                            {alert.severity}
+                          </span>
+                          <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>{alert.title}</strong>
+                          <code style={{ fontSize: '0.72rem', color: '#64748b' }}>{alert.id}</code>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                            {new Date(alert.createdAt).toLocaleString()}
+                          </span>
+                          {!isResolved ? (
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              style={{ padding: '3px 10px', fontSize: '0.72rem', color: '#166534', background: '#dcfce7', borderColor: '#bbf7d0' }}
+                              onClick={() => handleResolveThreatAlert(alert.id)}
+                            >
+                              <CheckCircle2 size={12} />
+                              <span>Mark Resolved</span>
+                            </button>
+                          ) : (
+                            <span className="status-badge-green" style={{ fontSize: '0.7rem' }}>
+                              ✓ RESOLVED
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <p style={{ fontSize: '0.78rem', color: '#334155', margin: '0 0 10px' }}>
+                        {alert.description}
+                      </p>
+
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', fontSize: '0.74rem', color: '#475569', background: '#f8fafc', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                        <div><strong>Target User:</strong> {alert.userEmail}</div>
+                        <div><strong>Company:</strong> {alert.companyName}</div>
+                        <div><strong>Origin IP:</strong> <code style={{ color: '#0f172a' }}>{alert.ipAddress}</code></div>
+                        <div style={{ color: '#0284c7' }}><strong>Gateway Defense Action:</strong> {alert.actionTaken}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 4: 8-DIMENSIONAL PLATFORM AUDIT LOGS
+              =================================================================== */}
+          {securitySubTab === 'audit' && (
+            <div>
+              {/* Filter & Search Strip */}
+              <div className="card-section" style={{ padding: '14px 16px', marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <div style={{ position: 'relative', flex: '1 1 240px' }}>
+                  <Search size={15} color="#64748b" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+                  <input
+                    type="text"
+                    placeholder="Search by Actor, Email, Action, Company, IP or Device..."
+                    value={auditSearchQuery}
+                    onChange={(e) => setAuditSearchQuery(e.target.value)}
+                    className="form-control"
+                    style={{ paddingLeft: '32px', fontSize: '0.82rem', height: '36px' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.78rem', color: '#475569', fontWeight: '700' }}>Company:</span>
+                  <select
+                    className="form-control"
+                    style={{ height: '36px', fontSize: '0.8rem', minWidth: '160px' }}
+                    value={auditCompanyFilter}
+                    onChange={(e) => setAuditCompanyFilter(e.target.value)}
+                  >
+                    <option value="ALL">All Companies (Platform-Wide)</option>
+                    {companies.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.78rem', color: '#475569', fontWeight: '700' }}>Action Type:</span>
+                  <select
+                    className="form-control"
+                    style={{ height: '36px', fontSize: '0.8rem', minWidth: '160px' }}
+                    value={auditActionFilter}
+                    onChange={(e) => setAuditActionFilter(e.target.value)}
+                  >
+                    <option value="ALL">All Action Categories</option>
+                    <option value="SECURITY">Security &amp; Active Sessions</option>
+                    <option value="SUBSCRIPTION">Subscription &amp; Billing</option>
+                    <option value="ROLE">Role &amp; Permissions</option>
+                    <option value="SETTINGS">Global Platform Settings</option>
+                    <option value="ACCOUNT">Account Security &amp; Locks</option>
+                    <option value="USER">User Management</option>
+                    <option value="BACKUP">Database Backups</option>
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={handleExportAuditLogs}
+                  style={{ background: '#0284c7', marginLeft: 'auto' }}
+                >
+                  <Download size={14} />
+                  <span>Export CSV</span>
+                </button>
+              </div>
+
+              {/* Audit Logs Table */}
+              <div className="card-section" style={{ padding: 0, overflow: 'hidden' }}>
+                <div className="saas-table-container">
+                  {auditLogsList.length === 0 ? (
+                    <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
+                      <Inbox size={38} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
+                      <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Audit Logs Found</div>
+                      <p style={{ fontSize: '0.8rem', margin: '4px auto 14px' }}>Platform changes and administrative actions will be recorded here.</p>
+                    </div>
+                  ) : (
+                    <table className="saas-data-table" style={{ margin: 0 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ minWidth: '160px' }}>Who (Actor)</th>
+                          <th style={{ minWidth: '150px' }}>Company</th>
+                          <th style={{ minWidth: '140px' }}>Action</th>
+                          <th style={{ minWidth: '140px' }}>Date / Time</th>
+                          <th style={{ minWidth: '110px' }}>IP Address</th>
+                          <th style={{ minWidth: '150px' }}>Device</th>
+                          <th style={{ minWidth: '220px' }}>Old Value &rarr; New Value</th>
+                          <th style={{ textAlign: 'right', minWidth: '90px' }}>Details</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {auditLogsList
+                          .filter(log => {
+                            const matchesSearch = !auditSearchQuery.trim() || 
+                              (log.who && log.who.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
+                              (log.actorEmail && log.actorEmail.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
+                              (log.company && log.company.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
+                              (log.action && log.action.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
+                              (log.ip && log.ip.includes(auditSearchQuery)) ||
+                              (log.device && log.device.toLowerCase().includes(auditSearchQuery.toLowerCase()));
+
+                            const matchesCompany = auditCompanyFilter === 'ALL' || log.tenantId === auditCompanyFilter || log.company === auditCompanyFilter;
+                            const matchesAction = auditActionFilter === 'ALL' || (log.action && log.action.toUpperCase().includes(auditActionFilter.toUpperCase()));
+
+                            return matchesSearch && matchesCompany && matchesAction;
+                          })
+                          .map(log => {
+                            const isDanger = log.action.includes('LOCKED') || log.action.includes('SUSPEND') || log.action.includes('DELETE') || log.action.includes('TERMINAT') || log.action.includes('FORCE_LOGOUT');
+                            const isUpgrade = log.action.includes('UPGRADE') || log.action.includes('EXTEND') || log.action.includes('RESTORE');
+                            const isSecurity = log.action.includes('SECURITY') || log.action.includes('SETTINGS') || log.action.includes('ROLE');
+
+                            return (
+                              <tr key={log.id}>
+                                {/* 1. Who (Actor) */}
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#0284c7', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '0.72rem' }}>
+                                      {(log.actorName || log.who || 'S').charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                      <div style={{ fontWeight: '700', fontSize: '0.8rem', color: '#0f172a' }}>
+                                        {log.actorName || log.who || 'Super Admin'}
+                                      </div>
+                                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                                        {log.actorEmail}
+                                      </div>
+                                      <span className={`status-tag ${log.actorRole === 'SUPER_ADMIN' ? 'status-active' : 'status-trial'}`} style={{ fontSize: '0.62rem', padding: '1px 5px', marginTop: '2px', display: 'inline-block' }}>
+                                        {log.actorRole}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </td>
+
+                                {/* 2. Company */}
+                                <td>
+                                  <div style={{ fontWeight: '700', fontSize: '0.8rem', color: '#1e293b' }}>
+                                    {log.company}
+                                  </div>
+                                  {log.tenantId && (
+                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontFamily: 'monospace' }}>
+                                      {log.tenantId}
+                                    </div>
+                                  )}
+                                </td>
+
+                                {/* 3. Action */}
+                                <td>
+                                  <span
+                                    style={{
+                                      display: 'inline-block',
+                                      padding: '3px 8px',
+                                      borderRadius: '4px',
+                                      fontSize: '0.72rem',
+                                      fontWeight: '800',
+                                      background: isDanger ? '#fee2e2' : (isUpgrade ? '#dcfce7' : (isSecurity ? '#fef3c7' : '#e0f2fe')),
+                                      color: isDanger ? '#991b1b' : (isUpgrade ? '#166534' : (isSecurity ? '#92400e' : '#0369a1')),
+                                      border: `1px solid ${isDanger ? '#fecaca' : (isUpgrade ? '#bbf7d0' : (isSecurity ? '#fde68a' : '#bae6fd'))}`
+                                    }}
+                                  >
+                                    {log.action}
+                                  </span>
+                                  <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '3px' }}>
+                                    Target: {log.targetEntity}
+                                  </div>
+                                </td>
+
+                                {/* 4. Date / Time */}
+                                <td>
+                                  <div style={{ fontSize: '0.78rem', fontWeight: '700', color: '#0f172a' }}>
+                                    {log.time}
+                                  </div>
+                                  <div style={{ fontSize: '0.68rem', color: '#64748b', fontFamily: 'monospace' }}>
+                                    {log.createdAt ? new Date(log.createdAt).toISOString().slice(0, 10) : ''}
+                                  </div>
+                                </td>
+
+                                {/* 5. IP Address */}
+                                <td>
+                                  <span style={{ fontFamily: 'monospace', fontSize: '0.76rem', background: '#f1f5f9', color: '#334155', padding: '2px 6px', borderRadius: '4px' }}>
+                                    {log.ip}
+                                  </span>
+                                </td>
+
+                                {/* 6. Device */}
+                                <td>
+                                  <div style={{ fontSize: '0.74rem', color: '#334155', fontWeight: '500' }}>
+                                    {log.device}
+                                  </div>
+                                </td>
+
+                                {/* 7. Old Value -> New Value */}
+                                <td>
+                                  {(log.oldValue || log.newValue) ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                      {log.oldValue && (
+                                        <div style={{ fontSize: '0.7rem', color: '#991b1b', background: '#fef2f2', border: '1px solid #fee2e2', borderRadius: '4px', padding: '2px 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '210px' }}>
+                                          <strong>Old:</strong> {typeof log.oldValue === 'object' ? JSON.stringify(log.oldValue) : String(log.oldValue)}
+                                        </div>
+                                      )}
+                                      {log.newValue && (
+                                        <div style={{ fontSize: '0.7rem', color: '#166534', background: '#f0fdf4', border: '1px solid #dcfce7', borderRadius: '4px', padding: '2px 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '210px' }}>
+                                          <strong>New:</strong> {typeof log.newValue === 'object' ? JSON.stringify(log.newValue) : String(log.newValue)}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                                      {log.detail || 'No direct state mutation'}
+                                    </span>
+                                  )}
+                                </td>
+
+                                {/* 8. Details / Action Inspector */}
+                                <td style={{ textAlign: 'right' }}>
+                                  <button
+                                    type="button"
+                                    className="btn btn-secondary btn-sm"
+                                    style={{ padding: '3px 8px', fontSize: '0.72rem' }}
+                                    onClick={() => setSelectedAuditDiff(log)}
+                                  >
+                                    <Eye size={12} />
+                                    <span>Inspect</span>
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -8858,6 +10189,99 @@ export default function SuperAdminDashboard({
               <div className="modal-actions-bar" style={{ marginTop: '18px' }}>
                 <button type="button" className="btn btn-primary" onClick={() => setSelectedAuditDiff(null)}>
                   Close Inspector
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: EMERGENCY GLOBAL FORCE LOGOUT KILLSWITCH
+          ===================================================================== */}
+      {isEmergencyLogoutOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '540px' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid #fee2e2' }}>
+              <div className="modal-title-group">
+                <AlertOctagon size={24} color="#dc2626" />
+                <div>
+                  <h3 style={{ color: '#991b1b' }}>Emergency Platform Force Logout</h3>
+                  <p>Immediate revocation of all tenant active sessions</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsEmergencyLogoutOpen(false)}>&times;</button>
+            </div>
+
+            <div className="modal-form-body">
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '14px', marginBottom: '16px' }}>
+                <div style={{ fontWeight: '800', color: '#991b1b', fontSize: '0.9rem', marginBottom: '4px' }}>
+                  ⚠️ Critical Security Action
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#7f1d1d', lineHeight: 1.5 }}>
+                  Executing an Emergency Global Logout will immediately invalidate all JWT session tokens and disconnect all active users, company administrators, and field sales representatives across all tenant organizations.
+                </div>
+              </div>
+
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', fontSize: '0.76rem', color: '#334155', marginBottom: '16px' }}>
+                <div>• Current active sessions to be revoked: <strong>{activeSessionsList.filter(s => !s.isCurrentSession).length}</strong></div>
+                <div>• Your Super Admin session will remain authenticated.</div>
+                <div>• All users will be required to re-authenticate with their credentials and complete MFA challenges.</div>
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsEmergencyLogoutOpen(false)}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ background: '#dc2626', borderColor: '#b91c1c' }}
+                  onClick={handleEmergencyGlobalLogout}
+                >
+                  <AlertOctagon size={16} />
+                  <span>Execute Emergency Logout</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: FORCE LOGOUT SPECIFIC USER ON ALL DEVICES
+          ===================================================================== */}
+      {isForceLogoutUserModalOpen && forceLogoutTargetUser && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '520px' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid #fee2e2' }}>
+              <div className="modal-title-group">
+                <RotateCcw size={22} color="#dc2626" />
+                <div>
+                  <h3 style={{ color: '#991b1b' }}>Force Logout User (All Devices)</h3>
+                  <p>{forceLogoutTargetUser.userName || forceLogoutTargetUser.name || 'User'} ({forceLogoutTargetUser.userEmail || forceLogoutTargetUser.email})</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => { setIsForceLogoutUserModalOpen(false); setForceLogoutTargetUser(null); }}>&times;</button>
+            </div>
+
+            <div className="modal-form-body">
+              <div style={{ background: '#fff5f5', border: '1px solid #fed7d7', borderRadius: '8px', padding: '14px', marginBottom: '16px', fontSize: '0.8rem', color: '#9b2c2c' }}>
+                This will immediately invalidate the token version for <strong>{forceLogoutTargetUser.userName || forceLogoutTargetUser.name || 'this user'}</strong>. All active browser tabs, mobile apps, and tablets logged into this account will be disconnected instantly.
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => { setIsForceLogoutUserModalOpen(false); setForceLogoutTargetUser(null); }}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ background: '#dc2626', borderColor: '#b91c1c' }}
+                  onClick={handleConfirmForceLogoutUser}
+                >
+                  <RotateCcw size={16} />
+                  <span>Confirm Force Logout</span>
                 </button>
               </div>
             </div>

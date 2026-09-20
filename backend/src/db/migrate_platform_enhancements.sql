@@ -269,7 +269,60 @@ CREATE TABLE IF NOT EXISTS platform_system_health_logs (
 CREATE INDEX IF NOT EXISTS idx_health_logs_checked_at ON platform_system_health_logs(checked_at DESC);
 
 -- ==============================================================================
--- 11. GRANT ACCESS & DISABLE RLS FOR FRONTEND/SUPABASE COMPATIBILITY
+-- 11. PLATFORM ACTIVE SESSIONS & REAL-TIME SECURITY (platform_active_sessions)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS platform_active_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id VARCHAR(100) UNIQUE NOT NULL,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    user_email VARCHAR(255) NOT NULL,
+    user_name VARCHAR(255),
+    tenant_id UUID REFERENCES tenants_companies(id) ON DELETE CASCADE,
+    company_name VARCHAR(255),
+    role VARCHAR(50) NOT NULL DEFAULT 'MEDICAL_REP',
+    ip_address VARCHAR(64) NOT NULL,
+    device_info VARCHAR(255),
+    device_type VARCHAR(50) DEFAULT 'DESKTOP', -- DESKTOP | MOBILE | TABLET
+    location VARCHAR(255),
+    mfa_verified BOOLEAN DEFAULT false,
+    is_current_session BOOLEAN DEFAULT false,
+    status VARCHAR(50) DEFAULT 'ACTIVE', -- ACTIVE | TERMINATED | EXPIRED
+    login_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP + INTERVAL '24 hours')
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON platform_active_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_tenant_id ON platform_active_sessions(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_status ON platform_active_sessions(status);
+
+-- ==============================================================================
+-- 12. PLATFORM SECURITY THREAT ALERTS (platform_security_threat_alerts)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS platform_security_threat_alerts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    alert_code VARCHAR(100) UNIQUE NOT NULL,
+    alert_type VARCHAR(100) NOT NULL, -- SUSPICIOUS_LOGIN_IMPOSSIBLE_TRAVEL | BRUTE_FORCE_LOCKOUT | BLACKLISTED_IP_BLOCKED | DEVICE_TAMPERED
+    severity VARCHAR(50) NOT NULL DEFAULT 'HIGH', -- CRITICAL | HIGH | MEDIUM | LOW
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    ip_address VARCHAR(64),
+    user_email VARCHAR(255),
+    company_name VARCHAR(255),
+    action_taken VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'UNRESOLVED', -- UNRESOLVED | RESOLVED | DISMISSED
+    resolved_by VARCHAR(255),
+    resolved_at TIMESTAMP WITH TIME ZONE,
+    details JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_threat_alerts_status ON platform_security_threat_alerts(status);
+CREATE INDEX IF NOT EXISTS idx_threat_alerts_severity ON platform_security_threat_alerts(severity);
+CREATE INDEX IF NOT EXISTS idx_threat_alerts_created_at ON platform_security_threat_alerts(created_at DESC);
+
+-- ==============================================================================
+-- 13. GRANT ACCESS & DISABLE RLS FOR FRONTEND/SUPABASE COMPATIBILITY
 -- ==============================================================================
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, postgres, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, postgres, service_role;
@@ -282,16 +335,19 @@ ALTER TABLE IF EXISTS subscription_plans DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS platform_backup_logs DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS background_queue_jobs DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS platform_system_health_logs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS platform_active_sessions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS platform_security_threat_alerts DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS tenants_companies DISABLE ROW LEVEL SECURITY;
 
 -- ==============================================================================
--- 12. VERIFICATION QUERY OUTPUT
+-- 14. VERIFICATION QUERY OUTPUT
 -- ==============================================================================
-SELECT '🎉 Database successfully updated with all Global Configuration, RBAC, User Management, System Health, and Backup schema enhancements!' as migration_status,
+SELECT '🎉 Database successfully updated with all Global Configuration, RBAC, User Management, System Health, Security Governance, and Active Session schema enhancements!' as migration_status,
        (SELECT count(*) FROM platform_settings) as platform_settings_count,
        (SELECT count(*) FROM role_templates) as role_templates_count,
        (SELECT count(*) FROM subscription_plans) as subscription_plans_count,
        (SELECT count(*) FROM platform_backup_logs) as backup_logs_count,
        (SELECT count(*) FROM users) as total_users;
+
 
