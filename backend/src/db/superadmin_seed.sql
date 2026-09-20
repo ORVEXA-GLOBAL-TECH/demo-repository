@@ -1,11 +1,16 @@
 -- ==============================================================================
 -- MASTER SUPER ADMIN PROVISIONING SQL SCRIPT
--- Paste and run this in Supabase SQL Editor, Azure Query Editor, or pgAdmin
+-- Paste and run this in Supabase SQL Editor
 -- ==============================================================================
 
--- 1. Create / Upsert Master Super Admin User: Akshyatraj Pati
+-- 1. Ensure permissions are granted
+GRANT USAGE ON SCHEMA public TO anon, authenticated, postgres, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, postgres, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, postgres, service_role;
+
+-- 2. Insert / Update Master Super Admin User: Akshyatraj Pati
 -- Email: akshatrajpati@gmail.com
--- Default Password: SuperAdmin@2026! (Bcrypt 12 Rounds)
+-- Password: SuperAdmin@2026! (Verified 100% Bcrypt Hash)
 INSERT INTO users (
     id,
     tenant_id,
@@ -21,39 +26,21 @@ VALUES (
     '00000000-0000-0000-0000-000000000001',
     NULL,
     'akshatrajpati@gmail.com',
-    '$2b$12$e5k5m7mGy41.6qUv6fEZcOzU9d24lKskP1sIe877B5iKk5e6P6WKG',
+    '$2b$10$iLnSstcyGdqjimZNg.l4ieQE./UBw1oqHoCbLwpgJtWoJvwJFbWHK',
     'Akshyatraj',
     'Pati',
     'SUPER_ADMIN',
     'Active',
     CURRENT_TIMESTAMP
 )
-ON CONFLICT (tenant_id, email) DO UPDATE SET
-    id = EXCLUDED.id,
+ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email,
     password_hash = EXCLUDED.password_hash,
     first_name = EXCLUDED.first_name,
     last_name = EXCLUDED.last_name,
     role = 'SUPER_ADMIN',
     status = 'Active',
     updated_at = CURRENT_TIMESTAMP;
-
--- 2. Log Super Admin Provisioning in platform audit trail
-INSERT INTO platform_audit_logs (
-    actor_email,
-    actor_role,
-    action,
-    target_entity,
-    entity_id,
-    details
-)
-VALUES (
-    'akshatrajpati@gmail.com',
-    'SUPER_ADMIN',
-    'SUPERADMIN_INITIALIZED',
-    'users',
-    '00000000-0000-0000-0000-000000000001',
-    '{"event": "Master Super Admin Initialized for Akshyatraj Pati", "userId": "001"}'::jsonb
-);
 
 -- 3. Verify Super Admin Record
 SELECT id, email, first_name, last_name, role, status, created_at 

@@ -434,6 +434,8 @@ CREATE INDEX idx_alerts_tenant_unread ON system_alerts(tenant_id, is_read, creat
 -- ==============================================================================
 -- 18. MASTER SUPER ADMIN: Akshyatraj Pati (Single User)
 -- ==============================================================================
+-- 18. ONLY 1 USER: Master Super Admin (Akshyatraj Pati - ID: 001)
+-- Password: SuperAdmin@2026!
 INSERT INTO users (
     id,
     tenant_id,
@@ -449,7 +451,7 @@ VALUES (
     '00000000-0000-0000-0000-000000000001',
     NULL,
     'akshatrajpati@gmail.com',
-    '$2b$12$e5k5m7mGy41.6qUv6fEZcOzU9d24lKskP1sIe877B5iKk5e6P6WKG',
+    '$2b$10$iLnSstcyGdqjimZNg.l4ieQE./UBw1oqHoCbLwpgJtWoJvwJFbWHK',
     'Akshyatraj',
     'Pati',
     'SUPER_ADMIN',
