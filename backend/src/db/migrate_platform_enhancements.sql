@@ -601,7 +601,137 @@ CREATE INDEX IF NOT EXISTS idx_content_category ON platform_content_articles(cat
 CREATE INDEX IF NOT EXISTS idx_content_status ON platform_content_articles(status);
 
 -- ==============================================================================
--- 20. GRANT ACCESS & DISABLE RLS FOR FRONTEND/SUPABASE COMPATIBILITY
+-- 20. SUPPORT & TICKET MANAGEMENT (Company -> Admin -> Support Ticket)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS platform_support_tickets (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    ticket_code VARCHAR(50) UNIQUE NOT NULL,
+    tenant_id UUID REFERENCES tenants_companies(id) ON DELETE CASCADE,
+    company_name VARCHAR(255) NOT NULL,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    user_name VARCHAR(255) NOT NULL,
+    user_email VARCHAR(255) NOT NULL,
+    user_role VARCHAR(50) DEFAULT 'COMPANY_ADMIN',
+    category VARCHAR(50) NOT NULL CHECK (category IN ('TECHNICAL', 'BILLING', 'ACCESS_CONTROL', 'DATA_SYNC', 'INTEGRATIONS', 'GENERAL')),
+    priority VARCHAR(50) NOT NULL CHECK (priority IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL', 'URGENT')),
+    status VARCHAR(50) NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'IN_PROGRESS', 'WAITING_ON_CLIENT', 'RESOLVED', 'CLOSED')),
+    assigned_to VARCHAR(255) DEFAULT 'Tier 1 Support Desk',
+    subject VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    resolution_notes TEXT,
+    resolution_time_minutes INTEGER,
+    resolved_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_support_tickets_tenant ON platform_support_tickets(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON platform_support_tickets(status);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_priority ON platform_support_tickets(priority);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_category ON platform_support_tickets(category);
+
+-- ==============================================================================
+-- 21. ENTERPRISE BILLING MANAGEMENT (Invoices, Payments, Failed, Refunds, Contacts)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS platform_billing_invoices (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    invoice_number VARCHAR(100) UNIQUE NOT NULL,
+    tenant_id UUID REFERENCES tenants_companies(id) ON DELETE CASCADE,
+    company_name VARCHAR(255) NOT NULL,
+    plan_tier VARCHAR(50) DEFAULT 'PROFESSIONAL',
+    subtotal NUMERIC(12, 2) NOT NULL DEFAULT 1000.00,
+    tax_amount NUMERIC(12, 2) NOT NULL DEFAULT 50.00,
+    amount NUMERIC(12, 2) NOT NULL DEFAULT 1050.00,
+    currency VARCHAR(10) DEFAULT 'USD',
+    status VARCHAR(50) NOT NULL DEFAULT 'PAID' CHECK (status IN ('PAID', 'PENDING', 'OVERDUE', 'FAILED', 'REFUNDED', 'VOID')),
+    issue_date TIMESTAMPTZ DEFAULT NOW(),
+    due_date TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '14 days'),
+    paid_at TIMESTAMPTZ DEFAULT NOW(),
+    payment_method VARCHAR(50) DEFAULT 'CREDIT_CARD_VISA',
+    billing_contact_name VARCHAR(255),
+    billing_contact_email VARCHAR(255),
+    tax_id VARCHAR(100),
+    pdf_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS platform_billing_payments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    payment_ref VARCHAR(100) UNIQUE NOT NULL,
+    invoice_id UUID REFERENCES platform_billing_invoices(id) ON DELETE SET NULL,
+    invoice_number VARCHAR(100),
+    tenant_id UUID REFERENCES tenants_companies(id) ON DELETE CASCADE,
+    company_name VARCHAR(255) NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL,
+    currency VARCHAR(10) DEFAULT 'USD',
+    gateway VARCHAR(50) DEFAULT 'STRIPE' CHECK (gateway IN ('STRIPE', 'RAZORPAY', 'WIRE_TRANSFER', 'ACH', 'BANK_TRANSFER')),
+    payment_method VARCHAR(100) DEFAULT 'Visa ending in 4242',
+    transaction_hash VARCHAR(255),
+    status VARCHAR(50) NOT NULL DEFAULT 'SUCCEEDED' CHECK (status IN ('SUCCEEDED', 'PENDING', 'FAILED', 'REFUNDED')),
+    decline_code VARCHAR(100),
+    failure_reason TEXT,
+    retry_count INTEGER DEFAULT 0,
+    last_attempt_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS platform_billing_refunds (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    refund_ref VARCHAR(100) UNIQUE NOT NULL,
+    payment_id UUID REFERENCES platform_billing_payments(id) ON DELETE SET NULL,
+    invoice_number VARCHAR(100),
+    tenant_id UUID REFERENCES tenants_companies(id) ON DELETE CASCADE,
+    company_name VARCHAR(255) NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL,
+    currency VARCHAR(10) DEFAULT 'USD',
+    reason VARCHAR(100) DEFAULT 'PLAN_DOWNGRADE_PRORATION' CHECK (reason IN ('DOUBLE_CHARGE', 'SLA_CREDIT', 'PLAN_DOWNGRADE_PRORATION', 'DISPUTE_SETTLEMENT', 'CUSTOMER_REQUEST')),
+    status VARCHAR(50) DEFAULT 'PROCESSED' CHECK (status IN ('PROCESSED', 'PENDING', 'FAILED')),
+    processed_by VARCHAR(255) DEFAULT 'Super Admin HQ',
+    processed_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS platform_billing_contacts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID UNIQUE REFERENCES tenants_companies(id) ON DELETE CASCADE,
+    company_name VARCHAR(255) NOT NULL,
+    primary_contact_name VARCHAR(255) NOT NULL,
+    primary_billing_email VARCHAR(255) NOT NULL,
+    secondary_billing_email VARCHAR(255),
+    tax_id VARCHAR(100),
+    tax_scheme VARCHAR(100) DEFAULT 'VAT 5%',
+    billing_address TEXT,
+    city VARCHAR(100),
+    country VARCHAR(100),
+    preferred_currency VARCHAR(10) DEFAULT 'USD',
+    po_number VARCHAR(100),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS platform_subscription_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID REFERENCES tenants_companies(id) ON DELETE CASCADE,
+    company_name VARCHAR(255) NOT NULL,
+    event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('PROVISIONED', 'TIER_UPGRADE', 'TIER_DOWNGRADE', 'RENEWAL_PROCESSED', 'VALIDITY_EXTENDED', 'GRACE_PERIOD_ACTIVE', 'ACCOUNT_SUSPENDED', 'ACCOUNT_RESTORED')),
+    from_tier VARCHAR(50),
+    to_tier VARCHAR(50),
+    mrr_delta NUMERIC(12, 2) DEFAULT 0,
+    amount_billed NUMERIC(12, 2) DEFAULT 0,
+    notes TEXT,
+    actor_email VARCHAR(255) DEFAULT 'superadmin@orvexa.com',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_billing_invoices_tenant ON platform_billing_invoices(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_billing_invoices_status ON platform_billing_invoices(status);
+CREATE INDEX IF NOT EXISTS idx_billing_payments_tenant ON platform_billing_payments(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_billing_payments_status ON platform_billing_payments(status);
+CREATE INDEX IF NOT EXISTS idx_subscription_history_tenant ON platform_subscription_history(tenant_id);
+
+-- ==============================================================================
+-- 22. GRANT ACCESS & DISABLE RLS FOR FRONTEND/SUPABASE COMPATIBILITY
 -- ==============================================================================
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, postgres, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, postgres, service_role;
@@ -630,13 +760,19 @@ ALTER TABLE IF EXISTS announcement_acknowledgments DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS mobile_app_versions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS mobile_app_user_devices DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS platform_content_articles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS platform_support_tickets DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS platform_billing_invoices DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS platform_billing_payments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS platform_billing_refunds DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS platform_billing_contacts DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS platform_subscription_history DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS tenants_companies DISABLE ROW LEVEL SECURITY;
 
 -- ==============================================================================
--- 21. VERIFICATION QUERY OUTPUT
+-- 23. VERIFICATION QUERY OUTPUT
 -- ==============================================================================
-SELECT '🎉 Database successfully updated with all Global Configuration, RBAC, User Management, System Health, Security Governance, Data Management, API Management, Global Notifications, Mobile App Version Control, and Platform Content CMS schemas!' as migration_status;
+SELECT '🎉 Database successfully updated with Support / Ticket Management (Company -> Admin -> Ticket) and Enterprise Billing Management (Invoices, Payments, Failed, Refunds, Subscription History, Renewal, Plan Changes, Tax, Contacts) schemas!' as migration_status;
 
 
 

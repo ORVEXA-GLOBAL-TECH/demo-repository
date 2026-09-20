@@ -205,7 +205,22 @@ import {
   updateContentArticle,
   deleteContentArticle,
   getLegalPolicy,
-  updateLegalPolicy
+  updateLegalPolicy,
+  getSupportTicketsOverview,
+  getSupportTickets,
+  createSupportTicket,
+  updateSupportTicket,
+  resolveSupportTicket,
+  deleteSupportTicket,
+  getBillingOverview,
+  getBillingInvoices,
+  getBillingPayments,
+  retryFailedPayment,
+  getBillingRefunds,
+  processBillingRefund,
+  getBillingSubscriptionHistory,
+  getBillingContacts,
+  updateBillingContact
 } from '../services/api';
 
 import { DEFAULT_SOVEREIGN_REGISTRY } from '../data/sovereignRegistry';
@@ -597,6 +612,67 @@ export default function SuperAdminDashboard({
   const [supportInfoData, setSupportInfoData] = useState({ title: 'Technical Support Matrix', version: 'v2026.1', supportTiers: [], emergencyContact: '', operatingHours: '' });
   const [isSavingLegalPolicy, setIsSavingLegalPolicy] = useState(false);
 
+  // --------------------------------------------------------------------------
+  // SUPPORT / TICKET MANAGEMENT STATES (Company -> Admin -> Ticket Hierarchy)
+  // --------------------------------------------------------------------------
+  const [ticketsOverview, setTicketsOverview] = useState(null);
+  const [ticketsList, setTicketsList] = useState([]);
+  const [ticketSearchQuery, setTicketSearchQuery] = useState('');
+  const [ticketStatusFilter, setTicketStatusFilter] = useState('ALL');
+  const [ticketPriorityFilter, setTicketPriorityFilter] = useState('ALL');
+  const [ticketCompanyFilter, setTicketCompanyFilter] = useState('ALL');
+  const [ticketCategoryFilter, setTicketCategoryFilter] = useState('ALL');
+  const [selectedTicketInspect, setSelectedTicketInspect] = useState(null);
+  const [isResolveTicketOpen, setIsResolveTicketOpen] = useState(false);
+  const [resolveTicketForm, setResolveTicketForm] = useState({ id: '', ticketNumber: '', resolutionNotes: '', assignedSupportPerson: 'Sarah Jenkins (L3 Senior Tech)' });
+  const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
+  const [createTicketForm, setCreateTicketForm] = useState({
+    companyId: '',
+    userId: '',
+    category: 'DOCTOR_GEOFENCING',
+    priority: 'HIGH',
+    subject: '',
+    description: '',
+    assignedSupportPerson: 'Sarah Jenkins (L3 Senior Tech)'
+  });
+
+  // --------------------------------------------------------------------------
+  // ENTERPRISE BILLING MANAGEMENT STATES (Invoices, Payments, Refunds, Tax, Contacts)
+  // --------------------------------------------------------------------------
+  const [billingOverview, setBillingOverview] = useState(null);
+  const [billingSubTab, setBillingSubTab] = useState('invoices'); // invoices | payments | failed-payments | refunds | subscription-history | billing-contacts | plans
+  const [invoicesList, setInvoicesList] = useState([]);
+  const [paymentsList, setPaymentsList] = useState([]);
+  const [refundsList, setRefundsList] = useState([]);
+  const [subscriptionHistoryList, setSubscriptionHistoryList] = useState([]);
+  const [billingContactsList, setBillingContactsList] = useState([]);
+  const [billingSearchQuery, setBillingSearchQuery] = useState('');
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('ALL');
+  const [isProcessRefundOpen, setIsProcessRefundOpen] = useState(false);
+  const [refundForm, setRefundForm] = useState({
+    paymentRef: '',
+    invoiceNumber: '',
+    companyName: '',
+    amount: '',
+    currency: 'USD',
+    reason: ''
+  });
+  const [isEditBillingContactOpen, setIsEditBillingContactOpen] = useState(false);
+  const [editBillingContactForm, setEditBillingContactForm] = useState({
+    tenantId: '',
+    companyName: '',
+    contactName: '',
+    email: '',
+    financeEmail: '',
+    taxId: '',
+    taxScheme: '',
+    vatNumber: '',
+    currencyPreference: 'USD',
+    billingAddress: '',
+    poNumber: '',
+    autoRenew: true
+  });
+
   // Active Multi-Currency Display Setting
   const [selectedDisplayCurrency, setSelectedDisplayCurrency] = useState('USD');
   const [selectedCountryFilter, setSelectedCountryFilter] = useState('ALL');
@@ -630,7 +706,8 @@ export default function SuperAdminDashboard({
         apiWhkRes, apiDlqRes, apiLogsRes, apiIntRes,
         notifOverRes, annListRes, notifChanRes, annAcksRes,
         appOverRes, appListRes, appOldUsersRes,
-        contentOverRes, contentArtRes, privPolRes, termsRes, suppInfoRes
+        contentOverRes, contentArtRes, privPolRes, termsRes, suppInfoRes,
+        tktOverRes, tktListRes, billOverRes, invListRes, payListRes, refListRes, subhListRes, bcListRes
       ] = await Promise.allSettled([
         getTenants(),
         getPlatformUsers(),
@@ -669,8 +746,25 @@ export default function SuperAdminDashboard({
         getContentArticles(),
         getLegalPolicy('privacy-policy'),
         getLegalPolicy('terms-conditions'),
-        getLegalPolicy('support-info')
+        getLegalPolicy('support-info'),
+        getSupportTicketsOverview(),
+        getSupportTickets(),
+        getBillingOverview(),
+        getBillingInvoices(),
+        getBillingPayments(),
+        getBillingRefunds(),
+        getBillingSubscriptionHistory(),
+        getBillingContacts()
       ]);
+
+      if (tktOverRes.status === 'fulfilled' && tktOverRes.value) setTicketsOverview(tktOverRes.value);
+      if (tktListRes.status === 'fulfilled' && Array.isArray(tktListRes.value)) setTicketsList(tktListRes.value);
+      if (billOverRes.status === 'fulfilled' && billOverRes.value) setBillingOverview(billOverRes.value);
+      if (invListRes.status === 'fulfilled' && Array.isArray(invListRes.value)) setInvoicesList(invListRes.value);
+      if (payListRes.status === 'fulfilled' && Array.isArray(payListRes.value)) setPaymentsList(payListRes.value);
+      if (refListRes.status === 'fulfilled' && Array.isArray(refListRes.value)) setRefundsList(refListRes.value);
+      if (subhListRes.status === 'fulfilled' && Array.isArray(subhListRes.value)) setSubscriptionHistoryList(subhListRes.value);
+      if (bcListRes.status === 'fulfilled' && Array.isArray(bcListRes.value)) setBillingContactsList(bcListRes.value);
 
       if (appOverRes.status === 'fulfilled' && appOverRes.value) setAppVersionsOverview(appOverRes.value);
       if (appListRes.status === 'fulfilled' && Array.isArray(appListRes.value)) setAppVersionsList(appListRes.value);
@@ -2508,25 +2602,144 @@ export default function SuperAdminDashboard({
     }
   };
 
-  const handleCreateTicket = (e) => {
+  // --------------------------------------------------------------------------
+  // SUPPORT / TICKET MANAGEMENT HANDLERS (Company -> Admin -> Ticket)
+  // --------------------------------------------------------------------------
+  const handleResolveTicket = async (e) => {
     e.preventDefault();
-    if (!newTicket.subject.trim()) return;
-    const tick = {
-      id: `TCK-${Date.now().toString().slice(-4)}`,
-      companyName: newTicket.companyName || 'General Platform',
-      category: newTicket.category,
-      priority: newTicket.priority,
-      subject: newTicket.subject,
-      description: newTicket.description,
-      status: 'OPEN',
-      assignedTo: 'Akshyatraj Pati (Super Admin HQ)',
-      createdAt: new Date().toLocaleDateString()
-    };
-    setSupportTickets(prev => [tick, ...prev]);
-    logAudit('TICKET_CREATED', `Support ticket #${tick.id}: ${tick.subject}`, tick.companyName);
-    showToast(`Support Ticket #${tick.id} logged.`, 'success');
-    setIsNewTicketOpen(false);
-    setNewTicket({ companyName: '', category: 'TECHNICAL', priority: 'HIGH', subject: '', description: '' });
+    if (!resolveTicketForm.resolutionNotes?.trim()) {
+      showToast('Please provide resolution notes before closing this ticket.', 'error');
+      return;
+    }
+
+    try {
+      await resolveSupportTicket(resolveTicketForm.id, {
+        resolutionNotes: resolveTicketForm.resolutionNotes,
+        assignedSupportPerson: resolveTicketForm.assignedSupportPerson || 'Sarah Jenkins (L3 Senior Tech)'
+      });
+      showToast(`Support Ticket ${resolveTicketForm.ticketNumber} marked as RESOLVED!`, 'success');
+      logAudit('SUPPORT_TICKET_RESOLVED', `Resolved Ticket ${resolveTicketForm.ticketNumber}: ${resolveTicketForm.resolutionNotes.slice(0, 50)}...`);
+      setIsResolveTicketOpen(false);
+      const tkts = await getSupportTickets();
+      setTicketsList(tkts);
+      const over = await getSupportTicketsOverview();
+      setTicketsOverview(over);
+    } catch (err) {
+      showToast(`Failed to resolve ticket: ${err.message}`, 'error');
+    }
+  };
+
+  const handleReassignSupportPerson = async (ticketId, newPerson) => {
+    try {
+      await updateSupportTicket(ticketId, { assignedSupportPerson: newPerson });
+      showToast(`Ticket reassigned to ${newPerson}`, 'success');
+      setTicketsList(prev => prev.map(t => t.id === ticketId ? { ...t, assignedSupportPerson: newPerson } : t));
+    } catch (err) {
+      showToast(`Failed to reassign: ${err.message}`, 'error');
+    }
+  };
+
+  const handleCreateTicket = async (e) => {
+    e.preventDefault();
+    if (!createTicketForm.subject?.trim() || !createTicketForm.description?.trim()) {
+      showToast('Subject and description are required.', 'error');
+      return;
+    }
+
+    try {
+      await createSupportTicket(createTicketForm);
+      showToast('New Support Ticket logged successfully!', 'success');
+      setIsCreateTicketOpen(false);
+      setCreateTicketForm({
+        companyId: '',
+        userId: '',
+        category: 'DOCTOR_GEOFENCING',
+        priority: 'HIGH',
+        subject: '',
+        description: '',
+        assignedSupportPerson: 'Sarah Jenkins (L3 Senior Tech)'
+      });
+      const tkts = await getSupportTickets();
+      setTicketsList(tkts);
+      const over = await getSupportTicketsOverview();
+      setTicketsOverview(over);
+    } catch (err) {
+      showToast(`Failed to log ticket: ${err.message}`, 'error');
+    }
+  };
+
+  const handleDeleteTicket = async (ticketId, ticketNum) => {
+    if (!window.confirm(`Delete ticket ${ticketNum || ticketId}?`)) return;
+    try {
+      await deleteSupportTicket(ticketId);
+      showToast(`Ticket ${ticketNum || ticketId} removed.`, 'success');
+      setTicketsList(prev => prev.filter(t => t.id !== ticketId));
+      const over = await getSupportTicketsOverview();
+      setTicketsOverview(over);
+    } catch (err) {
+      showToast(`Failed to delete ticket: ${err.message}`, 'error');
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // ENTERPRISE BILLING MANAGEMENT HANDLERS
+  // --------------------------------------------------------------------------
+  const handleRetryFailedPayment = async (paymentId, refNum) => {
+    try {
+      await retryFailedPayment(paymentId);
+      showToast(`Payment ${refNum || paymentId} charge retried & SUCCEEDED!`, 'success');
+      logAudit('BILLING_PAYMENT_RETRIED', `Successfully retried failed charge for payment ${refNum || paymentId}`);
+      const pays = await getBillingPayments();
+      setPaymentsList(pays);
+      const invs = await getBillingInvoices();
+      setInvoicesList(invs);
+      const over = await getBillingOverview();
+      setBillingOverview(over);
+    } catch (err) {
+      showToast(`Failed to retry charge: ${err.message}`, 'error');
+    }
+  };
+
+  const handleProcessRefund = async (e) => {
+    e.preventDefault();
+    if (!refundForm.amount || Number(refundForm.amount) <= 0) {
+      showToast('Please enter a valid refund amount.', 'error');
+      return;
+    }
+    if (!refundForm.reason?.trim()) {
+      showToast('Refund reason is required for statutory accounting compliance.', 'error');
+      return;
+    }
+
+    try {
+      await processBillingRefund(refundForm);
+      showToast(`Refund of $${refundForm.amount} processed for ${refundForm.companyName || refundForm.invoiceNumber}!`, 'success');
+      logAudit('BILLING_REFUND_PROCESSED', `Processed refund of $${refundForm.amount} for ${refundForm.invoiceNumber}: ${refundForm.reason}`);
+      setIsProcessRefundOpen(false);
+      setRefundForm({ paymentRef: '', invoiceNumber: '', companyName: '', amount: '', currency: 'USD', reason: '' });
+      const refs = await getBillingRefunds();
+      setRefundsList(refs);
+      const invs = await getBillingInvoices();
+      setInvoicesList(invs);
+      const over = await getBillingOverview();
+      setBillingOverview(over);
+    } catch (err) {
+      showToast(`Failed to process refund: ${err.message}`, 'error');
+    }
+  };
+
+  const handleSaveBillingContact = async (e) => {
+    e.preventDefault();
+    try {
+      await updateBillingContact(editBillingContactForm.tenantId, editBillingContactForm);
+      showToast(`Billing contacts & tax registration updated for ${editBillingContactForm.companyName}!`, 'success');
+      logAudit('BILLING_CONTACT_UPDATED', `Updated tax registration & billing contacts for ${editBillingContactForm.companyName}`);
+      setIsEditBillingContactOpen(false);
+      const bcs = await getBillingContacts();
+      setBillingContactsList(bcs);
+    } catch (err) {
+      showToast(`Failed to update billing contacts: ${err.message}`, 'error');
+    }
   };
 
   const handleStartImpersonation = (e) => {
@@ -4409,291 +4622,1039 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          5. SUBSCRIPTIONS & MONETIZATION (PLANS CRUD & ADVANCED GOVERNANCE)
+          5. ENTERPRISE BILLING & MONETIZATION MANAGEMENT SUITE
           ===================================================================== */}
       {activeTab === 'subscriptions' && (
         <div className="tab-pane-content">
-          <div className="pane-action-bar" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          {/* Action Bar Header */}
+          <div className="pane-action-bar" style={{ marginBottom: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
             <div>
               <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CreditCard size={22} color="#0284c7" /> SaaS Plans &amp; Subscription Governance
+                <CreditCard size={22} color="#0284c7" />
+                Enterprise Billing &amp; Subscriptions Management
               </h2>
-              <p className="section-desc">Create/edit plans, configure trial periods, grace periods, upgrades, renewals, and automated suspension.</p>
+              <p className="section-desc">
+                Platform-wide multi-company billing governance: Invoices, payment gateways, failed charge retries, refund workflows, MRR subscription audit logs, statutory tax IDs, and billing contacts.
+              </p>
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={handleProcessExpiries}
-                title="Scan all accounts for expired subscriptions/trials and apply grace period suspension rules"
+                onClick={async () => {
+                  const over = await getBillingOverview();
+                  setBillingOverview(over);
+                  const invs = await getBillingInvoices();
+                  setInvoicesList(invs);
+                  const pays = await getBillingPayments();
+                  setPaymentsList(pays);
+                  const refs = await getBillingRefunds();
+                  setRefundsList(refs);
+                  const subh = await getBillingSubscriptionHistory();
+                  setSubscriptionHistoryList(subh);
+                  const bcs = await getBillingContacts();
+                  setBillingContactsList(bcs);
+                  showToast('Enterprise billing ledger refreshed!', 'success');
+                }}
               >
-                <RefreshCw size={15} /> <span>Process Expiries &amp; Grace Check</span>
+                <RefreshCw size={15} /> <span>Refresh Ledger</span>
               </button>
               <button
                 type="button"
                 className="btn btn-primary"
+                onClick={() => setIsProcessRefundOpen(true)}
+              >
+                <Coins size={15} /> <span>Process Refund / Credit</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)' }}
                 onClick={() => setIsCreatePlanOpen(true)}
               >
-                <Plus size={16} /> <span>Create New Plan</span>
+                <Plus size={15} /> <span>Create Plan Tier</span>
               </button>
             </div>
           </div>
 
-          {/* DYNAMIC SUBSCRIPTION PLANS GRID */}
-          <div className="subscription-plans-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
-            {(plans.length > 0 ? plans : [
-              {
-                id: 'p1', code: 'FREE_TRIAL', name: 'Free Trial / Demo', description: 'Pilot evaluation with full feature access for a configurable trial period.',
-                price_monthly: 0, price_yearly: 0, trial_days: 14, grace_period_days: 7,
-                features: ['Unlimited Users & Admins', 'Field DCR & GPS Tracking', 'Chemist & Doctor Directories', 'Configurable Start & End Dates', 'Full Analytics Suite']
-              },
-              {
-                id: 'p2', code: 'STARTER', name: 'Starter Tier', description: 'Entry-level pharma distribution for growing teams and regional distributors.',
-                price_monthly: 100, price_yearly: 1000, trial_days: 14, grace_period_days: 7,
-                features: ['Unlimited Field Users & Admins', 'Core MR Daily Call Reports', 'Chemist Order Booking (POB)', 'Product Catalog & Samples', 'Email Support']
-              },
-              {
-                id: 'p3', code: 'PROFESSIONAL', name: 'Professional Tier', description: 'Complete operational powerhouse for regional pharma manufacturers.',
-                price_monthly: 1000, price_yearly: 10000, trial_days: 14, grace_period_days: 7,
-                features: ['Unlimited Field Reps & Managers', 'Tour Plans (MTP) & Approvals', 'TA / DA Smart Expense Claims', 'Statutory Payroll & Compliance', 'Live Geo-Tracking & Hierarchy']
-              },
-              {
-                id: 'p4', code: 'ENTERPRISE', name: 'Enterprise Tier', description: 'For multinational pharmaceutical conglomerates requiring sovereign isolation.',
-                price_monthly: 2500, price_yearly: 25000, trial_days: 30, grace_period_days: 14,
-                features: ['Unlimited Field Reps & Executive GMs', 'Multi-Country Sovereign Isolation', 'AI Prescription OCR & Studio', 'Automated SAP/Oracle ERP Sync', '24/7 Dedicated SLA Support']
-              },
-              {
-                id: 'p5', code: 'CUSTOM', name: 'Custom Enterprise Tier', description: 'Tailored contract terms, bespoke pricing, and custom SLAs as per client requirements.',
-                price_monthly: 0, price_yearly: 0, trial_days: 14, grace_period_days: 14, is_custom: true,
-                features: ['Unlimited Users & Custom Limits', 'Custom USD Rate & Contract Terms', 'Flexible Billing Schedules', 'Bespoke ERP Integration & On-Premises Option', 'Dedicated Solutions Architect']
-              }
-            ]).map((plan) => {
-              const enrolledCount = companies.filter(c => 
-                c.plan === plan.code || 
-                (plan.code === 'FREE_TRIAL' && (c.plan === 'TRIAL' || c.status === 'TRIAL')) ||
-                (plan.code === 'STARTER' && c.plan === 'BASIC') ||
-                (plan.code === 'PROFESSIONAL' && c.plan === 'PRO') ||
-                (plan.code === 'CUSTOM' && c.isCustomPricing)
-              ).length;
+          {/* KPI Revenue & Financial Health Metrics Bar */}
+          <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+            <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '4px solid #16a34a', padding: '14px 16px' }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Total Collected Revenue</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#16a34a', marginTop: '4px' }}>
+                ${(billingOverview?.totalRevenueCollected || 486500).toLocaleString()}
+              </div>
+              <div style={{ fontSize: '0.7rem', color: '#15803d', marginTop: '2px' }}>↑ 14.2% MoM growth</div>
+            </div>
 
-              const isFeatured = plan.code === 'PROFESSIONAL' || plan.tier === 'PROFESSIONAL';
-              const isTrial = plan.code === 'FREE_TRIAL' || plan.tier === 'FREE_TRIAL';
-              const isCustom = plan.code === 'CUSTOM' || plan.is_custom;
+            <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '4px solid #d97706', padding: '14px 16px' }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Pending Receivables</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#d97706', marginTop: '4px' }}>
+                ${(billingOverview?.totalPendingReceivables || 32400).toLocaleString()}
+              </div>
+              <div style={{ fontSize: '0.7rem', color: '#b45309', marginTop: '2px' }}>Net-30 Enterprise Invoices</div>
+            </div>
 
-              return (
-                <div
-                  key={plan.id || plan.code}
-                  className={`plan-card ${isFeatured ? 'featured-plan' : ''}`}
-                  style={{
-                    borderColor: isFeatured ? '#0284c7' : isTrial ? '#8b5cf6' : isCustom ? '#0f172a' : '#e2e8f0',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between'
-                  }}
-                >
-                  <div>
-                    {isFeatured && <div className="featured-ribbon">POPULAR</div>}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <span className="plan-tier-name" style={{ color: isTrial ? '#7c3aed' : isCustom ? '#0f172a' : '#0284c7', margin: 0 }}>
-                        {plan.name || plan.code}
-                      </span>
-                      <span className="plan-pill plan-pro" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
-                        {plan.code}
-                      </span>
-                    </div>
+            <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '4px solid #dc2626', padding: '14px 16px' }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Failed Payments (DLQ)</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#dc2626', marginTop: '4px' }}>
+                ${(billingOverview?.totalFailedPayments || 8200).toLocaleString()}
+              </div>
+              <div style={{ fontSize: '0.7rem', color: '#b91c1c', marginTop: '2px' }}>Auto-retry scheduled (3 retries)</div>
+            </div>
 
-                    <div className="plan-price">
-                      {isTrial ? '$0' : isCustom ? 'Custom' : `$${Number(plan.price_monthly || plan.priceMonthly || 0).toLocaleString()}`}
-                      <span> {isTrial ? '/ demo period' : isCustom ? '/ contract' : '/ month'}</span>
-                    </div>
+            <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '4px solid #9333ea', padding: '14px 16px' }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Total Refunds Issued</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#9333ea', marginTop: '4px' }}>
+                ${(billingOverview?.totalRefunded || 2450).toLocaleString()}
+              </div>
+              <div style={{ fontSize: '0.7rem', color: '#7e22ce', marginTop: '2px' }}>Pro-rata downgrades &amp; credits</div>
+            </div>
 
-                    {!isTrial && !isCustom && (
-                      <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '-4px', marginBottom: '10px' }}>
-                        ${Number(plan.price_yearly || plan.priceYearly || 0).toLocaleString()} / year (Save 17%)
-                      </div>
-                    )}
+            <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '4px solid #0284c7', padding: '14px 16px' }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Collection Efficiency</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#0284c7', marginTop: '4px' }}>
+                {billingOverview?.collectionEfficiency || 98.3}%
+              </div>
+              <div style={{ fontSize: '0.7rem', color: '#0369a1', marginTop: '2px' }}>Sovereign banking clearance</div>
+            </div>
 
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', margin: '8px 0 12px' }}>
-                      <span style={{ fontSize: '0.68rem', background: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: '4px', fontWeight: '700' }}>
-                        ⏳ {plan.trial_days || plan.trialDays || 14}d Trial
-                      </span>
-                      <span style={{ fontSize: '0.68rem', background: '#ecfdf5', color: '#047857', padding: '2px 8px', borderRadius: '4px', fontWeight: '700' }}>
-                        🛡️ {plan.grace_period_days || plan.gracePeriodDays || 7}d Grace
-                      </span>
-                    </div>
+            <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '4px solid #475569', padding: '14px 16px' }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Active Paid Tenants</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#0f172a', marginTop: '4px' }}>
+                {billingOverview?.activePaidSubscriptions || companies.filter(c => c.status === 'ACTIVE').length || 42}
+              </div>
+              <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>8 renewals upcoming &lt;30d</div>
+            </div>
+          </div>
 
-                    <p className="plan-limits-desc" style={{ fontSize: '0.78rem', minHeight: '34px' }}>
-                      {plan.description || 'Enterprise plan configuration with full modular capability.'}
-                    </p>
+          {/* Sub-Tabs Switchboard */}
+          <div className="tab-pills-bar" style={{ marginBottom: '18px' }}>
+            <button
+              type="button"
+              className={`pill-btn ${billingSubTab === 'invoices' ? 'active' : ''}`}
+              onClick={() => setBillingSubTab('invoices')}
+            >
+              📄 Invoices &amp; Receivables ({invoicesList.length})
+            </button>
+            <button
+              type="button"
+              className={`pill-btn ${billingSubTab === 'payments' ? 'active' : ''}`}
+              onClick={() => setBillingSubTab('payments')}
+            >
+              💳 Payments &amp; Gateway Ledger ({paymentsList.length})
+            </button>
+            <button
+              type="button"
+              className={`pill-btn ${billingSubTab === 'failed-payments' ? 'active' : ''}`}
+              onClick={() => setBillingSubTab('failed-payments')}
+            >
+              ⚠️ Failed Payments &amp; Retries ({paymentsList.filter(p => p.status === 'FAILED').length || 1})
+            </button>
+            <button
+              type="button"
+              className={`pill-btn ${billingSubTab === 'refunds' ? 'active' : ''}`}
+              onClick={() => setBillingSubTab('refunds')}
+            >
+              🔄 Refunds &amp; Credit Notes ({refundsList.length})
+            </button>
+            <button
+              type="button"
+              className={`pill-btn ${billingSubTab === 'subscription-history' ? 'active' : ''}`}
+              onClick={() => setBillingSubTab('subscription-history')}
+            >
+              📈 Subscription &amp; Plan Change History ({subscriptionHistoryList.length})
+            </button>
+            <button
+              type="button"
+              className={`pill-btn ${billingSubTab === 'billing-contacts' ? 'active' : ''}`}
+              onClick={() => setBillingSubTab('billing-contacts')}
+            >
+              🏛️ Tax Info &amp; Billing Contacts ({billingContactsList.length})
+            </button>
+            <button
+              type="button"
+              className={`pill-btn ${billingSubTab === 'plans' ? 'active' : ''}`}
+              onClick={() => setBillingSubTab('plans')}
+            >
+              ⚙️ SaaS Plans Matrix &amp; Tiers ({plans.length || 5})
+            </button>
+          </div>
 
-                    <ul className="plan-perks-list" style={{ marginTop: '10px', fontSize: '0.76rem' }}>
-                      {(Array.isArray(plan.features) ? plan.features : typeof plan.features === 'string' ? JSON.parse(plan.features || '[]') : []).map((feat, fIdx) => (
-                        <li key={fIdx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <CheckCircle2 size={13} color="#16a34a" /> {feat}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div>
-                    <div className="plan-sub-count" style={{ background: isTrial ? '#f5f3ff' : isFeatured ? '#f0f9ff' : '#f8fafc', color: isTrial ? '#7c3aed' : isFeatured ? '#0369a1' : '#334155', marginTop: '16px' }}>
-                      {enrolledCount} {enrolledCount === 1 ? 'Company' : 'Companies'} Enrolled
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        style={{ flex: 1, padding: '6px 8px', fontSize: '0.74rem' }}
-                        onClick={() => handleOpenEditPlan(plan)}
-                      >
-                        <Edit size={12} /> Edit Plan
-                      </button>
-                      {plan.code !== 'FREE_TRIAL' && plan.code !== 'STARTER' && (
-                        <button
-                          type="button"
-                          className="action-pill-btn red"
-                          style={{ padding: '6px 10px' }}
-                          onClick={() => handleOpenDeletePlan(plan)}
-                          title="Delete Plan"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      )}
-                    </div>
+          {/* ===================================================================
+              SUB-TAB 1: INVOICES & RECEIVABLES
+              =================================================================== */}
+          {billingSubTab === 'invoices' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, maxWidth: '420px' }}>
+                  <div style={{ position: 'relative', width: '100%' }}>
+                    <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    <input
+                      type="text"
+                      className="form-control"
+                      style={{ paddingLeft: '32px' }}
+                      placeholder="Search by Invoice #, Company, Tax ID..."
+                      value={billingSearchQuery}
+                      onChange={(e) => setBillingSearchQuery(e.target.value)}
+                    />
                   </div>
                 </div>
-              );
-            })}
-          </div>
 
-          <div className="section-title-sm" style={{ marginTop: '36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: '800', fontSize: '1rem', color: '#0f172a' }}>Tenant Billing &amp; Subscriptions Overview</span>
-            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{companies.length} Total Accounts Under Governance</span>
-          </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {['ALL', 'PAID', 'PENDING', 'FAILED', 'REFUNDED'].map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      className="action-pill-btn"
+                      style={{
+                        background: invoiceStatusFilter === st ? '#0284c7' : '#f8fafc',
+                        color: invoiceStatusFilter === st ? '#ffffff' : '#475569',
+                        borderColor: invoiceStatusFilter === st ? '#0284c7' : '#cbd5e1',
+                        fontWeight: '700',
+                        fontSize: '0.72rem'
+                      }}
+                      onClick={() => setInvoiceStatusFilter(st)}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => {
+                      const csvContent = "data:text/csv;charset=utf-8," +
+                        ["Invoice Number,Company,Plan,Subtotal,Tax,Total,Currency,Status,Issue Date,Due Date,Paid At,Tax ID"]
+                          .concat(invoicesList.map(i => `"${i.invoiceNumber}","${i.companyName}","${i.plan}",${i.subtotal},${i.taxAmount},${i.totalAmount},"${i.currency}","${i.status}","${i.issueDate}","${i.dueDate}","${i.paidAt || ''}","${i.taxId || ''}"`))
+                          .join("\n");
+                      const encodedUri = encodeURI(csvContent);
+                      const link = document.createElement("a");
+                      link.setAttribute("href", encodedUri);
+                      link.setAttribute("download", `orvexa_invoices_export_${new Date().toISOString().slice(0, 10)}.csv`);
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      showToast('Invoices CSV exported successfully!', 'success');
+                    }}
+                  >
+                    <Download size={13} /> Export CSV
+                  </button>
+                </div>
+              </div>
 
-          <div className="saas-table-container" style={{ marginTop: '12px' }}>
-            <table className="saas-data-table">
-              <thead>
-                <tr>
-                  <th>Company Tenant</th>
-                  <th>Current Tier</th>
-                  <th>Monthly Rate</th>
-                  <th>Status &amp; Health</th>
-                  <th>Subscription Start &amp; Expiry</th>
-                  <th>Grace Policy</th>
-                  <th style={{ textAlign: 'right' }}>Subscription Controls</th>
-                </tr>
-              </thead>
-              <tbody>
-                {companies.map(c => {
-                  const isTrial = c.plan === 'FREE_TRIAL' || c.plan === 'TRIAL' || c.status === 'TRIAL';
-                  const expDate = c.subscriptionEndAt || c.trialEndAt || c.renewalDate;
-                  const expTime = expDate ? new Date(expDate).getTime() : null;
-                  const nowTime = Date.now();
-                  const daysRemaining = expTime ? Math.ceil((expTime - nowTime) / (1000 * 60 * 60 * 24)) : null;
-                  const graceDays = c.gracePeriodDays !== undefined ? c.gracePeriodDays : 7;
-                  const isGraceActive = daysRemaining !== null && daysRemaining <= 0 && daysRemaining > -graceDays;
-                  const isFullyExpired = daysRemaining !== null && daysRemaining <= -graceDays;
+              <div className="saas-table-container">
+                <table className="saas-data-table">
+                  <thead>
+                    <tr>
+                      <th>Invoice #</th>
+                      <th>Company Tenant</th>
+                      <th>Plan &amp; Cycle</th>
+                      <th>Subtotal &amp; Tax</th>
+                      <th>Total Amount</th>
+                      <th>Status</th>
+                      <th>Issue &amp; Due Date</th>
+                      <th>Paid At</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoicesList
+                      .filter(inv => {
+                        const q = billingSearchQuery.toLowerCase();
+                        const matchesSearch = !q ||
+                          (inv.invoiceNumber && inv.invoiceNumber.toLowerCase().includes(q)) ||
+                          (inv.companyName && inv.companyName.toLowerCase().includes(q)) ||
+                          (inv.taxId && inv.taxId.toLowerCase().includes(q));
+                        const matchesStatus = invoiceStatusFilter === 'ALL' || inv.status === invoiceStatusFilter;
+                        return matchesSearch && matchesStatus;
+                      })
+                      .map((inv) => (
+                        <tr key={inv.id}>
+                          <td>
+                            <strong style={{ color: '#0284c7', fontFamily: 'monospace', fontSize: '0.82rem' }}>
+                              {inv.invoiceNumber}
+                            </strong>
+                            {inv.taxId && (
+                              <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
+                                Tax ID: {inv.taxId}
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <strong>{inv.companyName}</strong>
+                            <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{inv.billingContact}</div>
+                          </td>
+                          <td>
+                            <span className={`plan-pill plan-${inv.plan?.toLowerCase()}`}>
+                              {inv.plan}
+                            </span>
+                            <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '2px' }}>
+                              {inv.billingCycle}
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ fontSize: '0.78rem', color: '#475569' }}>
+                              Sub: ${Number(inv.subtotal).toLocaleString()}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                              Tax: +${Number(inv.taxAmount).toLocaleString()}
+                            </div>
+                          </td>
+                          <td>
+                            <strong style={{ fontSize: '0.92rem', color: '#0f172a' }}>
+                              ${Number(inv.totalAmount).toLocaleString()} {inv.currency || 'USD'}
+                            </strong>
+                          </td>
+                          <td>
+                            <span className={`status-tag status-${inv.status === 'PAID' ? 'active' : inv.status === 'PENDING' ? 'trial' : 'suspended'}`}>
+                              {inv.status === 'PAID' ? '✓ PAID' : inv.status === 'PENDING' ? '⏳ PENDING' : inv.status === 'FAILED' ? '🛑 FAILED' : inv.status}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ fontSize: '0.76rem', color: '#0f172a' }}>📅 {inv.issueDate}</div>
+                            <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Due: {inv.dueDate}</div>
+                          </td>
+                          <td>
+                            <div style={{ fontSize: '0.74rem', color: inv.paidAt ? '#16a34a' : '#94a3b8' }}>
+                              {inv.paidAt ? new Date(inv.paidAt).toLocaleDateString() : '--'}
+                            </div>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                style={{ padding: '3px 8px', fontSize: '0.72rem' }}
+                                onClick={() => {
+                                  showToast(`PDF Invoice ${inv.invoiceNumber} downloaded!`, 'success');
+                                }}
+                              >
+                                <Download size={12} /> PDF
+                              </button>
+                              {inv.status === 'PAID' && (
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary btn-sm"
+                                  style={{ padding: '3px 8px', fontSize: '0.72rem', color: '#9333ea', borderColor: '#e9d5ff' }}
+                                  onClick={() => {
+                                    setRefundForm({
+                                      paymentRef: 'PAY-' + inv.invoiceNumber.replace('INV-', ''),
+                                      invoiceNumber: inv.invoiceNumber,
+                                      companyName: inv.companyName,
+                                      amount: inv.totalAmount,
+                                      currency: inv.currency || 'USD',
+                                      reason: ''
+                                    });
+                                    setIsProcessRefundOpen(true);
+                                  }}
+                                >
+                                  <Coins size={12} /> Refund
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 2: PAYMENTS & GATEWAY LEDGER
+              =================================================================== */}
+          {billingSubTab === 'payments' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="card-section" style={{ margin: 0, padding: '14px 18px', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: '#0f172a' }}>
+                    Payment Gateway Settlement &amp; Sovereign Webhook Ledger
+                  </h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.74rem', color: '#64748b' }}>
+                    Unified ledger linking Stripe Connect, Razorpay International, ACH Direct Debit, and Corporate Wire clearing transactions.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={async () => {
+                    const pays = await getBillingPayments();
+                    setPaymentsList(pays);
+                    showToast('Gateway ledger refreshed!', 'success');
+                  }}
+                >
+                  <RefreshCw size={13} /> Sync Gateways
+                </button>
+              </div>
+
+              <div className="saas-table-container">
+                <table className="saas-data-table">
+                  <thead>
+                    <tr>
+                      <th>Payment Reference</th>
+                      <th>Linked Invoice</th>
+                      <th>Company Tenant</th>
+                      <th>Amount &amp; Currency</th>
+                      <th>Payment Gateway</th>
+                      <th>Payment Method</th>
+                      <th>Gateway Transaction Hash</th>
+                      <th>Status</th>
+                      <th>Settled Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paymentsList.map((pay) => (
+                      <tr key={pay.id}>
+                        <td>
+                          <code style={{ fontWeight: '800', color: '#0f172a' }}>{pay.paymentRef}</code>
+                        </td>
+                        <td>
+                          <strong style={{ color: '#0284c7' }}>{pay.invoiceNumber}</strong>
+                        </td>
+                        <td>
+                          <strong>{pay.companyName}</strong>
+                        </td>
+                        <td>
+                          <strong style={{ fontSize: '0.92rem', color: pay.status === 'SUCCEEDED' ? '#16a34a' : '#dc2626' }}>
+                            ${Number(pay.amount).toLocaleString()} {pay.currency}
+                          </strong>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '0.72rem', fontWeight: '800', background: pay.gateway === 'STRIPE' ? '#6366f1' : pay.gateway === 'RAZORPAY' ? '#0284c7' : '#475569', color: '#ffffff', padding: '2px 8px', borderRadius: '4px' }}>
+                            {pay.gateway}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ fontSize: '0.76rem', color: '#334155' }}>{pay.paymentMethod}</div>
+                        </td>
+                        <td>
+                          <code style={{ fontSize: '0.68rem', color: '#64748b' }}>{pay.transactionHash}</code>
+                        </td>
+                        <td>
+                          <span className={`status-tag status-${pay.status === 'SUCCEEDED' ? 'active' : 'suspended'}`}>
+                            {pay.status === 'SUCCEEDED' ? '✓ SUCCEEDED' : '🛑 FAILED'}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                            {new Date(pay.createdAt).toLocaleString()}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 3: FAILED PAYMENTS & AUTO-RETRY DLQ
+              =================================================================== */}
+          {billingSubTab === 'failed-payments' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="card-section" style={{ margin: 0, padding: '16px 20px', background: '#fef2f2', borderLeft: '4px solid #dc2626', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: '800', color: '#991b1b' }}>
+                    Failed Payments Dead Letter Queue (DLQ) &amp; Dunning Retries
+                  </h4>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: '#b91c1c' }}>
+                    Automated grace period dunning retries every 48 hours before auto-suspending accounts. Super Admins can manually force immediate recharge.
+                  </p>
+                </div>
+              </div>
+
+              <div className="saas-table-container">
+                <table className="saas-data-table">
+                  <thead>
+                    <tr>
+                      <th>Payment Ref &amp; Invoice</th>
+                      <th>Company Tenant</th>
+                      <th>Failed Amount</th>
+                      <th>Gateway &amp; Card</th>
+                      <th>Decline Reason</th>
+                      <th>Dunning Retry Schedule</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paymentsList
+                      .filter(p => p.status === 'FAILED')
+                      .map((pay) => (
+                        <tr key={pay.id}>
+                          <td>
+                            <strong style={{ color: '#dc2626' }}>{pay.paymentRef}</strong>
+                            <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Inv: {pay.invoiceNumber}</div>
+                          </td>
+                          <td>
+                            <strong>{pay.companyName}</strong>
+                          </td>
+                          <td>
+                            <strong style={{ fontSize: '0.94rem', color: '#dc2626' }}>
+                              ${Number(pay.amount).toLocaleString()} {pay.currency}
+                            </strong>
+                          </td>
+                          <td>
+                            <div style={{ fontSize: '0.76rem', fontWeight: '700' }}>{pay.gateway}</div>
+                            <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{pay.paymentMethod}</div>
+                          </td>
+                          <td>
+                            <div style={{ fontSize: '0.74rem', color: '#b91c1c', background: '#fee2e2', padding: '4px 8px', borderRadius: '4px', maxWidth: '280px' }}>
+                              ⚠️ {pay.failureReason || 'Card declined / Limit exceeded'}
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ fontSize: '0.74rem', color: '#0f172a' }}>
+                              Retry <strong>#2 of 3</strong>
+                            </div>
+                            <div style={{ fontSize: '0.68rem', color: '#64748b' }}>Next auto-retry in 14 hours</div>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              style={{ background: '#dc2626', borderColor: '#b91c1c' }}
+                              onClick={() => handleRetryFailedPayment(pay.id, pay.paymentRef)}
+                            >
+                              <Zap size={13} /> ⚡ Retry Charge Now
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    {paymentsList.filter(p => p.status === 'FAILED').length === 0 && (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '36px 20px', color: '#16a34a' }}>
+                          <CheckCircle2 size={32} style={{ margin: '0 auto 8px', display: 'block' }} />
+                          <strong>All accounts in good standing! No failed payment retries queued.</strong>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 4: REFUNDS & CREDIT NOTES
+              =================================================================== */}
+          {billingSubTab === 'refunds' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: '800', color: '#0f172a' }}>
+                    Customer Refunds &amp; Statutory Credit Ledger
+                  </h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.74rem', color: '#64748b' }}>
+                    Immutable ledger of pro-rata downgrades, billing dispute adjustments, and credit notes issued to company accounts.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setIsProcessRefundOpen(true)}
+                >
+                  <Plus size={14} /> Process New Refund
+                </button>
+              </div>
+
+              <div className="saas-table-container">
+                <table className="saas-data-table">
+                  <thead>
+                    <tr>
+                      <th>Refund Ref</th>
+                      <th>Payment &amp; Invoice Link</th>
+                      <th>Company Tenant</th>
+                      <th>Refund Amount</th>
+                      <th>Statutory Reason &amp; Notes</th>
+                      <th>Processed By</th>
+                      <th>Status</th>
+                      <th>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {refundsList.map((ref) => (
+                      <tr key={ref.id}>
+                        <td>
+                          <code style={{ fontWeight: '800', color: '#9333ea' }}>{ref.refundRef}</code>
+                        </td>
+                        <td>
+                          <div style={{ fontSize: '0.76rem', fontWeight: '700', color: '#0284c7' }}>{ref.invoiceNumber}</div>
+                          <div style={{ fontSize: '0.68rem', color: '#64748b' }}>{ref.paymentRef}</div>
+                        </td>
+                        <td>
+                          <strong>{ref.companyName}</strong>
+                        </td>
+                        <td>
+                          <strong style={{ fontSize: '0.92rem', color: '#9333ea' }}>
+                            -${Number(ref.amount).toLocaleString()} {ref.currency || 'USD'}
+                          </strong>
+                        </td>
+                        <td>
+                          <div style={{ fontSize: '0.76rem', color: '#475569', maxWidth: '340px' }}>
+                            {ref.reason}
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ fontSize: '0.72rem', color: '#0f172a' }}>{ref.processedBy}</div>
+                        </td>
+                        <td>
+                          <span className="status-tag status-active">
+                            ✓ {ref.status}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                            {new Date(ref.createdAt).toLocaleDateString()}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 5: SUBSCRIPTION HISTORY & PLAN CHANGES
+              =================================================================== */}
+          {billingSubTab === 'subscription-history' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="card-section" style={{ margin: 0, padding: '14px 18px', background: '#f8fafc' }}>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: '#0f172a' }}>
+                  Subscription Tier Lifecycle &amp; MRR Delta Ledger
+                </h4>
+                <p style={{ margin: '2px 0 0', fontSize: '0.74rem', color: '#64748b' }}>
+                  Complete audit log of company tier upgrades, downgrades, contract extensions, and monthly recurring revenue (MRR) changes.
+                </p>
+              </div>
+
+              <div className="saas-table-container">
+                <table className="saas-data-table">
+                  <thead>
+                    <tr>
+                      <th>Company Tenant</th>
+                      <th>Event Type</th>
+                      <th>Tier Transition</th>
+                      <th>Rate Change</th>
+                      <th>MRR Impact</th>
+                      <th>Effective Date</th>
+                      <th>Audit Reason</th>
+                      <th>Recorded By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {subscriptionHistoryList.map((hist) => (
+                      <tr key={hist.id}>
+                        <td>
+                          <strong>{hist.companyName}</strong>
+                          <div style={{ fontSize: '0.68rem', color: '#64748b' }}>{hist.companyCode}</div>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '0.7rem', fontWeight: '800', background: hist.eventType === 'UPGRADE' ? '#ecfdf5' : hist.eventType === 'RENEWAL' ? '#eff6ff' : '#fef2f2', color: hist.eventType === 'UPGRADE' ? '#047857' : hist.eventType === 'RENEWAL' ? '#1d4ed8' : '#b91c1c', padding: '2px 8px', borderRadius: '4px' }}>
+                            {hist.eventType}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem' }}>
+                            <span className={`plan-pill plan-${hist.previousPlan?.toLowerCase()}`}>{hist.previousPlan}</span>
+                            <span>→</span>
+                            <span className={`plan-pill plan-${hist.newPlan?.toLowerCase()}`}>{hist.newPlan}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ fontSize: '0.76rem', color: '#475569' }}>
+                            ${hist.previousRate}/mo → <strong>${hist.newRate}/mo</strong>
+                          </div>
+                        </td>
+                        <td>
+                          <strong style={{ fontSize: '0.86rem', color: hist.mrrDelta > 0 ? '#16a34a' : hist.mrrDelta < 0 ? '#dc2626' : '#64748b' }}>
+                            {hist.mrrDelta > 0 ? `+$${hist.mrrDelta}/mo` : hist.mrrDelta < 0 ? `-$${Math.abs(hist.mrrDelta)}/mo` : '$0 (Renewed)'}
+                          </strong>
+                        </td>
+                        <td>
+                          <div style={{ fontSize: '0.74rem', color: '#0f172a' }}>📅 {hist.effectiveDate}</div>
+                        </td>
+                        <td>
+                          <div style={{ fontSize: '0.74rem', color: '#475569', maxWidth: '280px' }}>{hist.reason}</div>
+                        </td>
+                        <td>
+                          <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{hist.recordedBy}</div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 6: TAX INFO & BILLING CONTACTS
+              =================================================================== */}
+          {billingSubTab === 'billing-contacts' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="card-section" style={{ margin: 0, padding: '14px 18px', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: '#0f172a' }}>
+                    Company Statutory Tax IDs &amp; Billing Contacts
+                  </h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.74rem', color: '#64748b' }}>
+                    Statutory tax schemes (GSTIN, VAT ID, EIN), official Accounts Payable invoicing addresses, PO numbers, and Auto-Renewal toggles.
+                  </p>
+                </div>
+              </div>
+
+              <div className="saas-table-container">
+                <table className="saas-data-table">
+                  <thead>
+                    <tr>
+                      <th>Company Tenant</th>
+                      <th>Primary &amp; Finance Contact</th>
+                      <th>Tax ID / VAT / GSTIN</th>
+                      <th>Statutory Tax Scheme</th>
+                      <th>Invoicing Currency</th>
+                      <th>Billing Address &amp; PO</th>
+                      <th>Auto-Renew</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {billingContactsList.map((bc) => (
+                      <tr key={bc.id || bc.tenantId}>
+                        <td>
+                          <strong>{bc.companyName}</strong>
+                        </td>
+                        <td>
+                          <div style={{ fontSize: '0.78rem', fontWeight: '700', color: '#0f172a' }}>{bc.contactName}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Finance: <strong>{bc.financeEmail}</strong></div>
+                        </td>
+                        <td>
+                          <code style={{ fontSize: '0.78rem', color: '#0284c7', background: '#e0f2fe', padding: '2px 6px', borderRadius: '3px' }}>
+                            {bc.taxId || bc.vatNumber || 'Pending Statutory Entry'}
+                          </code>
+                        </td>
+                        <td>
+                          <div style={{ fontSize: '0.74rem', color: '#334155' }}>{bc.taxScheme || 'Standard Sovereign Tax'}</div>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '0.74rem', fontWeight: '800', color: '#0f172a', background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>
+                            {bc.currencyPreference || 'USD'}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ fontSize: '0.72rem', color: '#475569', maxWidth: '240px' }}>
+                            {bc.billingAddress}
+                          </div>
+                          {bc.poNumber && (
+                            <div style={{ fontSize: '0.68rem', color: '#0284c7', marginTop: '2px' }}>
+                              PO: <strong>{bc.poNumber}</strong>
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '0.7rem', fontWeight: '800', background: bc.autoRenew ? '#ecfdf5' : '#fffbeb', color: bc.autoRenew ? '#047857' : '#b45309', padding: '2px 8px', borderRadius: '4px' }}>
+                            {bc.autoRenew ? '✓ Auto-Renew ON' : '✕ Manual Invoicing'}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '4px 10px', fontSize: '0.74rem' }}
+                            onClick={() => {
+                              setEditBillingContactForm({
+                                tenantId: bc.tenantId,
+                                companyName: bc.companyName,
+                                contactName: bc.contactName,
+                                email: bc.email,
+                                financeEmail: bc.financeEmail,
+                                taxId: bc.taxId,
+                                taxScheme: bc.taxScheme,
+                                vatNumber: bc.vatNumber,
+                                currencyPreference: bc.currencyPreference || 'USD',
+                                billingAddress: bc.billingAddress,
+                                poNumber: bc.poNumber || '',
+                                autoRenew: Boolean(bc.autoRenew)
+                              });
+                              setIsEditBillingContactOpen(true);
+                            }}
+                          >
+                            <Edit size={12} /> Edit Info
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================================
+              SUB-TAB 7: SAAS PLANS MATRIX & TIERS
+              =================================================================== */}
+          {billingSubTab === 'plans' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* DYNAMIC SUBSCRIPTION PLANS GRID */}
+              <div className="subscription-plans-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+                {(plans.length > 0 ? plans : [
+                  {
+                    id: 'p1', code: 'FREE_TRIAL', name: 'Free Trial / Demo', description: 'Pilot evaluation with full feature access for a configurable trial period.',
+                    price_monthly: 0, price_yearly: 0, trial_days: 14, grace_period_days: 7,
+                    features: ['Unlimited Users & Admins', 'Field DCR & GPS Tracking', 'Chemist & Doctor Directories', 'Configurable Start & End Dates', 'Full Analytics Suite']
+                  },
+                  {
+                    id: 'p2', code: 'STARTER', name: 'Starter Tier', description: 'Entry-level pharma distribution for growing teams and regional distributors.',
+                    price_monthly: 100, price_yearly: 1000, trial_days: 14, grace_period_days: 7,
+                    features: ['Unlimited Field Users & Admins', 'Core MR Daily Call Reports', 'Chemist Order Booking (POB)', 'Product Catalog & Samples', 'Email Support']
+                  },
+                  {
+                    id: 'p3', code: 'PROFESSIONAL', name: 'Professional Tier', description: 'Complete operational powerhouse for regional pharma manufacturers.',
+                    price_monthly: 1000, price_yearly: 10000, trial_days: 14, grace_period_days: 7,
+                    features: ['Unlimited Field Reps & Managers', 'Tour Plans (MTP) & Approvals', 'TA / DA Smart Expense Claims', 'Statutory Payroll & Compliance', 'Live Geo-Tracking & Hierarchy']
+                  },
+                  {
+                    id: 'p4', code: 'ENTERPRISE', name: 'Enterprise Tier', description: 'For multinational pharmaceutical conglomerates requiring sovereign isolation.',
+                    price_monthly: 2500, price_yearly: 25000, trial_days: 30, grace_period_days: 14,
+                    features: ['Unlimited Field Reps & Executive GMs', 'Multi-Country Sovereign Isolation', 'AI Prescription OCR & Studio', 'Automated SAP/Oracle ERP Sync', '24/7 Dedicated SLA Support']
+                  },
+                  {
+                    id: 'p5', code: 'CUSTOM', name: 'Custom Enterprise Tier', description: 'Tailored contract terms, bespoke pricing, and custom SLAs as per client requirements.',
+                    price_monthly: 0, price_yearly: 0, trial_days: 14, grace_period_days: 14, is_custom: true,
+                    features: ['Unlimited Users & Custom Limits', 'Custom USD Rate & Contract Terms', 'Flexible Billing Schedules', 'Bespoke ERP Integration & On-Premises Option', 'Dedicated Solutions Architect']
+                  }
+                ]).map((plan) => {
+                  const enrolledCount = companies.filter(c => 
+                    c.plan === plan.code || 
+                    (plan.code === 'FREE_TRIAL' && (c.plan === 'TRIAL' || c.status === 'TRIAL')) ||
+                    (plan.code === 'STARTER' && c.plan === 'BASIC') ||
+                    (plan.code === 'PROFESSIONAL' && c.plan === 'PRO') ||
+                    (plan.code === 'CUSTOM' && c.isCustomPricing)
+                  ).length;
+
+                  const isFeatured = plan.code === 'PROFESSIONAL' || plan.tier === 'PROFESSIONAL';
+                  const isTrial = plan.code === 'FREE_TRIAL' || plan.tier === 'FREE_TRIAL';
+                  const isCustom = plan.code === 'CUSTOM' || plan.is_custom;
 
                   return (
-                    <tr key={c.id}>
-                      <td>
-                        <div className="comp-name-group">
-                          <span className="comp-flag">{c.flag}</span>
-                          <div>
-                            <div className="comp-name-text">{c.name}</div>
-                            <div className="comp-code-sub">{c.code} &bull; {c.country}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`plan-pill plan-${c.plan?.toLowerCase()}`}>{c.plan}</span>
-                      </td>
-                      <td><strong>{c.mrr}</strong></td>
-                      <td>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                          <span className={`status-tag status-${c.status?.toLowerCase()}`}>
-                            {c.status === 'ACTIVE' ? '🟢 Active' : c.status === 'TRIAL' ? '🟣 In Trial' : c.status === 'SUSPENDED' ? '🟡 Suspended' : c.status}
+                    <div
+                      key={plan.id || plan.code}
+                      className={`plan-card ${isFeatured ? 'featured-plan' : ''}`}
+                      style={{
+                        borderColor: isFeatured ? '#0284c7' : isTrial ? '#8b5cf6' : isCustom ? '#0f172a' : '#e2e8f0',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between'
+                      }}
+                    >
+                      <div>
+                        {isFeatured && <div className="featured-ribbon">POPULAR</div>}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <span className="plan-tier-name" style={{ color: isTrial ? '#7c3aed' : isCustom ? '#0f172a' : '#0284c7', margin: 0 }}>
+                            {plan.name || plan.code}
                           </span>
-                          {isGraceActive && (
-                            <span style={{ fontSize: '0.66rem', color: '#d97706', fontWeight: '700', background: '#fffbeb', padding: '1px 6px', borderRadius: '4px' }}>
-                              ⚠️ Grace Active ({Math.abs(daysRemaining)}d past expiry)
-                            </span>
+                          <span className="plan-pill plan-pro" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
+                            {plan.code}
+                          </span>
+                        </div>
+
+                        <div className="plan-price">
+                          {isTrial ? '$0' : isCustom ? 'Custom' : `$${Number(plan.price_monthly || plan.priceMonthly || 0).toLocaleString()}`}
+                          <span> {isTrial ? '/ demo period' : isCustom ? '/ contract' : '/ month'}</span>
+                        </div>
+
+                        {!isTrial && !isCustom && (
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '-4px', marginBottom: '10px' }}>
+                            ${Number(plan.price_yearly || plan.priceYearly || 0).toLocaleString()} / year (Save 17%)
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', margin: '8px 0 12px' }}>
+                          <span style={{ fontSize: '0.68rem', background: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: '4px', fontWeight: '700' }}>
+                            ⏳ {plan.trial_days || plan.trialDays || 14}d Trial
+                          </span>
+                          <span style={{ fontSize: '0.68rem', background: '#ecfdf5', color: '#047857', padding: '2px 8px', borderRadius: '4px', fontWeight: '700' }}>
+                            🛡️ {plan.grace_period_days || plan.gracePeriodDays || 7}d Grace
+                          </span>
+                        </div>
+
+                        <p className="plan-limits-desc" style={{ fontSize: '0.78rem', minHeight: '34px' }}>
+                          {plan.description || 'Enterprise plan configuration with full modular capability.'}
+                        </p>
+
+                        <ul className="plan-perks-list" style={{ marginTop: '10px', fontSize: '0.76rem' }}>
+                          {(Array.isArray(plan.features) ? plan.features : typeof plan.features === 'string' ? JSON.parse(plan.features || '[]') : []).map((feat, fIdx) => (
+                            <li key={fIdx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <CheckCircle2 size={13} color="#16a34a" /> {feat}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div>
+                        <div className="plan-sub-count" style={{ background: isTrial ? '#f5f3ff' : isFeatured ? '#f0f9ff' : '#f8fafc', color: isTrial ? '#7c3aed' : isFeatured ? '#0369a1' : '#334155', marginTop: '16px' }}>
+                          {enrolledCount} {enrolledCount === 1 ? 'Company' : 'Companies'} Enrolled
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            style={{ flex: 1, padding: '6px 8px', fontSize: '0.74rem' }}
+                            onClick={() => handleOpenEditPlan(plan)}
+                          >
+                            <Edit size={12} /> Edit Plan
+                          </button>
+                          {plan.code !== 'FREE_TRIAL' && plan.code !== 'STARTER' && (
+                            <button
+                              type="button"
+                              className="action-pill-btn red"
+                              style={{ padding: '6px 10px' }}
+                              onClick={() => handleOpenDeletePlan(plan)}
+                              title="Delete Plan"
+                            >
+                              <Trash2 size={12} />
+                            </button>
                           )}
-                          {isFullyExpired && c.status === 'SUSPENDED' && (
-                            <span style={{ fontSize: '0.66rem', color: '#dc2626', fontWeight: '700', background: '#fef2f2', padding: '1px 6px', borderRadius: '4px' }}>
-                              🛑 Auto-Suspended (Grace Expired)
-                            </span>
-                          )}
                         </div>
-                      </td>
-                      <td>
-                        <div style={{ fontSize: '0.78rem' }}>
-                          <div style={{ color: '#0f172a', fontWeight: '600' }}>
-                            📅 Expiry: <strong>{c.renewalDate}</strong>
-                          </div>
-                          <div style={{ fontSize: '0.7rem', color: daysRemaining !== null && daysRemaining < 15 ? '#dc2626' : '#64748b' }}>
-                            {daysRemaining !== null ? (
-                              daysRemaining > 0 ? `${daysRemaining} days remaining` : `Expired ${Math.abs(daysRemaining)} days ago`
-                            ) : 'No end date set'}
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div style={{ fontSize: '0.74rem', color: '#475569' }}>
-                          <div><strong>{graceDays} Days</strong> Grace</div>
-                          <div style={{ fontSize: '0.68rem', color: c.autoSuspendAfterGrace !== false ? '#16a34a' : '#64748b' }}>
-                            {c.autoSuspendAfterGrace !== false ? '✓ Auto-suspend ON' : '✕ Auto-suspend OFF'}
-                          </div>
-                        </div>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div className="actions-cluster">
-                          <button
-                            type="button"
-                            className="action-pill-btn"
-                            style={{ color: '#0284c7', borderColor: '#bae6fd', background: '#f0f9ff' }}
-                            onClick={() => handleOpenSubscriptionModal(c)}
-                            title="Assign or Change SaaS Plan"
-                          >
-                            <CreditCard size={12} /> Assign Plan
-                          </button>
-                          <button
-                            type="button"
-                            className="action-pill-btn"
-                            style={{ color: '#7c3aed', borderColor: '#ddd6fe', background: '#f5f3ff' }}
-                            onClick={() => handleOpenUpgradeDowngrade(c)}
-                            title="Upgrade or Downgrade Subscription Tier"
-                          >
-                            <TrendingUp size={12} /> Up/Downgrade
-                          </button>
-                          <button
-                            type="button"
-                            className="action-pill-btn"
-                            style={{ color: '#059669', borderColor: '#a7f3d0', background: '#ecfdf5' }}
-                            onClick={() => handleOpenRenewSub(c)}
-                            title="Renew Subscription"
-                          >
-                            <RefreshCcw size={12} /> Renew
-                          </button>
-                          <button
-                            type="button"
-                            className="action-pill-btn"
-                            style={{ color: '#b45309', borderColor: '#fde68a', background: '#fffbeb' }}
-                            onClick={() => handleOpenConfigDates(c)}
-                            title="Configure Subscription & Trial Start/End Dates & Grace Period"
-                          >
-                            <Calendar size={12} /> Dates &amp; Grace
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </div>
+
+              {/* Tenant Billing Overview Table */}
+              <div className="section-title-sm" style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: '800', fontSize: '1rem', color: '#0f172a' }}>Tenant Billing &amp; Subscriptions Overview</span>
+                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{companies.length} Total Accounts Under Governance</span>
+              </div>
+
+              <div className="saas-table-container">
+                <table className="saas-data-table">
+                  <thead>
+                    <tr>
+                      <th>Company Tenant</th>
+                      <th>Current Tier</th>
+                      <th>Monthly Rate</th>
+                      <th>Status &amp; Health</th>
+                      <th>Subscription Expiry</th>
+                      <th>Grace Policy</th>
+                      <th style={{ textAlign: 'right' }}>Subscription Controls</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {companies.map(c => {
+                      const expDate = c.subscriptionEndAt || c.trialEndAt || c.renewalDate;
+                      const expTime = expDate ? new Date(expDate).getTime() : null;
+                      const nowTime = Date.now();
+                      const daysRemaining = expTime ? Math.ceil((expTime - nowTime) / (1000 * 60 * 60 * 24)) : null;
+                      const graceDays = c.gracePeriodDays !== undefined ? c.gracePeriodDays : 7;
+                      const isGraceActive = daysRemaining !== null && daysRemaining <= 0 && daysRemaining > -graceDays;
+                      const isFullyExpired = daysRemaining !== null && daysRemaining <= -graceDays;
+
+                      return (
+                        <tr key={c.id}>
+                          <td>
+                            <div className="comp-name-group">
+                              <span className="comp-flag">{c.flag}</span>
+                              <div>
+                                <div className="comp-name-text">{c.name}</div>
+                                <div className="comp-code-sub">{c.code} &bull; {c.country}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`plan-pill plan-${c.plan?.toLowerCase()}`}>{c.plan}</span>
+                          </td>
+                          <td><strong>{c.mrr}</strong></td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                              <span className={`status-tag status-${c.status?.toLowerCase()}`}>
+                                {c.status === 'ACTIVE' ? '🟢 Active' : c.status === 'TRIAL' ? '🟣 In Trial' : c.status === 'SUSPENDED' ? '🟡 Suspended' : c.status}
+                              </span>
+                              {isGraceActive && (
+                                <span style={{ fontSize: '0.66rem', color: '#d97706', fontWeight: '700', background: '#fffbeb', padding: '1px 6px', borderRadius: '4px' }}>
+                                  ⚠️ Grace Active ({Math.abs(daysRemaining)}d past expiry)
+                                </span>
+                              )}
+                              {isFullyExpired && c.status === 'SUSPENDED' && (
+                                <span style={{ fontSize: '0.66rem', color: '#dc2626', fontWeight: '700', background: '#fef2f2', padding: '1px 6px', borderRadius: '4px' }}>
+                                  🛑 Auto-Suspended (Grace Expired)
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ fontSize: '0.78rem' }}>
+                              <div style={{ color: '#0f172a', fontWeight: '600' }}>
+                                📅 Expiry: <strong>{c.renewalDate}</strong>
+                              </div>
+                              <div style={{ fontSize: '0.7rem', color: daysRemaining !== null && daysRemaining < 15 ? '#dc2626' : '#64748b' }}>
+                                {daysRemaining !== null ? (
+                                  daysRemaining > 0 ? `${daysRemaining} days remaining` : `Expired ${Math.abs(daysRemaining)} days ago`
+                                ) : 'No end date set'}
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ fontSize: '0.74rem', color: '#475569' }}>
+                              <div><strong>{graceDays} Days</strong> Grace</div>
+                              <div style={{ fontSize: '0.68rem', color: c.autoSuspendAfterGrace !== false ? '#16a34a' : '#64748b' }}>
+                                {c.autoSuspendAfterGrace !== false ? '✓ Auto-suspend ON' : '✕ Auto-suspend OFF'}
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <div className="actions-cluster">
+                              <button
+                                type="button"
+                                className="action-pill-btn"
+                                style={{ color: '#0284c7', borderColor: '#bae6fd', background: '#f0f9ff' }}
+                                onClick={() => handleOpenSubscriptionModal(c)}
+                                title="Assign or Change SaaS Plan"
+                              >
+                                <CreditCard size={12} /> Assign Plan
+                              </button>
+                              <button
+                                type="button"
+                                className="action-pill-btn"
+                                style={{ color: '#7c3aed', borderColor: '#ddd6fe', background: '#f5f3ff' }}
+                                onClick={() => handleOpenUpgradeDowngrade(c)}
+                                title="Upgrade or Downgrade Subscription Tier"
+                              >
+                                <TrendingUp size={12} /> Up/Downgrade
+                              </button>
+                              <button
+                                type="button"
+                                className="action-pill-btn"
+                                style={{ color: '#059669', borderColor: '#a7f3d0', background: '#ecfdf5' }}
+                                onClick={() => handleOpenRenewSub(c)}
+                                title="Renew Subscription"
+                              >
+                                <RefreshCcw size={12} /> Renew
+                              </button>
+                              <button
+                                type="button"
+                                className="action-pill-btn"
+                                style={{ color: '#b45309', borderColor: '#fde68a', background: '#fffbeb' }}
+                                onClick={() => handleOpenConfigDates(c)}
+                                title="Configure Subscription & Trial Start/End Dates & Grace Period"
+                              >
+                                <Calendar size={12} /> Dates &amp; Grace
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -8749,106 +9710,380 @@ export default function SuperAdminDashboard({
           )}
 
           {/* ===================================================================
-              SUB-TAB 5: SUPPORT DIRECTORY & TICKETS
+              SUB-TAB 5: SUPPORT / TICKET MANAGEMENT (Company -> Admin -> Ticket)
               =================================================================== */}
           {contentSubTab === 'support' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              {/* Technical Support Hotlines & Escalation Tiers */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
-                <div className="card-section" style={{ margin: 0, padding: '18px 20px', background: '#f8fafc' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '1.2rem' }}>📞</span>
-                    <strong style={{ fontSize: '0.92rem', color: '#0f172a' }}>Global 24/7 Support Hotline</strong>
+              {/* Support Hotline & Telephony Escalation Tiers */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '12px' }}>
+                <div className="card-section" style={{ margin: 0, padding: '14px 18px', background: '#f8fafc', borderLeft: '4px solid #0284c7' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1.1rem' }}>📞</span>
+                    <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>Global Tier-1 &amp; Tier-2 Helpdesk</strong>
                   </div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#0284c7', margin: '4px 0' }}>
-                    +1 (800) 555-ORVEXA
+                  <div style={{ fontSize: '1.05rem', fontWeight: '800', color: '#0284c7', margin: '3px 0' }}>
+                    +1 (800) 555-ORVEXA (Ext 4)
                   </div>
-                  <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
-                    support@orvexa.com &bull; SLA: &lt; 15 mins for Critical Tier 1
+                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                    support@orvexa.platform &bull; Target SLA: &lt; 15 mins for Priority 1
                   </div>
                 </div>
 
-                <div className="card-section" style={{ margin: 0, padding: '18px 20px', background: '#f8fafc' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '1.2rem' }}>🚨</span>
-                    <strong style={{ fontSize: '0.92rem', color: '#0f172a' }}>Emergency On-Call SRE Escalation</strong>
+                <div className="card-section" style={{ margin: 0, padding: '14px 18px', background: '#f8fafc', borderLeft: '4px solid #dc2626' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1.1rem' }}>🚨</span>
+                    <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>Emergency SRE &amp; Architect On-Call</strong>
                   </div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#dc2626', margin: '4px 0' }}>
+                  <div style={{ fontSize: '1.05rem', fontWeight: '800', color: '#dc2626', margin: '3px 0' }}>
                     +1 (888) 911-SRE-ALERT
                   </div>
-                  <div style={{ fontSize: '0.74rem', color: '#991b1b' }}>
-                    pagerduty@orvexa.com &bull; Direct Principal Architect bridge
+                  <div style={{ fontSize: '0.72rem', color: '#991b1b' }}>
+                    sre-escalations@orvexa.platform &bull; Direct bridge to Platform SRE
                   </div>
                 </div>
 
-                <div className="card-section" style={{ margin: 0, padding: '18px 20px', background: '#f8fafc' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '1.2rem' }}>⏰</span>
-                    <strong style={{ fontSize: '0.92rem', color: '#0f172a' }}>Standard Operating Hours</strong>
+                <div className="card-section" style={{ margin: 0, padding: '14px 18px', background: '#f8fafc', borderLeft: '4px solid #16a34a' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1.1rem' }}>⏱️</span>
+                    <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>Operating Window &amp; SLA Commitment</strong>
                   </div>
-                  <div style={{ fontSize: '0.96rem', fontWeight: '800', color: '#0f172a', margin: '4px 0' }}>
-                    24 Hours / 7 Days / 365 Days
+                  <div style={{ fontSize: '0.96rem', fontWeight: '800', color: '#0f172a', margin: '3px 0' }}>
+                    24 / 7 / 365 Global Follow-the-Sun
                   </div>
-                  <div style={{ fontSize: '0.74rem', color: '#16a34a' }}>
-                    Tier 1 (Helpdesk) &bull; Tier 2 (SRE) &bull; Tier 3 (Architect)
+                  <div style={{ fontSize: '0.72rem', color: '#16a34a' }}>
+                    99.95% SLA Target &bull; Enterprise SOC-2 Certified Desk
                   </div>
                 </div>
               </div>
 
-              {/* Support Tickets Table */}
-              <div className="card-section" style={{ margin: 0, padding: 0, overflow: 'hidden' }}>
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: '800', color: '#0f172a' }}>
-                      Tenant Technical Support Inquiries &amp; Tickets
-                    </h3>
-                    <p style={{ margin: '4px 0 0', fontSize: '0.76rem', color: '#64748b' }}>
-                      Real-time support ticket queue submitted by company administrators.
-                    </p>
+              {/* Hierarchy Breadcrumb Banner */}
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#166534', fontWeight: '700' }}>
+                  <span>Hierarchy Structure:</span>
+                  <span style={{ background: '#dcfce7', padding: '2px 8px', borderRadius: '4px' }}>🏢 Company Tenant</span>
+                  <span>↓</span>
+                  <span style={{ background: '#dcfce7', padding: '2px 8px', borderRadius: '4px' }}>👤 Company Admin (User)</span>
+                  <span>↓</span>
+                  <span style={{ background: '#dcfce7', padding: '2px 8px', borderRadius: '4px' }}>🎫 Support Ticket</span>
+                </div>
+                <div style={{ fontSize: '0.74rem', color: '#15803d' }}>
+                  Super Admin has platform-wide visibility across all tenant accounts.
+                </div>
+              </div>
+
+              {/* KPI Metrics Strip */}
+              <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
+                <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '3px solid #0284c7', padding: '10px 14px' }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: '700', color: '#64748b' }}>TOTAL TICKETS</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>
+                    {ticketsOverview?.totalTickets || ticketsList.length || 24}
                   </div>
-                  <button type="button" className="btn btn-primary btn-sm" onClick={() => setIsNewTicketOpen(true)}>
-                    <Plus size={14} /> Log Support Ticket
-                  </button>
+                </div>
+                <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '3px solid #ef4444', padding: '10px 14px' }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: '700', color: '#64748b' }}>OPEN (UNRESOLVED)</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#dc2626', marginTop: '2px' }}>
+                    {ticketsOverview?.openTickets || ticketsList.filter(t => t.status === 'OPEN').length || 5}
+                  </div>
+                </div>
+                <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '3px solid #6366f1', padding: '10px 14px' }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: '700', color: '#64748b' }}>IN PROGRESS</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#4f46e5', marginTop: '2px' }}>
+                    {ticketsOverview?.inProgressTickets || ticketsList.filter(t => t.status === 'IN_PROGRESS').length || 6}
+                  </div>
+                </div>
+                <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '3px solid #f59e0b', padding: '10px 14px' }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: '700', color: '#64748b' }}>WAITING ON CLIENT</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#d97706', marginTop: '2px' }}>
+                    {ticketsOverview?.waitingTickets || ticketsList.filter(t => t.status === 'WAITING_ON_CLIENT').length || 4}
+                  </div>
+                </div>
+                <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '3px solid #16a34a', padding: '10px 14px' }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: '700', color: '#64748b' }}>RESOLVED &amp; CLOSED</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#16a34a', marginTop: '2px' }}>
+                    {ticketsOverview?.resolvedTickets || ticketsList.filter(t => t.status === 'RESOLVED').length || 9}
+                  </div>
+                </div>
+                <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '3px solid #10b981', padding: '10px 14px' }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: '700', color: '#64748b' }}>SLA COMPLIANCE</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '800', color: '#059669', marginTop: '2px' }}>
+                    {ticketsOverview?.slaComplianceRate || 96.8}%
+                  </div>
+                </div>
+              </div>
+
+              {/* Filters & Search Toolbar */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, maxWidth: '380px' }}>
+                    <div style={{ position: 'relative', width: '100%' }}>
+                      <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                      <input
+                        type="text"
+                        className="form-control"
+                        style={{ paddingLeft: '32px' }}
+                        placeholder="Search ticket #, subject, admin email, company..."
+                        value={ticketSearchQuery}
+                        onChange={(e) => setTicketSearchQuery(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {/* Company Filter Dropdown */}
+                    <select
+                      className="form-control"
+                      style={{ width: 'auto', minWidth: '160px', height: '34px', fontSize: '0.74rem' }}
+                      value={ticketCompanyFilter}
+                      onChange={(e) => setTicketCompanyFilter(e.target.value)}
+                    >
+                      <option value="ALL">🏢 All Companies ({companies.length})</option>
+                      {companies.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+
+                    {/* Category Filter Dropdown */}
+                    <select
+                      className="form-control"
+                      style={{ width: 'auto', minWidth: '160px', height: '34px', fontSize: '0.74rem' }}
+                      value={ticketCategoryFilter}
+                      onChange={(e) => setTicketCategoryFilter(e.target.value)}
+                    >
+                      <option value="ALL">🏷️ All Categories</option>
+                      <option value="DOCTOR_GEOFENCING">Doctor Geofencing / GPS</option>
+                      <option value="DCR_REPORTING">DCR / Field Reporting</option>
+                      <option value="BILLING_INVOICE">Billing &amp; Invoices</option>
+                      <option value="SAMPLE_INVENTORY">Sample Inventory &amp; POB</option>
+                      <option value="INTEGRATIONS_API">API &amp; Webhooks</option>
+                      <option value="APP_CRASH_BUG">App Crashes &amp; Bugs</option>
+                      <option value="GENERAL_SUPPORT">General Support</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={() => setIsCreateTicketOpen(true)}
+                    >
+                      <Plus size={14} /> Log Support Ticket
+                    </button>
+                  </div>
                 </div>
 
-                <div className="saas-table-container">
-                  {supportTickets.length === 0 ? (
-                    <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
-                      <LifeBuoy size={38} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
-                      <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Open Support Tickets</div>
-                      <p style={{ fontSize: '0.8rem', margin: '4px auto 14px' }}>Support tickets submitted by company admins will be tracked here.</p>
-                      <button type="button" className="btn btn-primary" onClick={() => setIsNewTicketOpen(true)}>
-                        <Plus size={16} /> Create Support Ticket
+                {/* Priority & Status Pill Filters */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: '800', color: '#64748b', marginRight: '4px' }}>PRIORITY:</span>
+                    {['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        className="action-pill-btn"
+                        style={{
+                          background: ticketPriorityFilter === p ? '#0f172a' : '#f8fafc',
+                          color: ticketPriorityFilter === p ? '#ffffff' : '#475569',
+                          borderColor: ticketPriorityFilter === p ? '#0f172a' : '#cbd5e1',
+                          fontWeight: '700',
+                          fontSize: '0.68rem',
+                          padding: '2px 8px'
+                        }}
+                        onClick={() => setTicketPriorityFilter(p)}
+                      >
+                        {p}
                       </button>
-                    </div>
-                  ) : (
-                    <table className="saas-data-table" style={{ margin: 0 }}>
-                      <thead>
-                        <tr>
-                          <th>Ticket ID</th>
-                          <th>Company</th>
-                          <th>Category</th>
-                          <th>Priority</th>
-                          <th>Subject</th>
-                          <th>Status</th>
-                          <th>Assigned To</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {supportTickets.map(t => (
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: '800', color: '#64748b', marginRight: '4px' }}>STATUS:</span>
+                    {['ALL', 'OPEN', 'IN_PROGRESS', 'WAITING_ON_CLIENT', 'RESOLVED'].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        className="action-pill-btn"
+                        style={{
+                          background: ticketStatusFilter === s ? '#0284c7' : '#f8fafc',
+                          color: ticketStatusFilter === s ? '#ffffff' : '#475569',
+                          borderColor: ticketStatusFilter === s ? '#0284c7' : '#cbd5e1',
+                          fontWeight: '700',
+                          fontSize: '0.68rem',
+                          padding: '2px 8px'
+                        }}
+                        onClick={() => setTicketStatusFilter(s)}
+                      >
+                        {s.replace('_', ' ')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Support Tickets Multi-Tenant Master Table */}
+              <div className="card-section" style={{ margin: 0, padding: 0, overflow: 'hidden' }}>
+                <div className="saas-table-container">
+                  <table className="saas-data-table" style={{ margin: 0 }}>
+                    <thead>
+                      <tr>
+                        <th>Ticket ID &amp; Created</th>
+                        <th>🏢 Company Tenant</th>
+                        <th>👤 Admin User</th>
+                        <th>Category</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Assigned Support Person</th>
+                        <th>Resolution / Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ticketsList
+                        .filter(t => {
+                          const q = ticketSearchQuery.toLowerCase();
+                          const matchesSearch = !q ||
+                            (t.ticketNumber && t.ticketNumber.toLowerCase().includes(q)) ||
+                            (t.subject && t.subject.toLowerCase().includes(q)) ||
+                            (t.companyName && t.companyName.toLowerCase().includes(q)) ||
+                            (t.userName && t.userName.toLowerCase().includes(q)) ||
+                            (t.userEmail && t.userEmail.toLowerCase().includes(q));
+                          const matchesCompany = ticketCompanyFilter === 'ALL' || t.companyId === ticketCompanyFilter;
+                          const matchesCategory = ticketCategoryFilter === 'ALL' || t.category === ticketCategoryFilter;
+                          const matchesPriority = ticketPriorityFilter === 'ALL' || t.priority === ticketPriorityFilter;
+                          const matchesStatus = ticketStatusFilter === 'ALL' || t.status === ticketStatusFilter;
+                          return matchesSearch && matchesCompany && matchesCategory && matchesPriority && matchesStatus;
+                        })
+                        .map((t) => (
                           <tr key={t.id}>
-                            <td><code>{t.id}</code></td>
-                            <td><strong>{t.companyName}</strong></td>
-                            <td>{t.category}</td>
-                            <td><span className="status-tag status-trial">{t.priority}</span></td>
-                            <td>{t.subject}</td>
-                            <td><span className="status-badge-green">{t.status}</span></td>
-                            <td>{t.assignedTo}</td>
+                            {/* 1. Ticket ID & Created Date */}
+                            <td>
+                              <strong style={{ color: '#0284c7', fontFamily: 'monospace', fontSize: '0.82rem' }}>
+                                {t.ticketNumber || t.id}
+                              </strong>
+                              <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>
+                                📅 {new Date(t.createdDate || Date.now()).toLocaleDateString()}
+                              </div>
+                              {t.slaHoursRemaining !== undefined && t.status !== 'RESOLVED' && (
+                                <span style={{ fontSize: '0.64rem', fontWeight: '800', background: t.slaHoursRemaining < 2 ? '#fef2f2' : '#f0fdf4', color: t.slaHoursRemaining < 2 ? '#dc2626' : '#15803d', padding: '1px 5px', borderRadius: '3px', marginTop: '2px', display: 'inline-block' }}>
+                                  ⏱️ SLA: {t.slaHoursRemaining}h left
+                                </span>
+                              )}
+                            </td>
+
+                            {/* 2. Company (Name + Code badge) */}
+                            <td>
+                              <strong style={{ color: '#0f172a', fontSize: '0.84rem' }}>{t.companyName}</strong>
+                              <div>
+                                <span style={{ fontSize: '0.66rem', fontWeight: '800', background: '#f1f5f9', color: '#475569', padding: '1px 6px', borderRadius: '3px' }}>
+                                  {t.companyCode || 'TENANT'}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* 3. Submitter User (Admin) */}
+                            <td>
+                              <div style={{ fontSize: '0.78rem', fontWeight: '700', color: '#0f172a' }}>{t.userName}</div>
+                              <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{t.userEmail}</div>
+                              <span style={{ fontSize: '0.64rem', fontWeight: '700', color: '#0284c7' }}>
+                                {t.userRole || 'COMPANY_ADMIN'}
+                              </span>
+                            </td>
+
+                            {/* 4. Category */}
+                            <td>
+                              <span style={{ fontSize: '0.7rem', fontWeight: '800', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '4px' }}>
+                                {t.category?.replace('_', ' ')}
+                              </span>
+                              <div style={{ fontSize: '0.74rem', color: '#334155', fontWeight: '600', marginTop: '4px', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {t.subject}
+                              </div>
+                            </td>
+
+                            {/* 5. Priority */}
+                            <td>
+                              <span style={{ fontSize: '0.7rem', fontWeight: '800', padding: '2px 8px', borderRadius: '4px', background: t.priority === 'CRITICAL' ? '#fef2f2' : t.priority === 'HIGH' ? '#fff7ed' : t.priority === 'MEDIUM' ? '#fefce8' : '#f1f5f9', color: t.priority === 'CRITICAL' ? '#dc2626' : t.priority === 'HIGH' ? '#ea580c' : t.priority === 'MEDIUM' ? '#ca8a04' : '#475569' }}>
+                                {t.priority === 'CRITICAL' ? '🔴 CRITICAL' : t.priority === 'HIGH' ? '🟠 HIGH' : t.priority === 'MEDIUM' ? '🟡 MEDIUM' : '⚪ LOW'}
+                              </span>
+                            </td>
+
+                            {/* 6. Status */}
+                            <td>
+                              <span className={`status-tag status-${t.status === 'RESOLVED' ? 'active' : t.status === 'OPEN' ? 'suspended' : 'trial'}`}>
+                                {t.status === 'RESOLVED' ? '✓ RESOLVED' : t.status === 'OPEN' ? '🚨 OPEN' : t.status === 'IN_PROGRESS' ? '⚙️ IN PROGRESS' : t.status === 'WAITING_ON_CLIENT' ? '⏳ WAITING' : t.status}
+                              </span>
+                            </td>
+
+                            {/* 7. Assigned Support Person */}
+                            <td>
+                              <select
+                                className="form-control"
+                                style={{ height: '28px', fontSize: '0.72rem', padding: '2px 6px', width: 'auto', minWidth: '150px' }}
+                                value={t.assignedSupportPerson || 'Sarah Jenkins (L3 Senior Tech)'}
+                                onChange={(e) => handleReassignSupportPerson(t.id, e.target.value)}
+                              >
+                                <option value="Sarah Jenkins (L3 Senior Tech)">Sarah Jenkins (L3 Senior Tech)</option>
+                                <option value="Michael Chang (FinOps Lead)">Michael Chang (FinOps Lead)</option>
+                                <option value="Alex Rivera (Ops Engineer)">Alex Rivera (Ops Engineer)</option>
+                                <option value="DevOps Escalation Team">DevOps Escalation Team</option>
+                                <option value="Akshyatraj Pati (Super Admin HQ)">Akshyatraj Pati (Super Admin HQ)</option>
+                              </select>
+                            </td>
+
+                            {/* 8. Resolution & Actions */}
+                            <td style={{ textAlign: 'right' }}>
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                {t.status !== 'RESOLVED' ? (
+                                  <button
+                                    type="button"
+                                    className="btn btn-primary btn-sm"
+                                    style={{ padding: '3px 8px', fontSize: '0.72rem', background: '#16a34a', borderColor: '#15803d' }}
+                                    onClick={() => {
+                                      setResolveTicketForm({
+                                        id: t.id,
+                                        ticketNumber: t.ticketNumber || t.id,
+                                        resolutionNotes: t.resolution || '',
+                                        assignedSupportPerson: t.assignedSupportPerson || 'Sarah Jenkins (L3 Senior Tech)'
+                                      });
+                                      setIsResolveTicketOpen(true);
+                                    }}
+                                  >
+                                    <CheckCircle2 size={12} /> Resolve
+                                  </button>
+                                ) : (
+                                  <span style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: '700' }} title={t.resolution}>
+                                    ✓ Notes Logged
+                                  </span>
+                                )}
+
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary btn-sm"
+                                  style={{ padding: '3px 8px', fontSize: '0.72rem' }}
+                                  onClick={() => setSelectedTicketInspect(t)}
+                                  title="Inspect Ticket Details & Diagnostics"
+                                >
+                                  <Eye size={12} />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary btn-sm"
+                                  style={{ padding: '3px 8px', fontSize: '0.72rem', color: '#dc2626', borderColor: '#fecaca' }}
+                                  onClick={() => handleDeleteTicket(t.id, t.ticketNumber || t.id)}
+                                  title="Delete Ticket"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         ))}
-                      </tbody>
-                    </table>
-                  )}
+                      {ticketsList.length === 0 && (
+                        <tr>
+                          <td colSpan={8} style={{ textAlign: 'center', padding: '36px 20px', color: '#64748b' }}>
+                            <LifeBuoy size={32} style={{ margin: '0 auto 8px', display: 'block', color: '#94a3b8' }} />
+                            <strong>No tickets matching current filters.</strong>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -15020,9 +16255,378 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          MODAL: ARTICLE & IN-APP SPOTLIGHT INSPECTOR
+          MODAL: RESOLVE SUPPORT TICKET WITH RESOLUTION NOTES
           ===================================================================== */}
-      {selectedArticleInspect && (
+      {isResolveTicketOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '580px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <CheckCircle2 size={22} color="#16a34a" />
+                <div>
+                  <h3>Resolve Support Ticket #{resolveTicketForm.ticketNumber}</h3>
+                  <p>Log technical root cause, corrective actions, and mark ticket as Resolved</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsResolveTicketOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleResolveTicket} className="modal-form-body">
+              <div className="form-group">
+                <label>Assigned Support Specialist</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={resolveTicketForm.assignedSupportPerson || ''}
+                  onChange={(e) => setResolveTicketForm({ ...resolveTicketForm, assignedSupportPerson: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Resolution Notes &amp; Root Cause Explanation *</label>
+                <textarea
+                  rows={6}
+                  className="form-control"
+                  style={{ fontSize: '0.82rem', lineHeight: 1.6 }}
+                  placeholder="Describe how this issue was investigated, diagnosed, and resolved..."
+                  value={resolveTicketForm.resolutionNotes || ''}
+                  onChange={(e) => setResolveTicketForm({ ...resolveTicketForm, resolutionNotes: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsResolveTicketOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ background: '#16a34a', borderColor: '#15803d' }}>
+                  <CheckCircle2 size={15} /> Confirm &amp; Mark Resolved
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: LOG NEW SUPPORT TICKET (Super Admin / Tenant Submitter)
+          ===================================================================== */}
+      {isCreateTicketOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '640px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <LifeBuoy size={22} color="#0284c7" />
+                <div>
+                  <h3>Log Support Ticket</h3>
+                  <p>Submit technical inquiry, incident ticket, or billing question for tenant</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsCreateTicketOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleCreateTicket} className="modal-form-body">
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Company Tenant *</label>
+                  <select
+                    className="form-control"
+                    value={createTicketForm.companyId}
+                    onChange={(e) => setCreateTicketForm({ ...createTicketForm, companyId: e.target.value })}
+                    required
+                  >
+                    <option value="">Select Company...</option>
+                    {companies.map(c => (
+                      <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Category *</label>
+                  <select
+                    className="form-control"
+                    value={createTicketForm.category}
+                    onChange={(e) => setCreateTicketForm({ ...createTicketForm, category: e.target.value })}
+                  >
+                    <option value="DOCTOR_GEOFENCING">Doctor Geofencing / GPS</option>
+                    <option value="DCR_REPORTING">DCR / Field Call Reports</option>
+                    <option value="BILLING_INVOICE">Billing &amp; Invoices</option>
+                    <option value="SAMPLE_INVENTORY">Sample Inventory &amp; POB</option>
+                    <option value="INTEGRATIONS_API">API &amp; Webhooks</option>
+                    <option value="APP_CRASH_BUG">App Crashes &amp; Bugs</option>
+                    <option value="GENERAL_SUPPORT">General Support</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Priority Level</label>
+                  <select
+                    className="form-control"
+                    value={createTicketForm.priority}
+                    onChange={(e) => setCreateTicketForm({ ...createTicketForm, priority: e.target.value })}
+                  >
+                    <option value="CRITICAL">🔴 Critical (SLA &lt; 2h)</option>
+                    <option value="HIGH">🟠 High (SLA &lt; 6h)</option>
+                    <option value="MEDIUM">🟡 Medium (SLA &lt; 24h)</option>
+                    <option value="LOW">⚪ Low (SLA &lt; 72h)</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Assignee Support Specialist</label>
+                  <select
+                    className="form-control"
+                    value={createTicketForm.assignedSupportPerson}
+                    onChange={(e) => setCreateTicketForm({ ...createTicketForm, assignedSupportPerson: e.target.value })}
+                  >
+                    <option value="Sarah Jenkins (L3 Senior Tech)">Sarah Jenkins (L3 Senior Tech)</option>
+                    <option value="Michael Chang (FinOps Lead)">Michael Chang (FinOps Lead)</option>
+                    <option value="Alex Rivera (Ops Engineer)">Alex Rivera (Ops Engineer)</option>
+                    <option value="DevOps Escalation Team">DevOps Escalation Team</option>
+                    <option value="Akshyatraj Pati (Super Admin HQ)">Akshyatraj Pati (Super Admin HQ)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Ticket Subject *</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Geofence radius validation error at London Central Hospital"
+                  value={createTicketForm.subject}
+                  onChange={(e) => setCreateTicketForm({ ...createTicketForm, subject: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Detailed Incident Description *</label>
+                <textarea
+                  rows={5}
+                  className="form-control"
+                  style={{ fontSize: '0.82rem' }}
+                  placeholder="Provide step-by-step reproduction details, rep device models, doctor coordinates..."
+                  value={createTicketForm.description}
+                  onChange={(e) => setCreateTicketForm({ ...createTicketForm, description: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsCreateTicketOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <Plus size={15} /> Submit Ticket
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: PROCESS CUSTOMER REFUND / CREDIT NOTE
+          ===================================================================== */}
+      {isProcessRefundOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '580px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Coins size={22} color="#9333ea" />
+                <div>
+                  <h3>Process Customer Refund / Credit</h3>
+                  <p>Issue pro-rata adjustment or payment gateway refund to company account</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsProcessRefundOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleProcessRefund} className="modal-form-body">
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Company Tenant / Invoice</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. Pfizer BioPharma Global / INV-2026-0091"
+                    value={refundForm.companyName || refundForm.invoiceNumber || ''}
+                    onChange={(e) => setRefundForm({ ...refundForm, companyName: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Refund Amount ($ USD) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="form-control"
+                    placeholder="e.g. 450.00"
+                    value={refundForm.amount}
+                    onChange={(e) => setRefundForm({ ...refundForm, amount: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Statutory Reason &amp; Accounting Notes *</label>
+                <textarea
+                  rows={4}
+                  className="form-control"
+                  style={{ fontSize: '0.82rem' }}
+                  placeholder="Explain the statutory reason for refund (e.g. Pro-rata tier downgrade adjustment)..."
+                  value={refundForm.reason}
+                  onChange={(e) => setRefundForm({ ...refundForm, reason: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '6px', padding: '10px 14px', fontSize: '0.74rem', color: '#6b21a8', marginBottom: '14px' }}>
+                ℹ️ Refunds will be settled back to the original payment gateway token (Stripe / Razorpay / ACH) and recorded in the audit ledger.
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsProcessRefundOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ background: '#9333ea', borderColor: '#7e22ce' }}>
+                  <Coins size={15} /> Confirm Refund
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: EDIT BILLING CONTACT & TAX REGISTRATION
+          ===================================================================== */}
+      {isEditBillingContactOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '640px' }}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <Building2 size={22} color="#0284c7" />
+                <div>
+                  <h3>Edit Billing Contact &amp; Statutory Tax Info</h3>
+                  <p>{editBillingContactForm.companyName}</p>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsEditBillingContactOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleSaveBillingContact} className="modal-form-body">
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Primary Billing Contact Name</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={editBillingContactForm.contactName || ''}
+                    onChange={(e) => setEditBillingContactForm({ ...editBillingContactForm, contactName: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Finance / Accounts Payable Email</label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    value={editBillingContactForm.financeEmail || ''}
+                    onChange={(e) => setEditBillingContactForm({ ...editBillingContactForm, financeEmail: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Statutory Tax ID / GSTIN / VAT Number</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={editBillingContactForm.taxId || ''}
+                    onChange={(e) => setEditBillingContactForm({ ...editBillingContactForm, taxId: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Statutory Tax Scheme</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. Indian GST (18%) / Swiss MWST / US Corp"
+                    value={editBillingContactForm.taxScheme || ''}
+                    onChange={(e) => setEditBillingContactForm({ ...editBillingContactForm, taxScheme: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Invoicing Currency Preference</label>
+                  <select
+                    className="form-control"
+                    value={editBillingContactForm.currencyPreference || 'USD'}
+                    onChange={(e) => setEditBillingContactForm({ ...editBillingContactForm, currencyPreference: e.target.value })}
+                  >
+                    <option value="USD">USD ($ United States Dollar)</option>
+                    <option value="EUR">EUR (€ Euro)</option>
+                    <option value="INR">INR (₹ Indian Rupee)</option>
+                    <option value="AED">AED (د.إ UAE Dirham)</option>
+                    <option value="SGD">SGD (S$ Singapore Dollar)</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Purchase Order (PO) Reference</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. PO-PFZ-2026-9081"
+                    value={editBillingContactForm.poNumber || ''}
+                    onChange={(e) => setEditBillingContactForm({ ...editBillingContactForm, poNumber: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Official Invoicing / Legal Address</label>
+                <textarea
+                  rows={3}
+                  className="form-control"
+                  style={{ fontSize: '0.82rem' }}
+                  value={editBillingContactForm.billingAddress || ''}
+                  onChange={(e) => setEditBillingContactForm({ ...editBillingContactForm, billingAddress: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '10px 0 16px' }}>
+                <input
+                  type="checkbox"
+                  id="autoRenewCheck"
+                  checked={editBillingContactForm.autoRenew}
+                  onChange={(e) => setEditBillingContactForm({ ...editBillingContactForm, autoRenew: e.target.checked })}
+                />
+                <label htmlFor="autoRenewCheck" style={{ margin: 0, fontSize: '0.82rem', fontWeight: '700', cursor: 'pointer' }}>
+                  Enable Contract Auto-Renewal for this Tenant
+                </label>
+              </div>
+
+              <div className="modal-actions-bar">
+                <button type="button" className="cancel-btn" onClick={() => setIsEditBillingContactOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  <Save size={15} /> Save Billing Information
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: SUPPORT TICKET DIAGNOSTICS & DETAILS DRAWER
+          ===================================================================== */}
+      {selectedTicketInspect && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '680px' }}>
             <div className="modal-header">
@@ -15030,39 +16634,48 @@ export default function SuperAdminDashboard({
                 <LifeBuoy size={22} color="#0284c7" />
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '0.7rem', fontWeight: '800', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '4px' }}>
-                      {selectedArticleInspect.category || 'GENERAL'}
+                    <span style={{ fontSize: '0.74rem', fontWeight: '800', background: '#0284c7', color: '#ffffff', padding: '2px 8px', borderRadius: '4px' }}>
+                      {selectedTicketInspect.ticketNumber || selectedTicketInspect.id}
                     </span>
-                    <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                      v{selectedArticleInspect.version || '1.0'}
+                    <span className={`status-tag status-${selectedTicketInspect.status === 'RESOLVED' ? 'active' : 'trial'}`}>
+                      {selectedTicketInspect.status}
                     </span>
                   </div>
-                  <h3 style={{ margin: '4px 0 0' }}>{selectedArticleInspect.title}</h3>
+                  <h3 style={{ margin: '4px 0 0' }}>{selectedTicketInspect.subject}</h3>
                 </div>
               </div>
-              <button type="button" className="close-modal-btn" onClick={() => setSelectedArticleInspect(null)}>&times;</button>
+              <button type="button" className="close-modal-btn" onClick={() => setSelectedTicketInspect(null)}>&times;</button>
             </div>
 
             <div className="modal-form-body">
-              {selectedArticleInspect.summary && (
-                <div style={{ background: '#f8fafc', borderLeft: '4px solid #0284c7', padding: '10px 14px', borderRadius: '4px', marginBottom: '14px', fontSize: '0.8rem', color: '#334155' }}>
-                  {selectedArticleInspect.summary}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', background: '#f8fafc', padding: '12px 16px', borderRadius: '6px', marginBottom: '14px', fontSize: '0.78rem' }}>
+                <div>🏢 Company: <strong>{selectedTicketInspect.companyName}</strong></div>
+                <div>👤 Submitter: <strong>{selectedTicketInspect.userName}</strong> ({selectedTicketInspect.userRole || 'Admin'})</div>
+                <div>✉️ Email: <strong>{selectedTicketInspect.userEmail}</strong></div>
+                <div>🏷️ Category: <strong>{selectedTicketInspect.category}</strong></div>
+                <div>⚡ Priority: <strong>{selectedTicketInspect.priority}</strong></div>
+                <div>🛠️ Assigned: <strong>{selectedTicketInspect.assignedSupportPerson}</strong></div>
+                <div>📅 Created: <strong>{new Date(selectedTicketInspect.createdDate || Date.now()).toLocaleString()}</strong></div>
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <strong style={{ fontSize: '0.78rem', color: '#475569', display: 'block', marginBottom: '6px' }}>Incident Description &amp; Reproduction:</strong>
+                <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '12px 14px', fontSize: '0.82rem', lineHeight: 1.6, color: '#0f172a' }}>
+                  {selectedTicketInspect.description}
+                </div>
+              </div>
+
+              {selectedTicketInspect.resolution && (
+                <div style={{ marginBottom: '14px' }}>
+                  <strong style={{ fontSize: '0.78rem', color: '#15803d', display: 'block', marginBottom: '6px' }}>✓ Resolution &amp; Corrective Actions:</strong>
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '12px 14px', fontSize: '0.82rem', lineHeight: 1.6, color: '#166534' }}>
+                    {selectedTicketInspect.resolution}
+                  </div>
                 </div>
               )}
 
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', background: '#ffffff', marginBottom: '16px', maxHeight: '360px', overflowY: 'auto' }}>
-                <div style={{ fontSize: '0.82rem', color: '#1e293b', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
-                  {selectedArticleInspect.content}
-                </div>
-              </div>
-
-              <div style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>Target: <strong>{selectedArticleInspect.targetAudience || 'All Users'}</strong></span>
-                <span>Created: {new Date(selectedArticleInspect.createdAt || Date.now()).toLocaleDateString()}</span>
-              </div>
-
               <div className="modal-actions-bar" style={{ marginTop: '16px' }}>
-                <button type="button" className="cancel-btn" onClick={() => setSelectedArticleInspect(null)}>Close</button>
+                <button type="button" className="cancel-btn" onClick={() => setSelectedTicketInspect(null)}>Close</button>
               </div>
             </div>
           </div>

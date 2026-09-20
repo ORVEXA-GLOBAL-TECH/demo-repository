@@ -33,6 +33,8 @@ import dataManagementRoutes from './routes/dataManagementRoutes.js';
 import apiManagementRoutes from './routes/apiManagementRoutes.js';
 import appVersionRoutes from './routes/appVersionRoutes.js';
 import contentRoutes from './routes/contentRoutes.js';
+import ticketRoutes from './routes/ticketRoutes.js';
+import billingRoutes from './routes/billingRoutes.js';
 
 const app = express();
 
@@ -109,6 +111,9 @@ app.use('/api/data-management', dataManagementRoutes);
 app.use('/api/api-management', apiManagementRoutes);
 app.use('/api/app-versions', appVersionRoutes);
 app.use('/api/content', contentRoutes);
+app.use('/api/tickets', ticketRoutes);
+app.use('/api/support-tickets', ticketRoutes);
+app.use('/api/billing', billingRoutes);
 app.use('/api', auditRoutes);
 app.use('/api', tenantRoutes);
 
