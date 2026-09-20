@@ -12,6 +12,8 @@
     "preview": "vite preview --port 5174"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
+    "bcryptjs": "^3.0.3",
     "lucide-react": "^0.453.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

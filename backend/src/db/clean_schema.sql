@@ -9,6 +9,7 @@ DROP SCHEMA IF EXISTS public CASCADE;
 CREATE SCHEMA public;
 GRANT ALL ON SCHEMA public TO postgres;
 GRANT ALL ON SCHEMA public TO public;
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 
 -- Enable UUID & Crypto Extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -456,6 +457,11 @@ VALUES (
     CURRENT_TIMESTAMP
 );
 
--- Verification Query
-SELECT 'Clean database initialized successfully with 1 Super Admin!' as status,
+-- 19. GRANT PERMISSIONS TO SUPABASE ROLES
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
+
+-- Confirmation output
+SELECT 'Clean database created successfully!' as status,
        (SELECT count(*) FROM users) as total_users;
