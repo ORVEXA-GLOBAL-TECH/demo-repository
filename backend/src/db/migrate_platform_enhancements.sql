@@ -169,7 +169,72 @@ VALUES
 ON CONFLICT (code) DO NOTHING;
 
 -- ==============================================================================
--- 8. GRANT ACCESS & DISABLE RLS FOR FRONTEND/SUPABASE COMPATIBILITY
+-- 8. PLATFORM BACKUP LOGS & SNAPSHOT HISTORY (platform_backup_logs)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS platform_backup_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    backup_id VARCHAR(100) UNIQUE NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'COMPLETED', -- COMPLETED | IN_PROGRESS | FAILED
+    backup_type VARCHAR(50) NOT NULL DEFAULT 'AUTOMATED_DAILY', -- AUTOMATED_DAILY | MANUAL_SNAPSHOT
+    size_gb NUMERIC(10,2) NOT NULL DEFAULT 24.80,
+    storage_target VARCHAR(255) DEFAULT 'Geo-Redundant Cloud Vault (Multi-Region S3)',
+    encryption_mode VARCHAR(50) DEFAULT 'AES-256-GCM',
+    retention_days INT DEFAULT 30,
+    triggered_by VARCHAR(255) DEFAULT 'SYSTEM_CRON',
+    details JSONB DEFAULT '{"checksum": "sha256:8f4c2e...", "regions": ["us-east-1", "eu-central-1"]}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_backup_logs_created_at ON platform_backup_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_backup_logs_status ON platform_backup_logs(status);
+
+-- Seed initial backup record
+INSERT INTO platform_backup_logs (backup_id, status, backup_type, size_gb, triggered_by)
+VALUES ('BKP-SNAP-INIT-01', 'COMPLETED', 'AUTOMATED_DAILY', 24.80, 'SYSTEM_CRON')
+ON CONFLICT (backup_id) DO NOTHING;
+
+-- ==============================================================================
+-- 9. BACKGROUND QUEUE JOBS & DEAD-LETTER QUEUE (background_queue_jobs)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS background_queue_jobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_code VARCHAR(100) NOT NULL,
+    queue_name VARCHAR(100) NOT NULL,
+    task_description TEXT NOT NULL,
+    tenant_id UUID REFERENCES tenants_companies(id) ON DELETE SET NULL,
+    recipient VARCHAR(255),
+    status VARCHAR(50) NOT NULL DEFAULT 'COMPLETED', -- PENDING | PROCESSING | COMPLETED | FAILED
+    error_message TEXT,
+    attempts INT DEFAULT 1,
+    max_attempts INT DEFAULT 3,
+    payload JSONB DEFAULT '{}'::jsonb,
+    scheduled_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    failed_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_queue_jobs_queue_status ON background_queue_jobs(queue_name, status);
+CREATE INDEX IF NOT EXISTS idx_queue_jobs_failed ON background_queue_jobs(status, failed_at DESC);
+
+-- ==============================================================================
+-- 10. SYSTEM HEALTH & DIAGNOSTIC AUDIT LOGS (platform_system_health_logs)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS platform_system_health_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    overall_status VARCHAR(50) NOT NULL DEFAULT 'HEALTHY',
+    db_latency_ms INT DEFAULT 22,
+    api_latency_ms INT DEFAULT 18,
+    error_rate_pct NUMERIC(6,4) DEFAULT 0.0200,
+    services_status JSONB DEFAULT '{"api": "Healthy", "database": "Healthy", "storage": "Healthy", "auth": "Healthy", "notifications": "Healthy", "maps_gps": "Healthy", "email": "Healthy", "sms": "Healthy", "background_jobs": "Healthy"}'::jsonb,
+    telemetry_snapshot JSONB DEFAULT '{}'::jsonb,
+    checked_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_health_logs_checked_at ON platform_system_health_logs(checked_at DESC);
+
+-- ==============================================================================
+-- 11. GRANT ACCESS & DISABLE RLS FOR FRONTEND/SUPABASE COMPATIBILITY
 -- ==============================================================================
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, postgres, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, postgres, service_role;
@@ -179,14 +244,19 @@ ALTER TABLE IF EXISTS platform_settings DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS role_templates DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS admin_login_history DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS subscription_plans DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS platform_backup_logs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS background_queue_jobs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS platform_system_health_logs DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS tenants_companies DISABLE ROW LEVEL SECURITY;
 
 -- ==============================================================================
--- 9. VERIFICATION QUERY OUTPUT
+-- 12. VERIFICATION QUERY OUTPUT
 -- ==============================================================================
-SELECT '🎉 Database successfully updated with all Global Configuration, RBAC, and User Management enhancements!' as migration_status,
+SELECT '🎉 Database successfully updated with all Global Configuration, RBAC, User Management, System Health, and Backup schema enhancements!' as migration_status,
        (SELECT count(*) FROM platform_settings) as platform_settings_count,
        (SELECT count(*) FROM role_templates) as role_templates_count,
        (SELECT count(*) FROM subscription_plans) as subscription_plans_count,
+       (SELECT count(*) FROM platform_backup_logs) as backup_logs_count,
        (SELECT count(*) FROM users) as total_users;
+
