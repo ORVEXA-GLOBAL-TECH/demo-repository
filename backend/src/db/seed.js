@@ -82,17 +82,17 @@ async function seedDatabase() {
     `);
 
     if (adminCheck.rows.length === 0) {
-      console.log('👑 Creating Master Platform Super Admin...');
+      console.log('👑 Creating Master Platform Super Admin (Akshyatraj Pati)...');
       // bcrypt hash for 'SuperAdmin@2026!'
-      const defaultHash = '$2b$10$wN3/sQjW3g2fGjW10K6gxe4zW5i3.QYlUv6.e/9kQxP0oVp5E7kKG';
+      const defaultHash = '$2b$12$e5k5m7mGy41.6qUv6fEZcOzU9d24lKskP1sIe877B5iKk5e6P6WKG';
       
       await query(`
         INSERT INTO users (
-          email, password_hash, first_name, last_name, role, status
+          id, tenant_id, email, password_hash, first_name, last_name, role, status
         )
-        VALUES ($1, $2, $3, $4, 'SUPER_ADMIN', 'Active')
-      `, ['superadmin@alleviaresfa.com', defaultHash, 'System', 'SuperAdmin']);
-      console.log('✅ Default Super Admin created: superadmin@alleviaresfa.com');
+        VALUES ('00000000-0000-0000-0000-000000000001', NULL, $1, $2, $3, $4, 'SUPER_ADMIN', 'Active')
+      `, ['akshyatrajpaati@gmail.com', defaultHash, 'Akshyatraj', 'Pati']);
+      console.log('✅ Master Super Admin created: akshyatrajpaati@gmail.com (ID: 001)');
     } else {
       console.log(`ℹ️ Super Admin already exists (${adminCheck.rows[0].email})`);
     }

@@ -10,10 +10,11 @@ async function createSuperAdmin() {
   console.log('=======================================================');
 
   const args = process.argv.slice(2);
-  const email = args[0] || process.env.SUPERADMIN_EMAIL || 'superadmin@alleviaresfa.com';
+  const email = args[0] || process.env.SUPERADMIN_EMAIL || 'akshyatrajpaati@gmail.com';
   const rawPassword = args[1] || process.env.SUPERADMIN_PASSWORD || 'SuperAdmin@2026!';
-  const firstName = args[2] || 'System';
-  const lastName = args[3] || 'SuperAdmin';
+  const firstName = args[2] || 'Akshyatraj';
+  const lastName = args[3] || 'Pati';
+  const customId = args[4] || '00000000-0000-0000-0000-000000000001';
 
   const health = await checkDbHealth();
   if (health.status !== 'CONNECTED') {
@@ -28,9 +29,9 @@ async function createSuperAdmin() {
     // Upsert into users table (tenant_id IS NULL for platform super admins)
     const res = await query(`
       INSERT INTO users (
-        tenant_id, email, password_hash, first_name, last_name, role, status
+        id, tenant_id, email, password_hash, first_name, last_name, role, status
       )
-      VALUES (NULL, $1, $2, $3, $4, 'SUPER_ADMIN', 'Active')
+      VALUES ($1, NULL, $2, $3, $4, $5, 'SUPER_ADMIN', 'Active')
       ON CONFLICT (tenant_id, email) DO UPDATE SET
         password_hash = EXCLUDED.password_hash,
         first_name = EXCLUDED.first_name,
@@ -39,7 +40,7 @@ async function createSuperAdmin() {
         status = 'Active',
         updated_at = CURRENT_TIMESTAMP
       RETURNING id, email, role, status, created_at;
-    `, [email.toLowerCase(), passwordHash, firstName, lastName]);
+    `, [customId, email.toLowerCase(), passwordHash, firstName, lastName]);
 
     // Record in Platform Audit Logs
     await query(`
