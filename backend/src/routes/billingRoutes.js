@@ -3,261 +3,12 @@ import { query, checkDbHealth } from '../config/db.js';
 
 const router = Router();
 
-// In-Memory Seed Storage for Billing Microservice
-let IN_MEMORY_INVOICES = [
-  {
-    id: '00000000-0000-0000-0000-000000000801',
-    invoice_number: 'INV-2026-0891',
-    tenant_id: '00000000-0000-0000-0000-000000000001',
-    company_name: 'Pfizer BioPharma Ltd',
-    plan_tier: 'ENTERPRISE',
-    subtotal: 2500.00,
-    tax_amount: 125.00,
-    amount: 2625.00,
-    currency: 'USD',
-    status: 'PAID',
-    issue_date: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
-    due_date: new Date(Date.now() + 11 * 24 * 3600 * 1000).toISOString(),
-    paid_at: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
-    payment_method: 'CORPORATE_ACH',
-    billing_contact_name: 'Vikram Malhotra',
-    billing_contact_email: 'finance@pfizerbiopharma.com',
-    tax_id: 'US-EIN-94-2849102',
-    pdf_url: '/invoices/INV-2026-0891.pdf',
-    created_at: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString()
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000802',
-    invoice_number: 'INV-2026-0892',
-    tenant_id: '00000000-0000-0000-0000-000000000002',
-    company_name: 'Novartis Pharma Global',
-    plan_tier: 'PROFESSIONAL',
-    subtotal: 1000.00,
-    tax_amount: 50.00,
-    amount: 1050.00,
-    currency: 'USD',
-    status: 'PAID',
-    issue_date: new Date(Date.now() - 6 * 24 * 3600 * 1000).toISOString(),
-    due_date: new Date(Date.now() + 8 * 24 * 3600 * 1000).toISOString(),
-    paid_at: new Date(Date.now() - 6 * 24 * 3600 * 1000).toISOString(),
-    payment_method: 'STRIPE_CREDIT_CARD',
-    billing_contact_name: 'Elena Rostova',
-    billing_contact_email: 'finance@novartispharma.com',
-    tax_id: 'CHE-105.842.190-MWST',
-    pdf_url: '/invoices/INV-2026-0892.pdf',
-    created_at: new Date(Date.now() - 6 * 24 * 3600 * 1000).toISOString()
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000803',
-    invoice_number: 'INV-2026-0893',
-    tenant_id: '00000000-0000-0000-0000-000000000003',
-    company_name: 'AstraZeneca Healthcare',
-    plan_tier: 'ENTERPRISE',
-    subtotal: 2500.00,
-    tax_amount: 125.00,
-    amount: 2625.00,
-    currency: 'USD',
-    status: 'PENDING',
-    issue_date: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
-    due_date: new Date(Date.now() + 13 * 24 * 3600 * 1000).toISOString(),
-    paid_at: null,
-    payment_method: 'BANK_WIRE_TRANSFER',
-    billing_contact_name: 'Dr. James Sterling',
-    billing_contact_email: 'treasury@astrazeneca.com',
-    tax_id: 'GB-VAT-582-9014-22',
-    pdf_url: '/invoices/INV-2026-0893.pdf',
-    created_at: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString()
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000804',
-    invoice_number: 'INV-2026-0894',
-    tenant_id: '00000000-0000-0000-0000-000000000004',
-    company_name: 'Cipla Therapeutics Ltd',
-    plan_tier: 'STARTER',
-    subtotal: 100.00,
-    tax_amount: 18.00,
-    amount: 118.00,
-    currency: 'USD',
-    status: 'FAILED',
-    issue_date: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
-    due_date: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
-    paid_at: null,
-    payment_method: 'STRIPE_CREDIT_CARD',
-    billing_contact_name: 'Ramesh Gupta',
-    billing_contact_email: 'accounts@ciplatherapeutics.com',
-    tax_id: '27AAACC1206M1ZV',
-    pdf_url: '/invoices/INV-2026-0894.pdf',
-    created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString()
-  }
-];
-
-let IN_MEMORY_PAYMENTS = [
-  {
-    id: '00000000-0000-0000-0000-000000000821',
-    payment_ref: 'PAY-2026-9901',
-    invoice_id: '00000000-0000-0000-0000-000000000801',
-    invoice_number: 'INV-2026-0891',
-    tenant_id: '00000000-0000-0000-0000-000000000001',
-    company_name: 'Pfizer BioPharma Ltd',
-    amount: 2625.00,
-    currency: 'USD',
-    gateway: 'STRIPE',
-    payment_method: 'Visa •••• 4242 (3D Secure)',
-    transaction_hash: 'ch_3N8zLp2eZvKYlo2C1g90xK1A',
-    status: 'SUCCEEDED',
-    decline_code: null,
-    failure_reason: null,
-    retry_count: 0,
-    last_attempt_at: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
-    created_at: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString()
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000822',
-    payment_ref: 'PAY-2026-9902',
-    invoice_id: '00000000-0000-0000-0000-000000000002',
-    invoice_number: 'INV-2026-0892',
-    tenant_id: '00000000-0000-0000-0000-000000000002',
-    company_name: 'Novartis Pharma Global',
-    amount: 1050.00,
-    currency: 'USD',
-    gateway: 'STRIPE',
-    payment_method: 'Mastercard •••• 8812',
-    transaction_hash: 'ch_3N9aKq4eZvKYlo2C2h11wP2B',
-    status: 'SUCCEEDED',
-    decline_code: null,
-    failure_reason: null,
-    retry_count: 0,
-    last_attempt_at: new Date(Date.now() - 6 * 24 * 3600 * 1000).toISOString(),
-    created_at: new Date(Date.now() - 6 * 24 * 3600 * 1000).toISOString()
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000823',
-    payment_ref: 'PAY-2026-9903',
-    invoice_id: '00000000-0000-0000-0000-000000000004',
-    invoice_number: 'INV-2026-0894',
-    tenant_id: '00000000-0000-0000-0000-000000000004',
-    company_name: 'Cipla Therapeutics Ltd',
-    amount: 118.00,
-    currency: 'USD',
-    gateway: 'RAZORPAY',
-    payment_method: 'Corporate Card •••• 9920',
-    transaction_hash: 'pay_Nz891lKa90Xl28',
-    status: 'FAILED',
-    decline_code: 'card_declined_insufficient_funds',
-    failure_reason: 'Transaction declined by issuing bank: Insufficient credit allowance on corporate card.',
-    retry_count: 2,
-    last_attempt_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-    created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString()
-  }
-];
-
-let IN_MEMORY_REFUNDS = [
-  {
-    id: '00000000-0000-0000-0000-000000000841',
-    refund_ref: 'REF-2026-4401',
-    payment_id: '00000000-0000-0000-0000-000000000821',
-    invoice_number: 'INV-2026-0870',
-    tenant_id: '00000000-0000-0000-0000-000000000001',
-    company_name: 'Pfizer BioPharma Ltd',
-    amount: 500.00,
-    currency: 'USD',
-    reason: 'PLAN_DOWNGRADE_PRORATION',
-    status: 'PROCESSED',
-    processed_by: 'Super Admin HQ',
-    processed_at: new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString(),
-    created_at: new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString()
-  }
-];
-
-let IN_MEMORY_BILLING_CONTACTS = [
-  {
-    id: '00000000-0000-0000-0000-000000000861',
-    tenant_id: '00000000-0000-0000-0000-000000000001',
-    company_name: 'Pfizer BioPharma Ltd',
-    primary_contact_name: 'Vikram Malhotra',
-    primary_billing_email: 'finance@pfizerbiopharma.com',
-    secondary_billing_email: 'ap-invoices@pfizer.com',
-    tax_id: 'US-EIN-94-2849102',
-    tax_scheme: 'US Statutory / No State Sales Tax (B2B SaaS)',
-    billing_address: '235 East 42nd Street, New York, NY 10017',
-    city: 'New York',
-    country: 'United States',
-    preferred_currency: 'USD',
-    po_number: 'PO-PFZ-2026-992'
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000862',
-    tenant_id: '00000000-0000-0000-0000-000000000002',
-    company_name: 'Novartis Pharma Global',
-    primary_contact_name: 'Elena Rostova',
-    primary_billing_email: 'finance@novartispharma.com',
-    secondary_billing_email: 'accounting@novartis.ch',
-    tax_id: 'CHE-105.842.190-MWST',
-    tax_scheme: 'Swiss Federal VAT 8.1%',
-    billing_address: 'Lichtstrasse 35, 4056 Basel',
-    city: 'Basel',
-    country: 'Switzerland',
-    preferred_currency: 'USD',
-    po_number: 'PO-NOV-2026-441'
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000863',
-    tenant_id: '00000000-0000-0000-0000-000000000003',
-    company_name: 'AstraZeneca Healthcare',
-    primary_contact_name: 'Dr. James Sterling',
-    primary_billing_email: 'treasury@astrazeneca.com',
-    secondary_billing_email: 'uk-finance@astrazeneca.com',
-    tax_id: 'GB-VAT-582-9014-22',
-    tax_scheme: 'UK Standard VAT 20%',
-    billing_address: '1 Francis Crick Avenue, Cambridge Biomedical Campus',
-    city: 'Cambridge',
-    country: 'United Kingdom',
-    preferred_currency: 'USD',
-    po_number: 'PO-AZ-2026-880'
-  }
-];
-
-let IN_MEMORY_SUBSCRIPTION_HISTORY = [
-  {
-    id: '00000000-0000-0000-0000-000000000881',
-    tenant_id: '00000000-0000-0000-0000-000000000001',
-    company_name: 'Pfizer BioPharma Ltd',
-    event_type: 'TIER_UPGRADE',
-    from_tier: 'PROFESSIONAL',
-    to_tier: 'ENTERPRISE',
-    mrr_delta: 1500.00,
-    amount_billed: 2500.00,
-    notes: 'Super Admin upgraded tier to Enterprise for AI Studio & Multi-Region access.',
-    actor_email: 'superadmin@orvexa.com',
-    created_at: new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString()
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000882',
-    tenant_id: '00000000-0000-0000-0000-000000000002',
-    company_name: 'Novartis Pharma Global',
-    event_type: 'RENEWAL_PROCESSED',
-    from_tier: 'PROFESSIONAL',
-    to_tier: 'PROFESSIONAL',
-    mrr_delta: 0.00,
-    amount_billed: 1000.00,
-    notes: 'Annual recurring subscription renewal executed successfully.',
-    actor_email: 'billing-cron@orvexa.com',
-    created_at: new Date(Date.now() - 6 * 24 * 3600 * 1000).toISOString()
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000883',
-    tenant_id: '00000000-0000-0000-0000-000000000003',
-    company_name: 'AstraZeneca Healthcare',
-    event_type: 'VALIDITY_EXTENDED',
-    from_tier: 'ENTERPRISE',
-    to_tier: 'ENTERPRISE',
-    mrr_delta: 0.00,
-    amount_billed: 0.00,
-    notes: 'Super Admin added +30 days courtesy extension for contract audit.',
-    actor_email: 'superadmin@orvexa.com',
-    created_at: new Date(Date.now() - 10 * 24 * 3600 * 1000).toISOString()
-  }
-];
+// In-Memory Storage for Billing Microservice (Default Empty)
+let IN_MEMORY_INVOICES = [];
+let IN_MEMORY_PAYMENTS = [];
+let IN_MEMORY_REFUNDS = [];
+let IN_MEMORY_CONTACTS = [];
+let IN_MEMORY_SUBSCRIPTION_HISTORY = [];
 
 // Helper: Record Billing Audit
 const recordAudit = async (action, targetEntity, entityId, details) => {
@@ -276,28 +27,64 @@ const recordAudit = async (action, targetEntity, entityId, details) => {
 // ==============================================================================
 router.get('/overview', async (req, res) => {
   try {
-    const totalInvoices = IN_MEMORY_INVOICES.length;
-    const paidInvoices = IN_MEMORY_INVOICES.filter(i => i.status === 'PAID');
-    const totalCollected = paidInvoices.reduce((acc, i) => acc + Number(i.amount), 0);
-    const pendingAmount = IN_MEMORY_INVOICES.filter(i => i.status === 'PENDING').reduce((acc, i) => acc + Number(i.amount), 0);
-    const failedAmount = IN_MEMORY_INVOICES.filter(i => i.status === 'FAILED').reduce((acc, i) => acc + Number(i.amount), 0);
-    const refundedAmount = IN_MEMORY_REFUNDS.reduce((acc, r) => acc + Number(r.amount), 0);
+    const dbHealth = await checkDbHealth();
+    if (dbHealth.status === 'CONNECTED') {
+      const invRes = await query(`
+        SELECT 
+          COALESCE(SUM(CASE WHEN status = 'PAID' THEN amount ELSE 0 END), 0) as total_collected,
+          COALESCE(SUM(CASE WHEN status = 'PENDING' THEN amount ELSE 0 END), 0) as pending_amount,
+          COALESCE(SUM(CASE WHEN status = 'FAILED' THEN amount ELSE 0 END), 0) as failed_amount,
+          COUNT(*) as total_count,
+          COUNT(CASE WHEN status = 'PAID' THEN 1 END) as paid_count
+        FROM platform_billing_invoices
+      `);
+      const refRes = await query(`SELECT COALESCE(SUM(amount), 0) as total_refunded FROM platform_billing_refunds`);
+      const row = invRes.rows[0] || {};
+      const refunded = Number(refRes.rows[0]?.total_refunded || 0);
 
-    res.json({
-      totalRevenueCollected: totalCollected,
-      pendingReceivables: pendingAmount,
-      failedTransactionsTotal: failedAmount,
-      totalRefunded: refundedAmount,
-      totalInvoicesCount: totalInvoices,
-      paidInvoicesCount: paidInvoices.length,
-      failedPaymentsCount: IN_MEMORY_PAYMENTS.filter(p => p.status === 'FAILED').length,
-      activeSubscribersCount: 24,
-      collectionEfficiencyPercent: 97.2,
-      currency: 'USD'
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+      const totalCollected = Number(row.total_collected || 0);
+      const pendingAmount = Number(row.pending_amount || 0);
+      const failedAmount = Number(row.failed_amount || 0);
+      const totalInvoices = Number(row.total_count || 0);
+      const paidInvoices = Number(row.paid_count || 0);
+      const collectionEff = (totalCollected + pendingAmount) > 0 ? ((totalCollected / (totalCollected + pendingAmount)) * 100).toFixed(1) : 0;
+
+      return res.json({
+        totalRevenueCollected: totalCollected,
+        pendingReceivables: pendingAmount,
+        failedTransactionsTotal: failedAmount,
+        totalRefunded: refunded,
+        totalInvoicesCount: totalInvoices,
+        paidInvoicesCount: paidInvoices,
+        failedPaymentsCount: 0,
+        activeSubscribersCount: paidInvoices,
+        collectionEfficiencyPercent: Number(collectionEff),
+        currency: 'USD'
+      });
+    }
+  } catch (err) {
+    console.warn('⚠️ DB query failed for billing overview, fallback to empty:', err.message);
   }
+
+  const totalInvoices = IN_MEMORY_INVOICES.length;
+  const paidInvoices = IN_MEMORY_INVOICES.filter(i => i.status === 'PAID');
+  const totalCollected = paidInvoices.reduce((acc, i) => acc + Number(i.amount), 0);
+  const pendingAmount = IN_MEMORY_INVOICES.filter(i => i.status === 'PENDING').reduce((acc, i) => acc + Number(i.amount), 0);
+  const failedAmount = IN_MEMORY_INVOICES.filter(i => i.status === 'FAILED').reduce((acc, i) => acc + Number(i.amount), 0);
+  const refundedAmount = IN_MEMORY_REFUNDS.reduce((acc, r) => acc + Number(r.amount), 0);
+
+  return res.json({
+    totalRevenueCollected: totalCollected,
+    pendingReceivables: pendingAmount,
+    failedTransactionsTotal: failedAmount,
+    totalRefunded: refundedAmount,
+    totalInvoicesCount: totalInvoices,
+    paidInvoicesCount: paidInvoices.length,
+    failedPaymentsCount: 0,
+    activeSubscribersCount: 0,
+    collectionEfficiencyPercent: 0,
+    currency: 'USD'
+  });
 });
 
 // ==============================================================================

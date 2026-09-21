@@ -5422,15 +5422,15 @@ export default function SuperAdminDashboard({
             <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '4px solid #16a34a', padding: '14px 16px' }}>
               <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Total Collected Revenue</div>
               <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#16a34a', marginTop: '4px' }}>
-                ${(billingOverview?.totalRevenueCollected || 486500).toLocaleString()}
+                ${(billingOverview?.totalRevenueCollected || 0).toLocaleString()}
               </div>
-              <div style={{ fontSize: '0.7rem', color: '#15803d', marginTop: '2px' }}>↑ 14.2% MoM growth</div>
+              <div style={{ fontSize: '0.7rem', color: '#15803d', marginTop: '2px' }}>↑ 0% MoM growth</div>
             </div>
 
             <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '4px solid #d97706', padding: '14px 16px' }}>
               <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Pending Receivables</div>
               <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#d97706', marginTop: '4px' }}>
-                ${(billingOverview?.totalPendingReceivables || 32400).toLocaleString()}
+                ${(billingOverview?.totalPendingReceivables || 0).toLocaleString()}
               </div>
               <div style={{ fontSize: '0.7rem', color: '#b45309', marginTop: '2px' }}>Net-30 Enterprise Invoices</div>
             </div>
@@ -5438,7 +5438,7 @@ export default function SuperAdminDashboard({
             <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '4px solid #dc2626', padding: '14px 16px' }}>
               <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Failed Payments (DLQ)</div>
               <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#dc2626', marginTop: '4px' }}>
-                ${(billingOverview?.totalFailedPayments || 8200).toLocaleString()}
+                ${(billingOverview?.totalFailedPayments || 0).toLocaleString()}
               </div>
               <div style={{ fontSize: '0.7rem', color: '#b91c1c', marginTop: '2px' }}>Auto-retry scheduled (3 retries)</div>
             </div>
@@ -5446,7 +5446,7 @@ export default function SuperAdminDashboard({
             <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '4px solid #9333ea', padding: '14px 16px' }}>
               <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Total Refunds Issued</div>
               <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#9333ea', marginTop: '4px' }}>
-                ${(billingOverview?.totalRefunded || 2450).toLocaleString()}
+                ${(billingOverview?.totalRefunded || 0).toLocaleString()}
               </div>
               <div style={{ fontSize: '0.7rem', color: '#7e22ce', marginTop: '2px' }}>Pro-rata downgrades &amp; credits</div>
             </div>
@@ -5454,7 +5454,7 @@ export default function SuperAdminDashboard({
             <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '4px solid #0284c7', padding: '14px 16px' }}>
               <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Collection Efficiency</div>
               <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#0284c7', marginTop: '4px' }}>
-                {billingOverview?.collectionEfficiency || 98.3}%
+                {billingOverview?.collectionEfficiency || 0}%
               </div>
               <div style={{ fontSize: '0.7rem', color: '#0369a1', marginTop: '2px' }}>Sovereign banking clearance</div>
             </div>
@@ -5462,7 +5462,7 @@ export default function SuperAdminDashboard({
             <div className="metric-card" style={{ background: '#f8fafc', borderLeft: '4px solid #475569', padding: '14px 16px' }}>
               <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Active Paid Tenants</div>
               <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#0f172a', marginTop: '4px' }}>
-                {billingOverview?.activePaidSubscriptions || companies.filter(c => c.status === 'ACTIVE').length || 42}
+                {billingOverview?.activePaidSubscriptions || companies.filter(c => c.status === 'ACTIVE').length || 0}
               </div>
               <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>8 renewals upcoming &lt;30d</div>
             </div>
