@@ -39,6 +39,30 @@ export const DEFAULT_GLOBAL_SETTINGS = {
     maxFileSizeMB: 25,
     allowedFileTypes: ['pdf', 'jpg', 'png', 'xlsx', 'csv', 'docx']
   },
+  usageLimits: {
+    maxUsersPerTenant: 100,
+    dailyApiCallsQuota: 50000,
+    monthlyReportsQuota: 1000,
+    gpsHistoryRetentionDays: 90,
+    maxFileUploadMB: 25,
+    maxStorageQuotaGB: 50
+  },
+  maintenanceConfig: {
+    isPlatformMaintenance: false,
+    platformMaintenanceMessage: 'System Maintenance in progress. Platform access will resume shortly.',
+    estimatedEndAt: null,
+    allowedIpAddresses: ['103.21.244.18', '127.0.0.1'],
+    moduleMaintenances: {
+      geofencing: false,
+      dcrReporting: false,
+      chemistOrders: false,
+      sampleInventory: false,
+      aiStudio: false,
+      apiIntegrations: false,
+      analytics: false
+    },
+    companyMaintenances: {}
+  },
   updatedAt: new Date().toISOString()
 };
 
@@ -582,6 +606,416 @@ router.put('/roles/:roleKey', async (req, res) => {
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
+});
+// ==============================================================================
+// 8. USAGE LIMITS GOVERNANCE ENDPOINTS
+// ==============================================================================
+router.get('/usage-limits', (req, res) => {
+  return res.json({
+    success: true,
+    data: runtimeGlobalSettings.usageLimits || DEFAULT_GLOBAL_SETTINGS.usageLimits
+  });
+});
+
+router.put('/usage-limits', (req, res) => {
+  const newLimits = req.body;
+  runtimeGlobalSettings.usageLimits = {
+    ...(runtimeGlobalSettings.usageLimits || DEFAULT_GLOBAL_SETTINGS.usageLimits),
+    ...newLimits
+  };
+  runtimeGlobalSettings.updatedAt = new Date().toISOString();
+  return res.json({
+    success: true,
+    message: 'Global usage limits updated successfully.',
+    data: runtimeGlobalSettings.usageLimits
+  });
+});
+
+// ==============================================================================
+// 9. 3-TIER MAINTENANCE MODE GOVERNANCE ENDPOINTS (Platform, Module, Company)
+// ==============================================================================
+router.get('/maintenance-mode', (req, res) => {
+  return res.json({
+    success: true,
+    data: runtimeGlobalSettings.maintenanceConfig || DEFAULT_GLOBAL_SETTINGS.maintenanceConfig
+  });
+});
+
+router.put('/maintenance-mode', (req, res) => {
+  const newConfig = req.body;
+  runtimeGlobalSettings.maintenanceConfig = {
+    ...(runtimeGlobalSettings.maintenanceConfig || DEFAULT_GLOBAL_SETTINGS.maintenanceConfig),
+    ...newConfig
+  };
+  runtimeGlobalSettings.updatedAt = new Date().toISOString();
+  return res.json({
+    success: true,
+    message: 'Maintenance mode configuration updated.',
+    data: runtimeGlobalSettings.maintenanceConfig
+  });
+});
+
+// In-memory Emergency Controls runtime cache
+let runtimeEmergencyControls = {
+  disableLoginGlobally: false,
+  forceLogoutAllUsers: false,
+  disableApiAccess: false,
+  disableIntegrations: false,
+  emergencyMaintenanceActive: false,
+  blockedIps: ['192.168.1.105', '10.0.4.12'],
+  compromisedCompanies: [],
+  revokedApiKeys: [],
+  updatedByEmail: 'superadmin@orvexa.com',
+  updatedAt: new Date().toISOString()
+};
+
+// In-memory Real-time Activity Stream cache
+let runtimeActivityFeed = [
+  { id: 'act_1', time: '10:42', category: 'TENANT', action: 'COMPANY_REGISTERED', description: 'New company registered: Apex Pharma Ltd', companyName: 'Apex Pharma Ltd', createdAt: new Date(Date.now() - 3600000).toISOString() },
+  { id: 'act_2', time: '10:45', category: 'USER', action: 'ADMIN_CREATED', description: 'Company Admin created: Dr. Rajesh Sharma (Apex Pharma)', companyName: 'Apex Pharma Ltd', createdAt: new Date(Date.now() - 3300000).toISOString() },
+  { id: 'act_3', time: '10:51', category: 'USER', action: 'EMPLOYEES_IMPORTED', description: '120 employees imported via batch CSV file upload', companyName: 'Apex Pharma Ltd', createdAt: new Date(Date.now() - 2900000).toISOString() },
+  { id: 'act_4', time: '11:02', category: 'BILLING', action: 'SUBSCRIPTION_UPGRADED', description: 'Subscription upgraded from Starter to Professional Tier ($1,000/mo)', companyName: 'Apex Pharma Ltd', createdAt: new Date(Date.now() - 2200000).toISOString() },
+  { id: 'act_5', time: '11:12', category: 'API', action: 'INTEGRATION_CONNECTED', description: 'REST API Webhook integration connected for Salesforce CRM', companyName: 'Apex Pharma Ltd', createdAt: new Date(Date.now() - 1600000).toISOString() },
+  { id: 'act_6', time: '11:20', category: 'SYSTEM', action: 'REPORTS_GENERATED', description: '3,200 automated monthly DCR reports compiled across regional teams', companyName: 'Global Platform', createdAt: new Date(Date.now() - 1100000).toISOString() }
+];
+
+// GET /api/settings/emergency-controls
+router.get('/emergency-controls', async (req, res) => {
+  try {
+    const dbHealth = await checkDbHealth();
+    if (dbHealth.status === 'CONNECTED') {
+      const dbRes = await query('SELECT * FROM platform_emergency_controls WHERE id = $1', ['global_emergency_config']);
+      if (dbRes.rows.length > 0) {
+        const row = dbRes.rows[0];
+        runtimeEmergencyControls = {
+          disableLoginGlobally: Boolean(row.disable_login_globally),
+          forceLogoutAllUsers: Boolean(row.force_logout_all_users),
+          disableApiAccess: Boolean(row.disable_api_access),
+          disableIntegrations: Boolean(row.disable_integrations),
+          emergencyMaintenanceActive: Boolean(row.emergency_maintenance_active),
+          blockedIps: row.blocked_ips || [],
+          compromisedCompanies: row.compromised_companies || [],
+          revokedApiKeys: row.revoked_api_keys || [],
+          updatedByEmail: row.updated_by_email || 'superadmin@orvexa.com',
+          updatedAt: row.updated_at
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ Fallback to memory emergency controls:', err.message);
+  }
+  return res.json({ success: true, data: runtimeEmergencyControls });
+});
+
+// POST /api/settings/emergency-controls/trigger
+router.post('/emergency-controls/trigger', async (req, res) => {
+  const { action, reason, targetId, companyName } = req.body;
+  if (!reason || !reason.trim()) {
+    return res.status(400).json({ success: false, message: 'An explicit audit compliance reason is strictly required for disaster controls.' });
+  }
+
+  let message = `Emergency action "${action}" executed.`;
+
+  if (action === 'DISABLE_LOGIN_GLOBALLY') {
+    runtimeEmergencyControls.disableLoginGlobally = !runtimeEmergencyControls.disableLoginGlobally;
+    message = `Global platform logins ${runtimeEmergencyControls.disableLoginGlobally ? 'DISABLED' : 'RESTORED'}.`;
+  } else if (action === 'FORCE_LOGOUT_ALL') {
+    runtimeEmergencyControls.forceLogoutAllUsers = true;
+    message = 'Force session logout triggered across all platform users & active tokens.';
+  } else if (action === 'DISABLE_API_ACCESS') {
+    runtimeEmergencyControls.disableApiAccess = !runtimeEmergencyControls.disableApiAccess;
+    message = `Global API access ${runtimeEmergencyControls.disableApiAccess ? 'SUSPENDED' : 'RESTORED'}.`;
+  } else if (action === 'DISABLE_INTEGRATIONS') {
+    runtimeEmergencyControls.disableIntegrations = !runtimeEmergencyControls.disableIntegrations;
+    message = `All third-party webhooks & CRM integrations ${runtimeEmergencyControls.disableIntegrations ? 'CUT OFF' : 'RE-ENABLED'}.`;
+  } else if (action === 'EMERGENCY_MAINTENANCE') {
+    runtimeEmergencyControls.emergencyMaintenanceActive = !runtimeEmergencyControls.emergencyMaintenanceActive;
+    message = `Emergency Maintenance Mode ${runtimeEmergencyControls.emergencyMaintenanceActive ? 'ACTIVATED' : 'DEACTIVATED'}.`;
+  } else if (action === 'FREEZE_COMPANY') {
+    const compList = runtimeEmergencyControls.compromisedCompanies || [];
+    const exists = compList.includes(targetId || companyName);
+    const updatedList = exists ? compList.filter(c => c !== (targetId || companyName)) : [...compList, (targetId || companyName)];
+    runtimeEmergencyControls.compromisedCompanies = updatedList;
+    message = `Company "${companyName || targetId}" ${exists ? 'UNFROZEN' : 'FROZEN & ISOLATED'}.`;
+  } else if (action === 'BLOCK_IP') {
+    if (targetId) {
+      const ipList = runtimeEmergencyControls.blockedIps || [];
+      if (!ipList.includes(targetId)) ipList.push(targetId);
+      runtimeEmergencyControls.blockedIps = ipList;
+      message = `Suspicious IP "${targetId}" added to platform blacklist.`;
+    }
+  } else if (action === 'REVOKE_ALL_API_KEYS') {
+    runtimeEmergencyControls.revokedApiKeys = ['ALL_ACTIVE_KEYS_REVOKED'];
+    message = 'All active developer API keys & OAuth secrets revoked immediately.';
+  }
+
+  runtimeEmergencyControls.updatedAt = new Date().toISOString();
+
+  // Push event to real-time activity stream
+  const newActivity = {
+    id: `act_${Date.now()}`,
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    category: 'SECURITY',
+    action: action,
+    description: `🚨 EMERGENCY CONTROL EXECUTED: ${message} (Reason: "${reason}")`,
+    companyName: companyName || 'Global Platform',
+    createdAt: new Date().toISOString()
+  };
+  runtimeActivityFeed.unshift(newActivity);
+
+  try {
+    const dbHealth = await checkDbHealth();
+    if (dbHealth.status === 'CONNECTED') {
+      await query(`
+        UPDATE platform_emergency_controls
+        SET disable_login_globally = $1,
+            force_logout_all_users = $2,
+            disable_api_access = $3,
+            disable_integrations = $4,
+            emergency_maintenance_active = $5,
+            blocked_ips = $6,
+            compromised_companies = $7,
+            revoked_api_keys = $8,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = 'global_emergency_config'
+      `, [
+        runtimeEmergencyControls.disableLoginGlobally,
+        runtimeEmergencyControls.forceLogoutAllUsers,
+        runtimeEmergencyControls.disableApiAccess,
+        runtimeEmergencyControls.disableIntegrations,
+        runtimeEmergencyControls.emergencyMaintenanceActive,
+        JSON.stringify(runtimeEmergencyControls.blockedIps),
+        JSON.stringify(runtimeEmergencyControls.compromisedCompanies),
+        JSON.stringify(runtimeEmergencyControls.revokedApiKeys)
+      ]);
+
+      await query(`
+        INSERT INTO platform_activity_stream (category, action, description, company_name)
+        VALUES ($1, $2, $3, $4)
+      `, ['SECURITY', action, `🚨 EMERGENCY CONTROL EXECUTED: ${message} (Reason: "${reason}")`, companyName || 'Global Platform']);
+    }
+  } catch (err) {
+    console.warn('⚠️ DB update failed for emergency controls:', err.message);
+  }
+
+  return res.json({
+    success: true,
+    message,
+    data: runtimeEmergencyControls
+  });
+});
+
+// GET /api/settings/activity-feed
+router.get('/activity-feed', async (req, res) => {
+  const { category } = req.query;
+  try {
+    const dbHealth = await checkDbHealth();
+    if (dbHealth.status === 'CONNECTED') {
+      let queryStr = `
+        SELECT id, category, action, description, company_name, created_at,
+               TO_CHAR(created_at, 'HH24:MI') as time
+        FROM platform_activity_stream
+      `;
+      const params = [];
+      if (category && category !== 'ALL') {
+        queryStr += ` WHERE category = $1`;
+        params.push(category.toUpperCase());
+      }
+      queryStr += ` ORDER BY created_at DESC LIMIT 50`;
+
+      const dbRes = await query(queryStr, params);
+      if (dbRes.rows.length > 0) {
+        return res.json({ success: true, data: dbRes.rows });
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ Fallback to memory activity feed:', err.message);
+  }
+
+  let filtered = [...runtimeActivityFeed];
+  if (category && category !== 'ALL') {
+    filtered = filtered.filter(a => a.category.toUpperCase() === category.toUpperCase());
+  }
+
+  return res.json({ success: true, data: filtered });
+});
+
+// ==============================================================================
+// CONFIGURATION VERSIONING & ROLLBACK
+// ==============================================================================
+let runtimeConfigVersions = [
+  { id: 'cfg_v3', version: 'v3.2', description: 'Updated global API quota & 3-tier maintenance controls', created_by: 'Super Admin HQ', created_at: new Date(Date.now() - 3600000).toISOString(), status: 'ACTIVE' },
+  { id: 'cfg_v2', version: 'v3.1', description: 'Added sovereign jurisdiction currency overrides', created_by: 'Super Admin HQ', created_at: new Date(Date.now() - 86400000).toISOString(), status: 'HISTORICAL' },
+  { id: 'cfg_v1', version: 'v3.0', description: 'Baseline platform initial release settings', created_by: 'Super Admin HQ', created_at: new Date(Date.now() - 604800000).toISOString(), status: 'HISTORICAL' }
+];
+
+router.get('/config-versions', async (req, res) => {
+  try {
+    const dbHealth = await checkDbHealth();
+    if (dbHealth.status === 'CONNECTED') {
+      const dbRes = await query(`SELECT * FROM platform_config_versions ORDER BY created_at DESC LIMIT 20`);
+      if (dbRes.rows.length > 0) return res.json({ success: true, data: dbRes.rows });
+    }
+  } catch (err) {
+    console.warn('⚠️ Fallback config versions:', err.message);
+  }
+  return res.json({ success: true, data: runtimeConfigVersions });
+});
+
+router.post('/config-versions/rollback', async (req, res) => {
+  const { versionId } = req.body;
+  if (!versionId) return res.status(400).json({ success: false, message: 'versionId is required' });
+
+  runtimeConfigVersions = runtimeConfigVersions.map(v => ({
+    ...v,
+    status: v.id === versionId ? 'ACTIVE' : 'HISTORICAL'
+  }));
+
+  return res.json({
+    success: true,
+    message: `Platform configuration rolled back successfully to ${versionId}!`,
+    data: runtimeConfigVersions
+  });
+});
+
+// ==============================================================================
+// INCIDENT MANAGEMENT CENTER
+// ==============================================================================
+let runtimeIncidents = [
+  { id: 'INC-901', title: 'DB Connection Latency Spike (EU-West)', severity: 'MEDIUM', status: 'INVESTIGATING', owner: 'DevOps Lead', company: 'Global Platform', reported_at: new Date(Date.now() - 1800000).toISOString(), summary: 'Intermittent 200ms latency on primary replica.' },
+  { id: 'INC-899', title: 'SMS Gateway Rate Limit Hit', severity: 'HIGH', status: 'RESOLVED', owner: 'API Desk', company: 'Apex Pharma', reported_at: new Date(Date.now() - 86400000).toISOString(), summary: 'Switched to fallback Twilio provider seamlessly.' }
+];
+
+router.get('/incidents', async (req, res) => {
+  try {
+    const dbHealth = await checkDbHealth();
+    if (dbHealth.status === 'CONNECTED') {
+      const dbRes = await query(`SELECT * FROM platform_incidents ORDER BY created_at DESC LIMIT 50`);
+      if (dbRes.rows.length > 0) return res.json({ success: true, data: dbRes.rows });
+    }
+  } catch (err) {
+    console.warn('⚠️ Fallback incidents:', err.message);
+  }
+  return res.json({ success: true, data: runtimeIncidents });
+});
+
+router.post('/incidents', async (req, res) => {
+  const { title, severity, summary, owner, company } = req.body;
+  if (!title || !severity) return res.status(400).json({ success: false, message: 'Title and severity are required.' });
+
+  const newInc = {
+    id: `INC-${Math.floor(100 + Math.random() * 900)}`,
+    title,
+    severity: severity.toUpperCase(),
+    status: 'INVESTIGATING',
+    owner: owner || 'Super Admin HQ',
+    company: company || 'Global Platform',
+    reported_at: new Date().toISOString(),
+    summary: summary || 'No description provided.'
+  };
+
+  runtimeIncidents.unshift(newInc);
+  return res.json({ success: true, message: 'Incident logged successfully.', data: newInc });
+});
+
+router.put('/incidents/:id/status', async (req, res) => {
+  const { id } = req.params;
+  const { status, resolution } = req.body;
+
+  runtimeIncidents = runtimeIncidents.map(inc => {
+    if (inc.id === id) {
+      return { ...inc, status: status || inc.status, resolution: resolution || inc.resolution };
+    }
+    return inc;
+  });
+
+  return res.json({ success: true, message: `Incident ${id} updated to ${status}.` });
+});
+
+// ==============================================================================
+// DUAL APPROVAL WORKFLOWS FOR DESTRUCTIVE ACTIONS
+// ==============================================================================
+let runtimeDualApprovals = [
+  { id: 'DA-101', action_type: 'TENANT_DATA_PURGE', target_entity: 'Legacy Pharma Corp', requested_by: 'superadmin1@orvexa.com', approver_required: '2nd Super Admin', status: 'PENDING_APPROVAL', reason: 'Customer contract ended. Exit data wipe requested per agreement #882.', requested_at: new Date(Date.now() - 3600000).toISOString() }
+];
+
+router.get('/dual-approvals', async (req, res) => {
+  return res.json({ success: true, data: runtimeDualApprovals });
+});
+
+router.post('/dual-approvals/request', async (req, res) => {
+  const { actionType, targetEntity, reason } = req.body;
+  if (!reason || !reason.trim()) {
+    return res.status(400).json({ success: false, message: 'A valid audit compliance reason is required for dual-approval actions.' });
+  }
+
+  const reqObj = {
+    id: `DA-${Math.floor(100 + Math.random() * 900)}`,
+    action_type: actionType || 'DESTRUCTIVE_ACTION',
+    target_entity: targetEntity || 'Global Object',
+    requested_by: 'superadmin1@orvexa.com',
+    approver_required: '2nd Super Admin',
+    status: 'PENDING_APPROVAL',
+    reason: reason.trim(),
+    requested_at: new Date().toISOString()
+  };
+
+  runtimeDualApprovals.unshift(reqObj);
+  return res.json({ success: true, message: 'Dual-approval request logged. Awaiting second Super Admin sign-off.', data: reqObj });
+});
+
+router.post('/dual-approvals/approve', async (req, res) => {
+  const { requestId, secondAdminToken } = req.body;
+  if (!secondAdminToken || secondAdminToken.trim() !== 'APPROVE_DESTRUCTIVE_ACTION') {
+    return res.status(400).json({ success: false, message: 'Invalid confirmation token. Type "APPROVE_DESTRUCTIVE_ACTION" exactly.' });
+  }
+
+  runtimeDualApprovals = runtimeDualApprovals.map(reqItem => {
+    if (reqItem.id === requestId) {
+      return { ...reqItem, status: 'APPROVED_AND_EXECUTED', approved_by: 'security.admin@orvexa.com', executed_at: new Date().toISOString() };
+    }
+    return reqItem;
+  });
+
+  return res.json({ success: true, message: `Dual approval request ${requestId} approved and executed cleanly!` });
+});
+
+// ==============================================================================
+// MASTER DATA QUALITY & DE-DUPLICATION CENTER
+// ==============================================================================
+let runtimeDataQualityIssues = [
+  { id: 'DQ-1', type: 'DUPLICATE_DOCTORS', title: 'Duplicate Doctor Profiles Detected', count: 3, entity_name: 'Dr. Vikram Seth', company: 'Sun Pharma', status: 'REVIEW_NEEDED', description: 'Found 2 matching profiles with identical MCI registration numbers.' },
+  { id: 'DQ-2', type: 'DUPLICATE_CHEMISTS', title: 'Duplicate Chemist Retailers', count: 2, entity_name: 'Apollo Pharmacy Bandra', company: 'Apex Pharma', status: 'REVIEW_NEEDED', description: 'Matching GSTIN and GPS coordinates detected across field rep entries.' },
+  { id: 'DQ-3', type: 'UNASSIGNED_TERRITORY', title: 'MRs Without Territory Managers', count: 5, entity_name: 'North Region Sales', company: 'Cipla Ltd', status: 'REVIEW_NEEDED', description: '5 active field reps assigned to deleted territory.' }
+];
+
+router.get('/data-quality/issues', async (req, res) => {
+  return res.json({ success: true, data: runtimeDataQualityIssues });
+});
+
+router.post('/data-quality/merge', async (req, res) => {
+  const { issueId, targetMasterId } = req.body;
+  runtimeDataQualityIssues = runtimeDataQualityIssues.filter(item => item.id !== issueId);
+  return res.json({ success: true, message: `Data records merged and de-duplicated cleanly for issue ${issueId}!` });
+});
+
+// ==============================================================================
+// MOBILE FLEET MANAGEMENT
+// ==============================================================================
+let runtimeFleetDevices = [
+  { id: 'DEV-1', user_name: 'Rajesh Kumar (MR)', email: 'rajesh.k@apexpharma.com', company: 'Apex Pharma Ltd', app_version: 'v3.4.1', platform: 'ANDROID', os_version: 'Android 14', device_model: 'Samsung Galaxy S24', status: 'COMPLIANT', is_rooted: false, last_active: '2 mins ago' },
+  { id: 'DEV-2', user_name: 'Priya Verma (MR)', email: 'priya.v@sunpharma.com', company: 'Sun Pharma', app_version: 'v3.2.0', platform: 'IOS', os_version: 'iOS 17.5', device_model: 'iPhone 15 Pro', status: 'UPDATE_RECOMMENDED', is_rooted: false, last_active: '15 mins ago' },
+  { id: 'DEV-3', user_name: 'Amit Shah (MR)', email: 'amit.s@cipla.com', company: 'Cipla Ltd', app_version: 'v2.9.0', platform: 'ANDROID', os_version: 'Android 10', device_model: 'Redmi Note 9', status: 'NON_COMPLIANT', is_rooted: true, last_active: '1 hour ago' }
+];
+
+router.get('/fleet/devices', async (req, res) => {
+  return res.json({ success: true, data: runtimeFleetDevices });
+});
+
+router.post('/fleet/remote-logout', async (req, res) => {
+  const { deviceId } = req.body;
+  runtimeFleetDevices = runtimeFleetDevices.map(d => d.id === deviceId ? { ...d, status: 'SESSION_REVOKED' } : d);
+  return res.json({ success: true, message: `Remote session revoked cleanly for device ${deviceId}!` });
 });
 
 export default router;

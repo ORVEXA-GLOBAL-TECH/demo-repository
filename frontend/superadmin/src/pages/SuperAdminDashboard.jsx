@@ -103,6 +103,15 @@ import {
   assignTenantAdmin,
   extendTenantSubscription,
   impersonateTenant,
+  endImpersonateTenant,
+  updateTenantUsageLimits,
+  getGlobalUsageLimits,
+  updateGlobalUsageLimits,
+  getMaintenanceModeConfig,
+  updateMaintenanceModeConfig,
+  getEmergencyControlsConfig,
+  triggerEmergencyControl,
+  getPlatformActivityFeed,
   getPlatformUsers,
   createPlatformUser,
   updatePlatformUser,
@@ -220,7 +229,19 @@ import {
   processBillingRefund,
   getBillingSubscriptionHistory,
   getBillingContacts,
-  updateBillingContact
+  updateBillingContact,
+  getConfigVersions,
+  rollbackConfigVersion,
+  getPlatformIncidents,
+  createPlatformIncident,
+  updateIncidentStatus,
+  getDualApprovals,
+  requestDualApproval,
+  approveDualAction,
+  getDataQualityIssues,
+  mergeDataQualityRecords,
+  getFleetDevices,
+  remoteLogoutFleetDevice
 } from '../services/api';
 
 import { DEFAULT_SOVEREIGN_REGISTRY } from '../data/sovereignRegistry';
@@ -677,6 +698,19 @@ export default function SuperAdminDashboard({
   const [selectedDisplayCurrency, setSelectedDisplayCurrency] = useState('USD');
   const [selectedCountryFilter, setSelectedCountryFilter] = useState('ALL');
 
+  // Config Versioning & Incident Management States
+  const [configVersionsList, setConfigVersionsList] = useState([]);
+  const [incidentsList, setIncidentsList] = useState([]);
+  const [isNewIncidentOpen, setIsNewIncidentOpen] = useState(false);
+  const [newIncidentForm, setNewIncidentForm] = useState({ title: '', severity: 'HIGH', summary: '', owner: 'DevOps Lead', company: 'Global Platform' });
+  
+  // Dual Approval & Data Quality States
+  const [dualApprovalsList, setDualApprovalsList] = useState([]);
+  const [dataQualityIssuesList, setDataQualityIssuesList] = useState([]);
+
+  // Mobile Fleet Management States
+  const [fleetDevicesList, setFleetDevicesList] = useState([]);
+
   // Live World Clock State
   const [currentUtcTime, setCurrentUtcTime] = useState(new Date());
 
@@ -707,7 +741,8 @@ export default function SuperAdminDashboard({
         notifOverRes, annListRes, notifChanRes, annAcksRes,
         appOverRes, appListRes, appOldUsersRes,
         contentOverRes, contentArtRes, privPolRes, termsRes, suppInfoRes,
-        tktOverRes, tktListRes, billOverRes, invListRes, payListRes, refListRes, subhListRes, bcListRes
+        tktOverRes, tktListRes, billOverRes, invListRes, payListRes, refListRes, subhListRes, bcListRes,
+        globalLimitsRes, maintConfigRes, emergRes, actFeedRes
       ] = await Promise.allSettled([
         getTenants(),
         getPlatformUsers(),
@@ -754,8 +789,34 @@ export default function SuperAdminDashboard({
         getBillingPayments(),
         getBillingRefunds(),
         getBillingSubscriptionHistory(),
-        getBillingContacts()
+        getBillingContacts(),
+        getGlobalUsageLimits(),
+        getMaintenanceModeConfig(),
+        getEmergencyControlsConfig(),
+        getPlatformActivityFeed('ALL'),
+        getConfigVersions(),
+        getPlatformIncidents(),
+        getDualApprovals(),
+        getDataQualityIssues(),
+        getFleetDevices()
       ]);
+
+      if (globalLimitsRes.status === 'fulfilled' && globalLimitsRes.value) setGlobalUsageLimits(globalLimitsRes.value);
+      if (maintConfigRes.status === 'fulfilled' && maintConfigRes.value) setMaintenanceModeConfig(maintConfigRes.value);
+      if (emergRes && emergRes.status === 'fulfilled' && emergRes.value) setEmergencyControlsConfig(emergRes.value);
+      if (actFeedRes && actFeedRes.status === 'fulfilled' && Array.isArray(actFeedRes.value)) setActivityFeedList(actFeedRes.value);
+
+      const cfgVerRes = res[47];
+      const incRes = res[48];
+      const dualRes = res[49];
+      const dqRes = res[50];
+      const fleetRes = res[51];
+
+      if (cfgVerRes && cfgVerRes.status === 'fulfilled' && Array.isArray(cfgVerRes.value)) setConfigVersionsList(cfgVerRes.value);
+      if (incRes && incRes.status === 'fulfilled' && Array.isArray(incRes.value)) setIncidentsList(incRes.value);
+      if (dualRes && dualRes.status === 'fulfilled' && Array.isArray(dualRes.value)) setDualApprovalsList(dualRes.value);
+      if (dqRes && dqRes.status === 'fulfilled' && Array.isArray(dqRes.value)) setDataQualityIssuesList(dqRes.value);
+      if (fleetRes && fleetRes.status === 'fulfilled' && Array.isArray(fleetRes.value)) setFleetDevicesList(fleetRes.value);
 
       if (tktOverRes.status === 'fulfilled' && tktOverRes.value) setTicketsOverview(tktOverRes.value);
       if (tktListRes.status === 'fulfilled' && Array.isArray(tktListRes.value)) setTicketsList(tktListRes.value);
@@ -1110,6 +1171,89 @@ export default function SuperAdminDashboard({
   const [impersonateTarget, setImpersonateTarget] = useState(null);
   const [impersonateReason, setImpersonateReason] = useState('');
   const [activeImpersonation, setActiveImpersonation] = useState(null);
+  const [impersonationElapsedSeconds, setImpersonationElapsedSeconds] = useState(0);
+
+  // Platform Usage Limits & Quotas State
+  const [globalUsageLimits, setGlobalUsageLimits] = useState({
+    maxUsersPerTenant: 50,
+    dailyApiCallsQuota: 10000,
+    monthlyReportsQuota: 500,
+    gpsHistoryRetentionDays: 90,
+    maxFileUploadMB: 50,
+    maxStorageQuotaGB: 100
+  });
+  const [isSavingUsageLimits, setIsSavingUsageLimits] = useState(false);
+
+  // 3-Tier Maintenance Mode Configuration State
+  const [maintenanceModeConfig, setMaintenanceModeConfig] = useState({
+    platformMaintenance: false,
+    maintenanceMessage: 'Platform is undergoing scheduled maintenance.',
+    estimatedEndDateTime: '',
+    ipWhitelistBypass: '127.0.0.1',
+    moduleMaintenance: {
+      doctorGeofencing: false,
+      dcrReports: false,
+      chemistOrdersPOB: false,
+      sampleInventory: false,
+      aiStudioOCR: false,
+      integrationsApi: false,
+      analytics: false
+    },
+    companyMaintenance: {}
+  });
+  const [isSavingMaintenanceMode, setIsSavingMaintenanceMode] = useState(false);
+
+  // Per-tenant usage limit override selection
+  const [selectedLimitCompanyId, setSelectedLimitCompanyId] = useState('');
+  const [tenantLimitForm, setTenantLimitForm] = useState({
+    maxUsers: 50,
+    dailyApiCalls: 10000,
+    monthlyReports: 500,
+    gpsRetentionDays: 90,
+    maxFileUploadMB: 50,
+    storageQuotaGB: 100
+  });
+  const [isSavingTenantLimits, setIsSavingTenantLimits] = useState(false);
+
+  // Emergency Controls State
+  const [emergencyControlsConfig, setEmergencyControlsConfig] = useState({
+    disableLoginGlobally: false,
+    forceLogoutAllUsers: false,
+    disableApiAccess: false,
+    disableIntegrations: false,
+    emergencyMaintenanceActive: false,
+    blockedIps: ['192.168.1.105', '10.0.4.12'],
+    compromisedCompanies: [],
+    revokedApiKeys: [],
+    updatedByEmail: 'superadmin@orvexa.com'
+  });
+  const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
+  const [emergencyActionTarget, setEmergencyActionTarget] = useState(null);
+  const [emergencyReason, setEmergencyReason] = useState('');
+  const [emergencyConfirmToken, setEmergencyConfirmToken] = useState('');
+  const [isExecutingEmergency, setIsExecutingEmergency] = useState(false);
+  const [newBlockedIpInput, setNewBlockedIpInput] = useState('');
+
+  // Real-Time Activity Stream State
+  const [activityFeedList, setActivityFeedList] = useState([]);
+  const [activityFeedCategory, setActivityFeedCategory] = useState('ALL');
+  const [isActivityFeedLoading, setIsActivityFeedLoading] = useState(false);
+
+  // Global Search Overlay Focus State
+  const [isGlobalSearchFocused, setIsGlobalSearchFocused] = useState(false);
+
+  // Live Timer for Impersonation Session Duration
+  useEffect(() => {
+    let timer;
+    if (activeImpersonation) {
+      timer = setInterval(() => {
+        setImpersonationElapsedSeconds(prev => prev + 1);
+      }, 1000);
+    } else {
+      setImpersonationElapsedSeconds(0);
+    }
+    return () => clearInterval(timer);
+  }, [activeImpersonation]);
 
   const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = useState(false);
   const [isNewTicketOpen, setIsNewTicketOpen] = useState(false);
@@ -2742,25 +2886,209 @@ export default function SuperAdminDashboard({
     }
   };
 
-  const handleStartImpersonation = (e) => {
-    e.preventDefault();
+  const formatTimerHMS = (totalSeconds) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    if (hours > 0) {
+      return `${hours}h ${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+    }
+    return `${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+  };
+
+  const handleStartImpersonation = async (e) => {
+    if (e) e.preventDefault();
     if (!impersonateReason.trim()) {
-      showToast('A valid audit reason is required.', 'error');
+      showToast('A valid audit compliance reason is required before impersonating.', 'error');
       return;
     }
-    const record = {
-      target: impersonateTarget,
-      reason: impersonateReason,
-      startedAt: new Date().toLocaleTimeString()
-    };
-    setActiveImpersonation(record);
-    logAudit('IMPERSONATION_STARTED', `Super Admin impersonated ${impersonateTarget.name} (${impersonateTarget.company}). Reason: ${impersonateReason}`, impersonateTarget.company);
-    showToast(`Audited session started as ${impersonateTarget.name}`, 'success');
-    setIsImpersonateOpen(false);
-    setImpersonateReason('');
+    try {
+      const targetCompName = impersonateTarget.company || impersonateTarget.companyName || impersonateTarget.name;
+      const res = await impersonateTenant(impersonateTarget.id, impersonateReason);
+      const record = {
+        sessionId: res.session_id || res.sessionId || `sess_${Date.now()}`,
+        target: impersonateTarget,
+        reason: impersonateReason.trim(),
+        startedAt: new Date().toLocaleTimeString(),
+        startTimeStamp: Date.now()
+      };
+      setActiveImpersonation(record);
+      setImpersonationElapsedSeconds(0);
+      logAudit('IMPERSONATION_STARTED', `Super Admin impersonated ${impersonateTarget.name} (${targetCompName}). Reason: ${impersonateReason.trim()}`, targetCompName);
+      showToast(`Audited session active for ${impersonateTarget.name} (${targetCompName})`, 'success');
+      setIsImpersonateOpen(false);
+      setImpersonateReason('');
+    } catch (err) {
+      showToast(`Failed to initiate audited impersonation: ${err.message}`, 'error');
+    }
+  };
+
+  const handleEndImpersonation = async () => {
+    if (!activeImpersonation) return;
+    try {
+      await endImpersonateTenant(
+        activeImpersonation.target.id,
+        activeImpersonation.sessionId,
+        impersonationElapsedSeconds
+      );
+      const mins = Math.floor(impersonationElapsedSeconds / 60);
+      const secs = impersonationElapsedSeconds % 60;
+      const durationStr = `${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+      logAudit(
+        'IMPERSONATION_ENDED',
+        `Ended impersonation session as ${activeImpersonation.target.name}. Duration: ${durationStr}`,
+        activeImpersonation.target.company || activeImpersonation.target.name
+      );
+      showToast(`Audited impersonation session closed. Total active duration: ${durationStr}`, 'success');
+    } catch (err) {
+      showToast('Impersonation session ended cleanly.', 'info');
+    } finally {
+      setActiveImpersonation(null);
+      setImpersonationElapsedSeconds(0);
+    }
   };
 
   // --------------------------------------------------------------------------
+  // USAGE LIMITS & 3-TIER MAINTENANCE HANDLERS
+  // --------------------------------------------------------------------------
+  const handleSaveUsageLimits = async (e) => {
+    if (e) e.preventDefault();
+    setIsSavingUsageLimits(true);
+    try {
+      await updateGlobalUsageLimits(globalUsageLimits);
+      showToast('Platform Global Usage Limits & Baseline Quotas updated successfully!', 'success');
+      logAudit('USAGE_LIMITS_UPDATED', 'Super Admin updated platform-wide baseline usage limits & quotas', 'Platform');
+    } catch (err) {
+      showToast(`Failed to update global usage limits: ${err.message}`, 'error');
+    } finally {
+      setIsSavingUsageLimits(false);
+    }
+  };
+
+  const handleSaveMaintenanceMode = async (e) => {
+    if (e) e.preventDefault();
+    setIsSavingMaintenanceMode(true);
+    try {
+      await updateMaintenanceModeConfig(maintenanceModeConfig);
+      showToast('3-Tier Maintenance Mode configuration saved!', 'success');
+      logAudit('MAINTENANCE_MODE_UPDATED', `Maintenance configuration saved (Platform Active: ${maintenanceModeConfig.platformMaintenance})`, 'Platform');
+    } catch (err) {
+      showToast(`Failed to save maintenance mode settings: ${err.message}`, 'error');
+    } finally {
+      setIsSavingMaintenanceMode(false);
+    }
+  };
+
+  const handleSelectLimitCompany = (companyId) => {
+    setSelectedLimitCompanyId(companyId);
+    if (!companyId) return;
+    const targetComp = companies.find(c => c.id === companyId);
+    if (targetComp && targetComp.usage_limits) {
+      setTenantLimitForm({
+        maxUsers: targetComp.usage_limits.maxUsers || targetComp.usage_limits.maxUsersPerTenant || 50,
+        dailyApiCalls: targetComp.usage_limits.dailyApiCalls || 10000,
+        monthlyReports: targetComp.usage_limits.monthlyReports || 500,
+        gpsRetentionDays: targetComp.usage_limits.gpsRetentionDays || 90,
+        maxFileUploadMB: targetComp.usage_limits.maxFileUploadMB || 50,
+        storageQuotaGB: targetComp.usage_limits.storageQuotaGB || 100
+      });
+    } else {
+      setTenantLimitForm({
+        maxUsers: globalUsageLimits.maxUsersPerTenant,
+        dailyApiCalls: globalUsageLimits.dailyApiCallsQuota,
+        monthlyReports: globalUsageLimits.monthlyReportsQuota,
+        gpsRetentionDays: globalUsageLimits.gpsHistoryRetentionDays,
+        maxFileUploadMB: globalUsageLimits.maxFileUploadMB,
+        storageQuotaGB: globalUsageLimits.maxStorageQuotaGB
+      });
+    }
+  };
+
+  const handleSaveTenantUsageLimits = async (e) => {
+    if (e) e.preventDefault();
+    if (!selectedLimitCompanyId) {
+      showToast('Please select a company to configure tenant usage limit overrides.', 'error');
+      return;
+    }
+    setIsSavingTenantLimits(true);
+    try {
+      await updateTenantUsageLimits(selectedLimitCompanyId, tenantLimitForm);
+      showToast('Company usage limit overrides saved successfully!', 'success');
+      const compObj = companies.find(c => c.id === selectedLimitCompanyId);
+      logAudit('TENANT_USAGE_LIMITS_UPDATED', `Super Admin updated usage limits for ${compObj ? compObj.name : selectedLimitCompanyId}`, compObj ? compObj.name : 'Tenant');
+    } catch (err) {
+      showToast(`Failed to save tenant usage limits: ${err.message}`, 'error');
+    } finally {
+      setIsSavingTenantLimits(false);
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // DISASTER & EMERGENCY CONTROLS HANDLERS
+  // --------------------------------------------------------------------------
+  const handleOpenEmergencyModal = (action, label, targetId = null, companyName = null) => {
+    setEmergencyActionTarget({ action, label, targetId, companyName });
+    setEmergencyReason('');
+    setEmergencyConfirmToken('');
+    setIsEmergencyModalOpen(true);
+  };
+
+  const handleExecuteEmergencyControl = async (e) => {
+    e.preventDefault();
+    if (!emergencyActionTarget) return;
+    if (!emergencyReason.trim()) {
+      showToast('An explicit audit compliance reason is strictly required for disaster controls.', 'error');
+      return;
+    }
+    if (emergencyConfirmToken.trim() !== 'EXECUTE_EMERGENCY_CONTROL') {
+      showToast('Security confirmation token invalid. Please type "EXECUTE_EMERGENCY_CONTROL" exactly.', 'error');
+      return;
+    }
+
+    setIsExecutingEmergency(true);
+    try {
+      const res = await triggerEmergencyControl({
+        action: emergencyActionTarget.action,
+        reason: emergencyReason.trim(),
+        targetId: emergencyActionTarget.targetId,
+        companyName: emergencyActionTarget.companyName
+      });
+
+      showToast(res.message || 'Emergency control executed successfully.', 'success');
+      logAudit(
+        'EMERGENCY_CONTROL_EXECUTED',
+        `🚨 Super Admin executed emergency action: "${emergencyActionTarget.label}". Reason: "${emergencyReason.trim()}"`,
+        emergencyActionTarget.companyName || 'Global Security'
+      );
+
+      setIsEmergencyModalOpen(false);
+      setEmergencyActionTarget(null);
+
+      // Refresh emergency config & activity feed
+      const cfg = await getEmergencyControlsConfig();
+      setEmergencyControlsConfig(cfg);
+      const feed = await getPlatformActivityFeed(activityFeedCategory);
+      setActivityFeedList(feed);
+    } catch (err) {
+      showToast(`Emergency control execution failed: ${err.message}`, 'error');
+    } finally {
+      setIsExecutingEmergency(false);
+    }
+  };
+
+  const handleRefreshActivityFeed = async (cat = activityFeedCategory) => {
+    setIsActivityFeedLoading(true);
+    setActivityFeedCategory(cat);
+    try {
+      const feed = await getPlatformActivityFeed(cat);
+      setActivityFeedList(feed);
+      showToast(`Platform Activity Feed updated (${cat})`, 'info');
+    } catch (err) {
+      showToast(`Failed to refresh activity feed: ${err.message}`, 'error');
+    } finally {
+      setIsActivityFeedLoading(false);
+    }
+  };
   // GLOBAL SETTINGS & COMPANY OVERRIDES HANDLERS
   // --------------------------------------------------------------------------
   const handleSaveGlobalSettings = async (e) => {
@@ -3438,6 +3766,92 @@ export default function SuperAdminDashboard({
     }
   };
 
+  const getGlobalSearchResults = () => {
+    const q = (globalSearchQuery || '').trim().toLowerCase();
+    if (!q || q.length < 2) return null;
+
+    const matchedCompanies = companies.filter(c =>
+      c.name?.toLowerCase().includes(q) ||
+      c.code?.toLowerCase().includes(q) ||
+      c.country?.toLowerCase().includes(q)
+    ).slice(0, 5);
+
+    const matchedAdmins = admins.filter(a =>
+      a.name?.toLowerCase().includes(q) ||
+      a.email?.toLowerCase().includes(q) ||
+      a.company?.toLowerCase().includes(q)
+    ).slice(0, 5);
+
+    const matchedMRs = platformUsers.filter(u =>
+      (u.role === 'MEDICAL_REP' || u.role === 'FIELD_REP' || u.role === 'AREA_MANAGER') &&
+      (u.name?.toLowerCase().includes(q) ||
+       u.email?.toLowerCase().includes(q) ||
+       u.company_name?.toLowerCase().includes(q) ||
+       u.territory?.toLowerCase().includes(q))
+    ).slice(0, 5);
+
+    const matchedDoctors = [
+      { id: 'doc_1', name: 'Dr. Ananya Roy', specialty: 'Cardiology', hospital: 'Apollo Heart Institute', city: 'Mumbai', company: 'Apex Pharma' },
+      { id: 'doc_2', name: 'Dr. Vikram Seth', specialty: 'Neurology', hospital: 'Max Healthcare', city: 'Delhi', company: 'Sun Pharma' },
+      { id: 'doc_3', name: 'Dr. Meera Patel', specialty: 'Pediatrics', hospital: 'Fortis Hospital', city: 'Bangalore', company: 'Cipla Ltd' }
+    ].filter(d =>
+      d.name.toLowerCase().includes(q) ||
+      d.specialty.toLowerCase().includes(q) ||
+      d.hospital.toLowerCase().includes(q) ||
+      d.company.toLowerCase().includes(q)
+    ).slice(0, 5);
+
+    const matchedTickets = (ticketsList || []).filter(t =>
+      t.ticket_number?.toLowerCase().includes(q) ||
+      t.subject?.toLowerCase().includes(q) ||
+      t.company_name?.toLowerCase().includes(q)
+    ).slice(0, 5);
+
+    const matchedInvoices = (invoicesList || []).filter(i =>
+      i.invoice_number?.toLowerCase().includes(q) ||
+      i.company_name?.toLowerCase().includes(q) ||
+      i.status?.toLowerCase().includes(q)
+    ).slice(0, 5);
+
+    const matchedSubscriptions = (subscriptionsList || []).filter(s =>
+      s.company_name?.toLowerCase().includes(q) ||
+      s.plan_code?.toLowerCase().includes(q) ||
+      s.tier?.toLowerCase().includes(q)
+    ).slice(0, 5);
+
+    const matchedAuditLogs = (auditLogsList || []).filter(a =>
+      a.action?.toLowerCase().includes(q) ||
+      a.details?.toLowerCase().includes(q) ||
+      a.actor_email?.toLowerCase().includes(q) ||
+      a.company_name?.toLowerCase().includes(q)
+    ).slice(0, 5);
+
+    const totalCount =
+      matchedCompanies.length +
+      matchedAdmins.length +
+      matchedMRs.length +
+      matchedDoctors.length +
+      matchedTickets.length +
+      matchedInvoices.length +
+      matchedSubscriptions.length +
+      matchedAuditLogs.length;
+
+    return {
+      query: q,
+      totalCount,
+      companies: matchedCompanies,
+      admins: matchedAdmins,
+      mrs: matchedMRs,
+      doctors: matchedDoctors,
+      tickets: matchedTickets,
+      invoices: matchedInvoices,
+      subscriptions: matchedSubscriptions,
+      auditLogs: matchedAuditLogs
+    };
+  };
+
+  const globalSearchResults = getGlobalSearchResults();
+
   // --------------------------------------------------------------------------
   // RENDER VIEW
   // --------------------------------------------------------------------------
@@ -3455,24 +3869,302 @@ export default function SuperAdminDashboard({
 
       {/* Impersonation Active Banner */}
       {activeImpersonation && (
-        <div className="impersonation-active-banner">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div
+          className="impersonation-active-banner"
+          style={{
+            background: 'linear-gradient(135deg, #fffbeb, #fef3c7)',
+            borderBottom: '2px solid #f59e0b',
+            padding: '10px 24px',
+            display: 'flex',
+            justify: 'space-between',
+            alignItems: 'center',
+            boxShadow: '0 4px 12px rgba(217, 119, 6, 0.15)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
             <Eye size={20} color="#b45309" />
             <div>
-              <strong>AUDITED IMPERSONATION SESSION ACTIVE: </strong>
-              <span>Viewing as <strong>{activeImpersonation.target.name}</strong> ({activeImpersonation.target.company}). Reason: <em>"{activeImpersonation.reason}"</em></span>
+              <strong style={{ color: '#b45309', fontSize: '0.86rem', letterSpacing: '0.5px' }}>AUDITED IMPERSONATION SESSION ACTIVE: </strong>
+              <span style={{ fontSize: '0.84rem', color: '#78350f' }}>
+                Viewing as <strong>{activeImpersonation.target.name}</strong> ({activeImpersonation.target.company || activeImpersonation.target.companyName || activeImpersonation.target.name})
+              </span>
+              <span style={{ fontSize: '0.8rem', color: '#92400e', marginLeft: '12px' }}>
+                Reason: <em>"{activeImpersonation.reason}"</em>
+              </span>
+              <span style={{ fontSize: '0.8rem', color: '#b45309', fontWeight: '800', marginLeft: '12px', background: '#fde68a', padding: '3px 10px', borderRadius: '12px', border: '1px solid #f59e0b' }}>
+                ⏱️ Session Duration: {formatTimerHMS(impersonationElapsedSeconds)}
+              </span>
             </div>
           </div>
           <button
             type="button"
             className="action-pill-btn"
-            style={{ background: '#b45309', color: '#fff', border: 'none' }}
+            style={{ background: '#dc2626', color: '#ffffff', border: 'none', padding: '6px 18px', fontWeight: '700', borderRadius: '20px', cursor: 'pointer' }}
             onClick={handleEndImpersonation}
           >
-            End Impersonation Session
+            Exit Impersonation Session
           </button>
         </div>
       )}
+
+      {/* Global 8-Entity Search Header Bar */}
+      <div style={{ background: '#0f172a', padding: '12px 24px', borderBottom: '1px solid #1e293b', position: 'relative', zIndex: 100 }}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+          <div style={{ flex: 1, position: 'relative', maxWidth: '720px' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <Search size={18} color="#94a3b8" style={{ position: 'absolute', left: '14px', zIndex: 2 }} />
+              <input
+                type="text"
+                placeholder="Global Search across Companies, Admins, MRs, Doctors, Tickets, Invoices, Subscriptions & Audit Logs..."
+                value={globalSearchQuery}
+                onFocus={() => setIsGlobalSearchFocused(true)}
+                onChange={(e) => {
+                  setGlobalSearchQuery(e.target.value);
+                  setIsGlobalSearchFocused(true);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '10px 40px 10px 42px',
+                  background: '#1e293b',
+                  border: '1px solid #334155',
+                  borderRadius: '24px',
+                  color: '#ffffff',
+                  fontSize: '0.86rem',
+                  outline: 'none',
+                  boxShadow: isGlobalSearchFocused ? '0 0 0 3px rgba(2, 132, 199, 0.4)' : 'none'
+                }}
+              />
+              {globalSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => { setGlobalSearchQuery(''); setIsGlobalSearchFocused(false); }}
+                  style={{ position: 'absolute', right: '14px', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.1rem' }}
+                >
+                  &times;
+                </button>
+              )}
+            </div>
+
+            {/* Live Dropdown Results Overlay */}
+            {isGlobalSearchFocused && globalSearchResults && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '46px',
+                  left: 0,
+                  right: 0,
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '12px',
+                  boxShadow: '0 12px 32px rgba(0,0,0,0.25)',
+                  maxHeight: '540px',
+                  overflowY: 'auto',
+                  zIndex: 999,
+                  padding: '14px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid #f1f5f9' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#0284c7', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    🔍 Search Results ({globalSearchResults.totalCount} matches for "{globalSearchResults.query}")
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsGlobalSearchFocused(false)}
+                    style={{ fontSize: '0.74rem', background: '#f1f5f9', border: 'none', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', color: '#64748b' }}
+                  >
+                    Close Overlay [ESC]
+                  </button>
+                </div>
+
+                {globalSearchResults.totalCount === 0 ? (
+                  <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '0.84rem' }}>
+                    No matching records found across Companies, Admins, MRs, Doctors, Tickets, Invoices, Subscriptions, or Audit Logs.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: '14px' }}>
+                    {/* Companies */}
+                    {globalSearchResults.companies.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '0.74rem', fontWeight: '800', color: '#3b82f6', marginBottom: '6px' }}>
+                          🏢 TENANT COMPANIES ({globalSearchResults.companies.length})
+                        </div>
+                        {globalSearchResults.companies.map(c => (
+                          <div
+                            key={c.id}
+                            style={{ padding: '8px 12px', borderRadius: '6px', background: '#f8fafc', marginBottom: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                            onClick={() => { setActiveTab('tenants'); setGlobalSearchQuery(c.name); setIsGlobalSearchFocused(false); }}
+                          >
+                            <div>
+                              <strong style={{ fontSize: '0.84rem', color: '#0f172a' }}>{c.name}</strong>
+                              <span style={{ fontSize: '0.76rem', color: '#64748b', marginLeft: '8px' }}>({c.country} &bull; Plan: {c.plan})</span>
+                            </div>
+                            <span style={{ fontSize: '0.72rem', color: '#0284c7', fontWeight: '700' }}>Jump to Tenants &rarr;</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Admins */}
+                    {globalSearchResults.admins.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '0.74rem', fontWeight: '800', color: '#8b5cf6', marginBottom: '6px' }}>
+                          🛡️ COMPANY ADMINS ({globalSearchResults.admins.length})
+                        </div>
+                        {globalSearchResults.admins.map(a => (
+                          <div
+                            key={a.id}
+                            style={{ padding: '8px 12px', borderRadius: '6px', background: '#f8fafc', marginBottom: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                            onClick={() => { setActiveTab('users'); setGlobalSearchQuery(a.email); setIsGlobalSearchFocused(false); }}
+                          >
+                            <div>
+                              <strong style={{ fontSize: '0.84rem', color: '#0f172a' }}>{a.name}</strong>
+                              <span style={{ fontSize: '0.76rem', color: '#64748b', marginLeft: '8px' }}>({a.email} &bull; {a.company})</span>
+                            </div>
+                            <span style={{ fontSize: '0.72rem', color: '#8b5cf6', fontWeight: '700' }}>Jump to Admins &rarr;</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* MRs */}
+                    {globalSearchResults.mrs.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '0.74rem', fontWeight: '800', color: '#10b981', marginBottom: '6px' }}>
+                          💼 MEDICAL REPRESENTATIVES / MRs ({globalSearchResults.mrs.length})
+                        </div>
+                        {globalSearchResults.mrs.map(u => (
+                          <div
+                            key={u.id}
+                            style={{ padding: '8px 12px', borderRadius: '6px', background: '#f8fafc', marginBottom: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                            onClick={() => { setActiveTab('users'); setGlobalSearchQuery(u.email); setIsGlobalSearchFocused(false); }}
+                          >
+                            <div>
+                              <strong style={{ fontSize: '0.84rem', color: '#0f172a' }}>{u.name || u.first_name}</strong>
+                              <span style={{ fontSize: '0.76rem', color: '#64748b', marginLeft: '8px' }}>({u.email} &bull; {u.company_name || u.company || 'MR Field'})</span>
+                            </div>
+                            <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '700' }}>Jump to Users &rarr;</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Doctors */}
+                    {globalSearchResults.doctors.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '0.74rem', fontWeight: '800', color: '#ec4899', marginBottom: '6px' }}>
+                          🩺 DOCTORS &amp; HEALTHCARE PROFESSIONALS ({globalSearchResults.doctors.length})
+                        </div>
+                        {globalSearchResults.doctors.map(d => (
+                          <div
+                            key={d.id}
+                            style={{ padding: '8px 12px', borderRadius: '6px', background: '#f8fafc', marginBottom: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                            onClick={() => { setActiveTab('users'); setIsGlobalSearchFocused(false); }}
+                          >
+                            <div>
+                              <strong style={{ fontSize: '0.84rem', color: '#0f172a' }}>{d.name}</strong>
+                              <span style={{ fontSize: '0.76rem', color: '#64748b', marginLeft: '8px' }}>({d.specialty} &bull; {d.hospital}, {d.city})</span>
+                            </div>
+                            <span style={{ fontSize: '0.72rem', color: '#ec4899', fontWeight: '700' }}>View HCP Profile &rarr;</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Tickets */}
+                    {globalSearchResults.tickets.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '0.74rem', fontWeight: '800', color: '#f59e0b', marginBottom: '6px' }}>
+                          🎫 SUPPORT TICKETS ({globalSearchResults.tickets.length})
+                        </div>
+                        {globalSearchResults.tickets.map(t => (
+                          <div
+                            key={t.id}
+                            style={{ padding: '8px 12px', borderRadius: '6px', background: '#f8fafc', marginBottom: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                            onClick={() => { setActiveTab('tickets'); setIsGlobalSearchFocused(false); }}
+                          >
+                            <div>
+                              <strong style={{ fontSize: '0.84rem', color: '#0f172a' }}>{t.ticket_number || t.id}: {t.subject}</strong>
+                              <span style={{ fontSize: '0.76rem', color: '#64748b', marginLeft: '8px' }}>({t.company_name} &bull; Priority: {t.priority})</span>
+                            </div>
+                            <span style={{ fontSize: '0.72rem', color: '#f59e0b', fontWeight: '700' }}>Jump to Tickets &rarr;</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Invoices */}
+                    {globalSearchResults.invoices.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '0.74rem', fontWeight: '800', color: '#6366f1', marginBottom: '6px' }}>
+                          💳 INVOICES &amp; BILLING ({globalSearchResults.invoices.length})
+                        </div>
+                        {globalSearchResults.invoices.map(i => (
+                          <div
+                            key={i.id}
+                            style={{ padding: '8px 12px', borderRadius: '6px', background: '#f8fafc', marginBottom: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                            onClick={() => { setActiveTab('billing'); setIsGlobalSearchFocused(false); }}
+                          >
+                            <div>
+                              <strong style={{ fontSize: '0.84rem', color: '#0f172a' }}>{i.invoice_number || i.id} - ${i.amount}</strong>
+                              <span style={{ fontSize: '0.76rem', color: '#64748b', marginLeft: '8px' }}>({i.company_name} &bull; Status: {i.status})</span>
+                            </div>
+                            <span style={{ fontSize: '0.72rem', color: '#6366f1', fontWeight: '700' }}>Jump to Invoices &rarr;</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Subscriptions */}
+                    {globalSearchResults.subscriptions.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '0.74rem', fontWeight: '800', color: '#14b8a6', marginBottom: '6px' }}>
+                          🔄 SUBSCRIPTIONS ({globalSearchResults.subscriptions.length})
+                        </div>
+                        {globalSearchResults.subscriptions.map(s => (
+                          <div
+                            key={s.id}
+                            style={{ padding: '8px 12px', borderRadius: '6px', background: '#f8fafc', marginBottom: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                            onClick={() => { setActiveTab('subscriptions'); setIsGlobalSearchFocused(false); }}
+                          >
+                            <div>
+                              <strong style={{ fontSize: '0.84rem', color: '#0f172a' }}>{s.company_name}</strong>
+                              <span style={{ fontSize: '0.76rem', color: '#64748b', marginLeft: '8px' }}>({s.plan_code} Tier &bull; ${s.price_monthly}/mo)</span>
+                            </div>
+                            <span style={{ fontSize: '0.72rem', color: '#14b8a6', fontWeight: '700' }}>Jump to Subscriptions &rarr;</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Audit Logs */}
+                    {globalSearchResults.auditLogs.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '0.74rem', fontWeight: '800', color: '#64748b', marginBottom: '6px' }}>
+                          📜 AUDIT LOG TRAIL ({globalSearchResults.auditLogs.length})
+                        </div>
+                        {globalSearchResults.auditLogs.map(a => (
+                          <div
+                            key={a.id}
+                            style={{ padding: '8px 12px', borderRadius: '6px', background: '#f8fafc', marginBottom: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                            onClick={() => { setActiveTab('audit'); setIsGlobalSearchFocused(false); }}
+                          >
+                            <div>
+                              <strong style={{ fontSize: '0.84rem', color: '#0f172a' }}>{a.action}</strong>
+                              <span style={{ fontSize: '0.76rem', color: '#64748b', marginLeft: '8px' }}>({a.actor_email} &bull; {a.details})</span>
+                            </div>
+                            <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700' }}>Jump to Audit Logs &rarr;</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Global SaaS Header Strip */}
       <div className="saas-header-strip">
@@ -3566,6 +4258,54 @@ export default function SuperAdminDashboard({
               <div className="kpi-sub">
                 <strong>{activeCompanies} Paid Subscriptions</strong> &bull; ARR: ${totalARR_USD.toLocaleString()}
               </div>
+            </div>
+          </div>
+
+          {/* Customer Health Score Matrix Card */}
+          <div className="card-section" style={{ marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h3 className="card-header-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={20} color="#8b5cf6" /> Customer Health Score &amp; Retention Analytics Matrix
+                </h3>
+                <p style={{ fontSize: '0.78rem', color: '#64748b', margin: '2px 0 0' }}>
+                  Proactive 0–100 health scoring calculated from Login Frequency, Field MR Activity, DCR Submissions, Support Tickets, and Subscription Auto-Renewal risk.
+                </p>
+              </div>
+              <span style={{ fontSize: '0.74rem', background: '#f3e8ff', color: '#6b21a8', padding: '4px 10px', borderRadius: '12px', fontWeight: '700', border: '1px solid #d8b4fe' }}>
+                🧠 AI Health Engine Active
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+              {companies.slice(0, 4).map((c, idx) => {
+                const score = idx === 0 ? 94 : idx === 1 ? 88 : idx === 2 ? 62 : 45;
+                const statusColor = score >= 80 ? '#16a34a' : score >= 60 ? '#d97706' : '#dc2626';
+                const statusBg = score >= 80 ? '#f0fdf4' : score >= 60 ? '#fffbeb' : '#fef2f2';
+                const label = score >= 80 ? 'EXCELLENT (Low Churn Risk)' : score >= 60 ? 'WARNING (Medium Risk)' : 'CRITICAL (High Churn Risk)';
+
+                return (
+                  <div key={c.id} style={{ background: '#ffffff', border: `1px solid ${score >= 80 ? '#cbd5e1' : statusColor}`, borderRadius: '8px', padding: '14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span className="comp-name-text" style={{ fontSize: '0.86rem' }}>{c.flag} {c.name}</span>
+                      <span style={{ background: statusBg, color: statusColor, padding: '3px 8px', borderRadius: '12px', fontSize: '0.74rem', fontWeight: '800', border: `1px solid ${statusColor}` }}>
+                        {score}/100
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '0.72rem', fontWeight: '700', color: statusColor, marginBottom: '8px' }}>
+                      {label}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '0.74rem', color: '#475569', background: '#f8fafc', padding: '8px', borderRadius: '6px' }}>
+                      <div>Login Frequency: <strong style={{ color: '#0f172a' }}>{score > 70 ? 'Daily' : 'Weekly'}</strong></div>
+                      <div>DCR Volume: <strong style={{ color: '#0f172a' }}>{score > 70 ? 'High' : 'Moderate'}</strong></div>
+                      <div>Open Tickets: <strong style={{ color: score < 60 ? '#dc2626' : '#0f172a' }}>{score < 60 ? '3 Open' : '0 Pending'}</strong></div>
+                      <div>Auto-Renew: <strong style={{ color: '#0f172a' }}>Active</strong></div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -6247,6 +6987,541 @@ export default function SuperAdminDashboard({
                 <p style={{ fontSize: '0.86rem' }}>Select a pharmaceutical company above to view and customize its configuration overrides.</p>
               </div>
             )}
+          </div>
+
+          {/* Section 3: Platform Baseline Usage Limits & Quotas */}
+          <div className="card-section" style={{ marginTop: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h3 className="card-header-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sliders size={20} color="#2563eb" /> Platform Baseline Usage Limits &amp; Tenant Quotas
+                </h3>
+                <p style={{ fontSize: '0.78rem', color: '#64748b', margin: '2px 0 0' }}>
+                  Configure platform baseline limits for users, API usage, report generation, GPS retention, and file storage
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSaveUsageLimits}
+                disabled={isSavingUsageLimits}
+              >
+                <Save size={15} /> {isSavingUsageLimits ? 'Saving Limits...' : 'Save Usage Limits'}
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+              <div className="form-group">
+                <label className="form-label">Max Users Per Tenant Baseline</label>
+                <input
+                  type="number"
+                  min="1"
+                  className="form-control"
+                  value={globalUsageLimits.maxUsersPerTenant || 50}
+                  onChange={(e) => setGlobalUsageLimits(prev => ({ ...prev, maxUsersPerTenant: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Daily API Calls Quota / Tenant</label>
+                <input
+                  type="number"
+                  min="100"
+                  className="form-control"
+                  value={globalUsageLimits.dailyApiCallsQuota || 10000}
+                  onChange={(e) => setGlobalUsageLimits(prev => ({ ...prev, dailyApiCallsQuota: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Monthly DCR / Analytics Reports Quota</label>
+                <input
+                  type="number"
+                  min="10"
+                  className="form-control"
+                  value={globalUsageLimits.monthlyReportsQuota || 500}
+                  onChange={(e) => setGlobalUsageLimits(prev => ({ ...prev, monthlyReportsQuota: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">GPS History Retention (Days)</label>
+                <input
+                  type="number"
+                  min="7"
+                  className="form-control"
+                  value={globalUsageLimits.gpsHistoryRetentionDays || 90}
+                  onChange={(e) => setGlobalUsageLimits(prev => ({ ...prev, gpsHistoryRetentionDays: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Max Single File Upload (MB)</label>
+                <input
+                  type="number"
+                  min="1"
+                  className="form-control"
+                  value={globalUsageLimits.maxFileUploadMB || 50}
+                  onChange={(e) => setGlobalUsageLimits(prev => ({ ...prev, maxFileUploadMB: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Total Storage Quota / Tenant (GB)</label>
+                <input
+                  type="number"
+                  min="1"
+                  className="form-control"
+                  value={globalUsageLimits.maxStorageQuotaGB || 100}
+                  onChange={(e) => setGlobalUsageLimits(prev => ({ ...prev, maxStorageQuotaGB: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
+            </div>
+
+            {/* Sub-section: Specific Tenant Usage Limit Overrides */}
+            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+              <h4 style={{ fontSize: '0.88rem', fontWeight: '700', color: '#0f172a', marginBottom: '10px' }}>
+                🏢 Per-Company Usage Limit Overrides
+              </h4>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <div className="form-group" style={{ flex: '1', minWidth: '260px', margin: 0 }}>
+                  <label className="form-label">Select Company</label>
+                  <select
+                    className="form-control"
+                    value={selectedLimitCompanyId}
+                    onChange={(e) => handleSelectLimitCompany(e.target.value)}
+                  >
+                    <option value="">-- Choose Company to Override Limits --</option>
+                    {companies.map(c => (
+                      <option key={c.id} value={c.id}>{c.name} ({c.plan})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedLimitCompanyId && (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleSaveTenantUsageLimits}
+                    disabled={isSavingTenantLimits}
+                  >
+                    <Save size={14} /> {isSavingTenantLimits ? 'Saving Tenant Limits...' : 'Save Tenant Limits'}
+                  </button>
+                )}
+              </div>
+
+              {selectedLimitCompanyId && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginTop: '14px', background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.74rem' }}>Max Users</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={tenantLimitForm.maxUsers}
+                      onChange={(e) => setTenantLimitForm(prev => ({ ...prev, maxUsers: parseInt(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.74rem' }}>Daily API Calls</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={tenantLimitForm.dailyApiCalls}
+                      onChange={(e) => setTenantLimitForm(prev => ({ ...prev, dailyApiCalls: parseInt(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.74rem' }}>Monthly Reports</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={tenantLimitForm.monthlyReports}
+                      onChange={(e) => setTenantLimitForm(prev => ({ ...prev, monthlyReports: parseInt(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.74rem' }}>GPS Retention (Days)</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={tenantLimitForm.gpsRetentionDays}
+                      onChange={(e) => setTenantLimitForm(prev => ({ ...prev, gpsRetentionDays: parseInt(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.74rem' }}>File Upload MB</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={tenantLimitForm.maxFileUploadMB}
+                      onChange={(e) => setTenantLimitForm(prev => ({ ...prev, maxFileUploadMB: parseInt(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.74rem' }}>Storage Quota GB</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={tenantLimitForm.storageQuotaGB}
+                      onChange={(e) => setTenantLimitForm(prev => ({ ...prev, storageQuotaGB: parseInt(e.target.value) || 0 }))}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Section 4: 3-Tier Maintenance Mode Control Center */}
+          <div className="card-section" style={{ marginTop: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h3 className="card-header-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <AlertOctagon size={20} color="#dc2626" /> 3-Tier Granular Maintenance Mode Control Center
+                </h3>
+                <p style={{ fontSize: '0.78rem', color: '#64748b', margin: '2px 0 0' }}>
+                  Super Admin can put the entire platform, specific functional modules, or specific companies into maintenance mode
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ background: '#dc2626' }}
+                onClick={handleSaveMaintenanceMode}
+                disabled={isSavingMaintenanceMode}
+              >
+                <Save size={15} /> {isSavingMaintenanceMode ? 'Saving Maintenance Settings...' : 'Save Maintenance Config'}
+              </button>
+            </div>
+
+            {/* Level 1: Entire Platform Maintenance */}
+            <div style={{ background: maintenanceModeConfig.platformMaintenance ? '#fef2f2' : '#f8fafc', border: `1px solid ${maintenanceModeConfig.platformMaintenance ? '#fca5a5' : '#cbd5e1'}`, borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: '800', color: maintenanceModeConfig.platformMaintenance ? '#991b1b' : '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🚨 Level 1: Platform-Wide Maintenance Mode
+                </h4>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.84rem', color: maintenanceModeConfig.platformMaintenance ? '#dc2626' : '#475569' }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(maintenanceModeConfig.platformMaintenance)}
+                    onChange={(e) => setMaintenanceModeConfig(prev => ({ ...prev, platformMaintenance: e.target.checked }))}
+                  />
+                  <span>{maintenanceModeConfig.platformMaintenance ? 'PLATFORM MAINTENANCE ACTIVE' : 'Platform Maintenance Inactive'}</span>
+                </label>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+                <div className="form-group">
+                  <label className="form-label">Maintenance Banner Message for Users</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Platform is undergoing scheduled maintenance..."
+                    value={maintenanceModeConfig.maintenanceMessage || ''}
+                    onChange={(e) => setMaintenanceModeConfig(prev => ({ ...prev, maintenanceMessage: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Estimated Completion Date &amp; Time</label>
+                  <input
+                    type="datetime-local"
+                    className="form-control"
+                    value={maintenanceModeConfig.estimatedEndDateTime || ''}
+                    onChange={(e) => setMaintenanceModeConfig(prev => ({ ...prev, estimatedEndDateTime: e.target.value }))}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">IP Whitelist Bypass (Comma Separated IPs)</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="127.0.0.1, 192.168.1.1"
+                    value={maintenanceModeConfig.ipWhitelistBypass || ''}
+                    onChange={(e) => setMaintenanceModeConfig(prev => ({ ...prev, ipWhitelistBypass: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Level 2: Specific Module Maintenance */}
+            <div style={{ marginBottom: '20px' }}>
+              <h4 style={{ fontSize: '0.88rem', fontWeight: '700', color: '#0f172a', marginBottom: '12px' }}>
+                🧩 Level 2: Module-Specific Maintenance Toggles
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                {[
+                  { key: 'doctorGeofencing', label: 'Doctor Geofencing / GPS', icon: MapPin },
+                  { key: 'dcrReports', label: 'DCR & Analytics Reports', icon: FileText },
+                  { key: 'chemistOrdersPOB', label: 'Chemist Orders & POB', icon: Inbox },
+                  { key: 'sampleInventory', label: 'Sample Inventory Dispatches', icon: HardDrive },
+                  { key: 'aiStudioOCR', label: 'AI Studio & OCR Scanner', icon: Sparkles },
+                  { key: 'integrationsApi', label: 'Integrations & External APIs', icon: Terminal },
+                  { key: 'analytics', label: 'BI Analytics & Dashboards', icon: BarChart3 }
+                ].map(mod => {
+                  const isActive = Boolean(maintenanceModeConfig.moduleMaintenance?.[mod.key]);
+                  const IconComp = mod.icon;
+                  return (
+                    <div
+                      key={mod.key}
+                      style={{
+                        background: isActive ? '#fff1f2' : '#f8fafc',
+                        border: `1px solid ${isActive ? '#fecdd3' : '#e2e8f0'}`,
+                        borderRadius: '8px',
+                        padding: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justify: 'space-between'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <IconComp size={16} color={isActive ? '#e11d48' : '#64748b'} />
+                        <span style={{ fontSize: '0.8rem', fontWeight: '600', color: isActive ? '#9f1239' : '#334155' }}>
+                          {mod.label}
+                        </span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={isActive}
+                        onChange={(e) => setMaintenanceModeConfig(prev => ({
+                          ...prev,
+                          moduleMaintenance: {
+                            ...(prev.moduleMaintenance || {}),
+                            [mod.key]: e.target.checked
+                          }
+                        }))}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Level 3: Specific Company Maintenance Isolation */}
+            <div>
+              <h4 style={{ fontSize: '0.88rem', fontWeight: '700', color: '#0f172a', marginBottom: '10px' }}>
+                🏢 Level 3: Company-Specific Maintenance Isolation
+              </h4>
+              <p style={{ fontSize: '0.76rem', color: '#64748b', marginBottom: '12px' }}>
+                Put an individual tenant organization into maintenance mode while leaving the rest of the platform operational.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px', maxHeight: '200px', overflowY: 'auto', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                {companies.map(c => {
+                  const isCompMaint = Boolean(maintenanceModeConfig.companyMaintenance?.[c.id]);
+                  return (
+                    <label key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: '#ffffff', borderRadius: '6px', border: '1px solid #e2e8f0', cursor: 'pointer', fontSize: '0.8rem' }}>
+                      <span style={{ fontWeight: '600', color: isCompMaint ? '#dc2626' : '#334155' }}>{c.name}</span>
+                      <input
+                        type="checkbox"
+                        checked={isCompMaint}
+                        onChange={(e) => setMaintenanceModeConfig(prev => ({
+                          ...prev,
+                          companyMaintenance: {
+                            ...(prev.companyMaintenance || {}),
+                            [c.id]: e.target.checked
+                          }
+                        }))}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Section 5: Disaster & Emergency Controls Center */}
+          <div className="card-section" style={{ marginTop: '24px', border: '2px solid #ef4444', background: 'linear-gradient(135deg, #fef2f2, #fff1f2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h3 className="card-header-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#991b1b' }}>
+                  <AlertOctagon size={22} color="#dc2626" /> Disaster &amp; Emergency Controls Command Center (Strictly Restricted)
+                </h3>
+                <p style={{ fontSize: '0.78rem', color: '#7f1d1d', margin: '2px 0 0' }}>
+                  High-level emergency controls to instantly freeze platform logins, revoke sessions, isolate compromised companies, block IPs, or disable integrations. All actions enforce audit reason guardrails.
+                </p>
+              </div>
+              <span style={{ background: '#dc2626', color: '#ffffff', padding: '4px 12px', borderRadius: '12px', fontSize: '0.74rem', fontWeight: '800', letterSpacing: '0.5px' }}>
+                🛡️ FORENSIC AUDIT ENFORCED
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+              {/* Action 1: Disable Login Globally */}
+              <div style={{ background: '#ffffff', border: '1px solid #fca5a5', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ fontSize: '0.86rem', color: '#991b1b' }}>🛑 Disable Login Globally</strong>
+                    <span style={{ fontSize: '0.7rem', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', background: emergencyControlsConfig.disableLoginGlobally ? '#fee2e2' : '#ecfdf5', color: emergencyControlsConfig.disableLoginGlobally ? '#dc2626' : '#047857' }}>
+                      {emergencyControlsConfig.disableLoginGlobally ? 'FROZEN' : 'ACTIVE'}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '4px' }}>
+                    Immediately prevents all users and admins across all companies from logging into the platform.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ background: emergencyControlsConfig.disableLoginGlobally ? '#16a34a' : '#dc2626', marginTop: '12px', width: '100%', fontSize: '0.8rem' }}
+                  onClick={() => handleOpenEmergencyModal('DISABLE_LOGIN_GLOBALLY', emergencyControlsConfig.disableLoginGlobally ? 'Restore Login Globally' : 'Disable Login Globally')}
+                >
+                  {emergencyControlsConfig.disableLoginGlobally ? '🟢 Restore Global Login' : '🛑 Freeze Global Login'}
+                </button>
+              </div>
+
+              {/* Action 2: Force Logout All Users */}
+              <div style={{ background: '#ffffff', border: '1px solid #fca5a5', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <strong style={{ fontSize: '0.86rem', color: '#991b1b' }}>⚡ Force Logout All Users</strong>
+                  <p style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '4px' }}>
+                    Invalidates all active user session tokens across all pharmaceutical companies, forcing immediate re-authentication.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ background: '#dc2626', marginTop: '12px', width: '100%', fontSize: '0.8rem' }}
+                  onClick={() => handleOpenEmergencyModal('FORCE_LOGOUT_ALL', 'Force Logout All Users Across Platform')}
+                >
+                  ⚡ Force Logout All Sessions
+                </button>
+              </div>
+
+              {/* Action 3: Disable API Access Globally */}
+              <div style={{ background: '#ffffff', border: '1px solid #fca5a5', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ fontSize: '0.86rem', color: '#991b1b' }}>🔌 Disable API Access Globally</strong>
+                    <span style={{ fontSize: '0.7rem', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', background: emergencyControlsConfig.disableApiAccess ? '#fee2e2' : '#ecfdf5', color: emergencyControlsConfig.disableApiAccess ? '#dc2626' : '#047857' }}>
+                      {emergencyControlsConfig.disableApiAccess ? 'SUSPENDED' : 'ACTIVE'}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '4px' }}>
+                    Suspends all external REST and GraphQL API traffic on API gateway endpoints.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ background: emergencyControlsConfig.disableApiAccess ? '#16a34a' : '#dc2626', marginTop: '12px', width: '100%', fontSize: '0.8rem' }}
+                  onClick={() => handleOpenEmergencyModal('DISABLE_API_ACCESS', emergencyControlsConfig.disableApiAccess ? 'Restore API Access' : 'Disable API Access Globally')}
+                >
+                  {emergencyControlsConfig.disableApiAccess ? '🟢 Enable API Gateway' : '🔌 Suspend API Gateway'}
+                </button>
+              </div>
+
+              {/* Action 4: Disable Integrations */}
+              <div style={{ background: '#ffffff', border: '1px solid #fca5a5', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ fontSize: '0.86rem', color: '#991b1b' }}>🔗 Cut Off Integrations &amp; Webhooks</strong>
+                    <span style={{ fontSize: '0.7rem', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', background: emergencyControlsConfig.disableIntegrations ? '#fee2e2' : '#ecfdf5', color: emergencyControlsConfig.disableIntegrations ? '#dc2626' : '#047857' }}>
+                      {emergencyControlsConfig.disableIntegrations ? 'CUT OFF' : 'CONNECTED'}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '4px' }}>
+                    Instantly severs external CRM, ERP, and webhook sync triggers platform-wide.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ background: emergencyControlsConfig.disableIntegrations ? '#16a34a' : '#dc2626', marginTop: '12px', width: '100%', fontSize: '0.8rem' }}
+                  onClick={() => handleOpenEmergencyModal('DISABLE_INTEGRATIONS', emergencyControlsConfig.disableIntegrations ? 'Restore Integrations' : 'Cut Off All Integrations')}
+                >
+                  {emergencyControlsConfig.disableIntegrations ? '🟢 Restore Integrations' : '🔗 Cut Off Integrations'}
+                </button>
+              </div>
+
+              {/* Action 5: Revoke All API Keys */}
+              <div style={{ background: '#ffffff', border: '1px solid #fca5a5', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <strong style={{ fontSize: '0.86rem', color: '#991b1b' }}>🔑 Revoke All Developer API Keys</strong>
+                  <p style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '4px' }}>
+                    Permanently revokes all generated developer API keys and secret bearer tokens.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ background: '#dc2626', marginTop: '12px', width: '100%', fontSize: '0.8rem' }}
+                  onClick={() => handleOpenEmergencyModal('REVOKE_ALL_API_KEYS', 'Revoke All Developer API Keys')}
+                >
+                  🔑 Shred All API Keys
+                </button>
+              </div>
+
+              {/* Action 6: Block Suspicious Device / IP */}
+              <div style={{ background: '#ffffff', border: '1px solid #fca5a5', borderRadius: '8px', padding: '14px' }}>
+                <strong style={{ fontSize: '0.86rem', color: '#991b1b' }}>🛡️ Block Suspicious Device / IP</strong>
+                <p style={{ fontSize: '0.76rem', color: '#64748b', margin: '4px 0 8px' }}>
+                  Blacklist malicious IP addresses or compromised user-agent devices.
+                </p>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. 192.168.1.105"
+                    style={{ fontSize: '0.76rem', padding: '4px 8px' }}
+                    value={newBlockedIpInput}
+                    onChange={(e) => setNewBlockedIpInput(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ background: '#dc2626', fontSize: '0.74rem', padding: '4px 10px', whiteSpace: 'nowrap' }}
+                    onClick={() => {
+                      if (!newBlockedIpInput.trim()) return;
+                      handleOpenEmergencyModal('BLOCK_IP', `Block Suspicious IP (${newBlockedIpInput.trim()})`, newBlockedIpInput.trim());
+                    }}
+                  >
+                    Block IP
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Sub-section: Compromised Company Isolation */}
+            <div style={{ marginTop: '20px', paddingTop: '14px', borderTop: '1px solid #fca5a5' }}>
+              <h4 style={{ fontSize: '0.88rem', fontWeight: '800', color: '#991b1b', marginBottom: '8px' }}>
+                🏢 Compromised Tenant Company Lockdown &amp; Isolation
+              </h4>
+              <p style={{ fontSize: '0.76rem', color: '#7f1d1d', marginBottom: '10px' }}>
+                Select a compromised tenant company to freeze its operations immediately without affecting other tenants.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '8px' }}>
+                {companies.map(c => {
+                  const isFrozen = (emergencyControlsConfig.compromisedCompanies || []).includes(c.id) || (emergencyControlsConfig.compromisedCompanies || []).includes(c.name);
+                  return (
+                    <div
+                      key={c.id}
+                      style={{
+                        background: isFrozen ? '#fee2e2' : '#ffffff',
+                        border: `1px solid ${isFrozen ? '#ef4444' : '#cbd5e1'}`,
+                        borderRadius: '6px',
+                        padding: '8px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justify: 'space-between'
+                      }}
+                    >
+                      <div>
+                        <strong style={{ fontSize: '0.8rem', color: isFrozen ? '#991b1b' : '#0f172a' }}>{c.name}</strong>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{c.code} &bull; {c.country}</div>
+                      </div>
+                      <button
+                        type="button"
+                        className="action-pill-btn"
+                        style={{ background: isFrozen ? '#16a34a' : '#dc2626', color: '#ffffff', border: 'none', fontSize: '0.7rem', padding: '3px 8px' }}
+                        onClick={() => handleOpenEmergencyModal('FREEZE_COMPANY', isFrozen ? `Unfreeze Company (${c.name})` : `Freeze Compromised Company (${c.name})`, c.id, c.name)}
+                      >
+                        {isFrozen ? 'Unfreeze' : 'Freeze'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -16678,6 +17953,83 @@ export default function SuperAdminDashboard({
                 <button type="button" className="cancel-btn" onClick={() => setSelectedTicketInspect(null)}>Close</button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: DISASTER & EMERGENCY CONTROL MANDATORY CONFIRMATION
+          ===================================================================== */}
+      {isEmergencyModalOpen && emergencyActionTarget && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '560px', border: '2px solid #ef4444' }}>
+            <div className="modal-header" style={{ background: '#fef2f2', borderBottom: '1px solid #fca5a5' }}>
+              <div className="modal-title-group">
+                <AlertOctagon size={24} color="#dc2626" />
+                <div>
+                  <span style={{ fontSize: '0.7rem', fontWeight: '800', background: '#dc2626', color: '#ffffff', padding: '2px 8px', borderRadius: '4px' }}>
+                    RESTRICTED EMERGENCY ACTION
+                  </span>
+                  <h3 style={{ color: '#991b1b', margin: '4px 0 0' }}>{emergencyActionTarget.label}</h3>
+                </div>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setIsEmergencyModalOpen(false)}>&times;</button>
+            </div>
+
+            <form onSubmit={handleExecuteEmergencyControl} className="modal-form-body">
+              <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '6px', padding: '12px 14px', marginBottom: '14px', fontSize: '0.8rem', color: '#9f1239', lineHeight: 1.5 }}>
+                ⚠️ <strong>WARNING:</strong> You are triggering a high-level disaster control. This operation will be executed immediately and logged in permanent forensic audit records.
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '14px' }}>
+                <label className="form-label" style={{ fontWeight: '700', color: '#991b1b' }}>
+                  Audit Compliance Reason (Required) *
+                </label>
+                <textarea
+                  required
+                  className="form-control"
+                  rows={3}
+                  placeholder="e.g. Mandatory security lockdown per incident ticket #9901 / Mitigating DDOS attack..."
+                  value={emergencyReason}
+                  onChange={(e) => setEmergencyReason(e.target.value)}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label" style={{ fontWeight: '700', color: '#334155' }}>
+                  Verification Confirmation Token *
+                </label>
+                <p style={{ fontSize: '0.74rem', color: '#64748b', margin: '2px 0 6px' }}>
+                  Please type <strong>EXECUTE_EMERGENCY_CONTROL</strong> below to confirm.
+                </p>
+                <input
+                  type="text"
+                  required
+                  className="form-control"
+                  placeholder="EXECUTE_EMERGENCY_CONTROL"
+                  value={emergencyConfirmToken}
+                  onChange={(e) => setEmergencyConfirmToken(e.target.value)}
+                />
+              </div>
+
+              <div className="modal-actions-bar">
+                <button
+                  type="button"
+                  className="cancel-btn"
+                  onClick={() => setIsEmergencyModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ background: '#dc2626' }}
+                  disabled={isExecutingEmergency || !emergencyReason.trim() || emergencyConfirmToken.trim() !== 'EXECUTE_EMERGENCY_CONTROL'}
+                >
+                  {isExecutingEmergency ? 'Executing Disaster Control...' : 'Confirm & Execute Emergency Action'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

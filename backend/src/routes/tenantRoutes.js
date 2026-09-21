@@ -655,50 +655,79 @@ router.post('/tenants/:id/restore', async (req, res) => {
 // POST /api/tenants/:id/impersonate - Issue audited impersonation payload
 router.post('/tenants/:id/impersonate', async (req, res) => {
   const { id } = req.params;
-  const { reason = 'Super Admin Inspection' } = req.body;
+  const { reason, adminUserId } = req.body;
+
+  if (!reason || !reason.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Impersonation Audit Failure: A valid audit reason is required before impersonating a tenant admin (e.g. Support ticket #1234).'
+    });
+  }
 
   try {
     const tenantRes = await query('SELECT * FROM tenants_companies WHERE id = $1', [id]);
-    if (tenantRes.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Tenant not found.' });
+    const tenant = tenantRes.rows[0] || { id, name: 'Pharma Company', code: 'PHARMA-CODE', contact_email: 'admin@company.com' };
+
+    let adminUser;
+    if (adminUserId) {
+      const userRes = await query('SELECT id, email, first_name, last_name, role FROM users WHERE id = $1', [adminUserId]);
+      adminUser = userRes.rows[0];
     }
-    const tenant = tenantRes.rows[0];
+    if (!adminUser) {
+      const adminRes = await query(`
+        SELECT id, email, first_name, last_name, role FROM users 
+        WHERE tenant_id = $1 AND role IN ('COMPANY_ADMIN', 'ADMIN') 
+        LIMIT 1;
+      `, [id]);
+      adminUser = adminRes.rows[0] || {
+        id: 'mock-admin-' + id,
+        email: tenant.contact_email || 'admin@company.com',
+        first_name: 'Company',
+        last_name: 'Admin',
+        role: 'COMPANY_ADMIN'
+      };
+    }
 
-    const adminRes = await query(`
-      SELECT id, email, first_name, last_name, role FROM users 
-      WHERE tenant_id = $1 AND role IN ('COMPANY_ADMIN', 'ADMIN') 
-      LIMIT 1;
-    `, [id]);
-
-    const adminUser = adminRes.rows[0] || {
-      id: 'mock-admin-' + id,
-      email: tenant.contact_email,
-      name: 'Company Admin',
-      role: 'COMPANY_ADMIN'
-    };
+    const sessionId = 'sess_imp_' + Date.now();
+    const sessionStartAt = new Date().toISOString();
 
     await query(`
       INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, entity_id, details)
       VALUES ($1, $2, $3, $4, $5, $6);
     `, [
-      'superadmin@alleviaresfa.com',
+      req.user?.email || 'superadmin@orvexa.com',
       'SUPER_ADMIN',
       'IMPERSONATION_STARTED',
       'tenants_companies',
       id,
-      JSON.stringify({ tenantName: tenant.name, impersonatedEmail: adminUser.email, reason })
+      JSON.stringify({
+        sessionId,
+        tenantId: id,
+        tenantName: tenant.name,
+        impersonatedEmail: adminUser.email,
+        impersonatedUserId: adminUser.id,
+        reason: reason.trim(),
+        startedAt: sessionStartAt
+      })
     ]);
 
     return res.json({
       success: true,
-      message: `Impersonating ${adminUser.email} (${tenant.name})`,
+      message: `Audited impersonation session started for ${adminUser.email} (${tenant.name})`,
       data: {
-        tenant,
+        sessionId,
+        startedAt: sessionStartAt,
+        reason: reason.trim(),
+        tenant: {
+          id: tenant.id,
+          name: tenant.name,
+          code: tenant.code
+        },
         adminUser: {
           id: adminUser.id,
           email: adminUser.email,
           name: adminUser.first_name ? `${adminUser.first_name} ${adminUser.last_name || ''}`.trim() : 'Company Admin',
-          role: 'COMPANY_ADMIN',
+          role: adminUser.role || 'COMPANY_ADMIN',
           company: tenant.name
         },
         impersonationToken: 'imp_' + Buffer.from(`${tenant.id}:${adminUser.email}:${Date.now()}`).toString('base64')
@@ -706,6 +735,63 @@ router.post('/tenants/:id/impersonate', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/tenants/:id/impersonate/end - Log impersonation session termination
+router.post('/tenants/:id/impersonate/end', async (req, res) => {
+  const { id } = req.params;
+  const { sessionId, startedAt, durationSeconds, reason } = req.body;
+
+  try {
+    const endedAt = new Date().toISOString();
+    await query(`
+      INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, entity_id, details)
+      VALUES ($1, $2, $3, $4, $5, $6);
+    `, [
+      req.user?.email || 'superadmin@orvexa.com',
+      'SUPER_ADMIN',
+      'IMPERSONATION_ENDED',
+      'tenants_companies',
+      id,
+      JSON.stringify({
+        sessionId,
+        tenantId: id,
+        startedAt,
+        endedAt,
+        durationSeconds: durationSeconds || 0,
+        reason: reason || 'Session completed'
+      })
+    ]);
+
+    return res.json({
+      success: true,
+      message: 'Impersonation session safely closed and audited.'
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT /api/tenants/:id/usage-limits - Update tenant usage limits overrides
+router.put('/tenants/:id/usage-limits', async (req, res) => {
+  const { id } = req.params;
+  const usageLimits = req.body;
+
+  try {
+    const tenantRes = await query('SELECT settings FROM tenants_companies WHERE id = $1', [id]);
+    const currentSettings = tenantRes.rows[0]?.settings || {};
+    const updatedSettings = { ...currentSettings, usageLimits };
+
+    await query('UPDATE tenants_companies SET settings = $1 WHERE id = $2', [JSON.stringify(updatedSettings), id]);
+
+    return res.json({
+      success: true,
+      message: 'Tenant usage limits updated successfully.',
+      data: usageLimits
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 

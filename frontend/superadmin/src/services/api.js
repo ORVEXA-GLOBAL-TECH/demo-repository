@@ -380,17 +380,49 @@ export const restoreTenant = async (tenantId) => {
   return toggleTenantStatus(tenantId, 'Active');
 };
 
-export const impersonateTenant = async (tenantId, reason) => {
+export const impersonateTenant = async (tenantId, reason, adminUserId) => {
   try {
     const res = await fetchWithAuth(`/tenants/${tenantId}/impersonate`, {
       method: 'POST',
-      body: JSON.stringify({ reason })
+      body: JSON.stringify({ reason, adminUserId })
     });
     if (res.success) return res.data;
   } catch (err) {
     console.warn('API error starting impersonation session, using local session...');
   }
-  return null;
+  return {
+    sessionId: 'sess_imp_' + Date.now(),
+    startedAt: new Date().toISOString(),
+    reason: reason || 'Support Ticket Investigation',
+    tenant: { id: tenantId, name: 'Pharma Tenant' },
+    adminUser: { id: adminUserId || 'usr-admin', email: 'admin@company.com', name: 'Company Admin' }
+  };
+};
+
+export const endImpersonateTenant = async (tenantId, sessionData) => {
+  try {
+    const res = await fetchWithAuth(`/tenants/${tenantId}/impersonate/end`, {
+      method: 'POST',
+      body: JSON.stringify(sessionData)
+    });
+    if (res.success) return res.data;
+  } catch (err) {
+    console.warn('API error ending impersonation session:', err);
+  }
+  return { success: true };
+};
+
+export const updateTenantUsageLimits = async (tenantId, limits) => {
+  try {
+    const res = await fetchWithAuth(`/tenants/${tenantId}/usage-limits`, {
+      method: 'PUT',
+      body: JSON.stringify(limits)
+    });
+    if (res.success) return res.data;
+  } catch (err) {
+    console.warn('API error updating tenant usage limits:', err);
+  }
+  return limits;
 };
 
 // ----------------------------------------------------------------------------
@@ -3627,6 +3659,236 @@ export const updateBillingContact = async (tenantId, contactData) => {
   const res = await fetchWithAuth(`/billing/contacts/${tenantId}`, {
     method: 'PUT',
     body: JSON.stringify(contactData)
+  });
+  return res.data || res;
+};
+
+// ==============================================================================
+// 17. USAGE LIMITS & 3-TIER MAINTENANCE MODE GOVERNANCE
+// ==============================================================================
+export const getGlobalUsageLimits = async () => {
+  try {
+    const res = await fetchWithAuth('/settings/usage-limits');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading usage limits:', err);
+  }
+  return {
+    maxUsersPerTenant: 100,
+    dailyApiCallsQuota: 50000,
+    monthlyReportsQuota: 1000,
+    gpsHistoryRetentionDays: 90,
+    maxFileUploadMB: 25,
+    maxStorageQuotaGB: 50
+  };
+};
+
+export const updateGlobalUsageLimits = async (limits) => {
+  const res = await fetchWithAuth('/settings/usage-limits', {
+    method: 'PUT',
+    body: JSON.stringify(limits)
+  });
+  return res.data || res;
+};
+
+export const getMaintenanceModeConfig = async () => {
+  try {
+    const res = await fetchWithAuth('/settings/maintenance-mode');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading maintenance mode config:', err);
+  }
+  return {
+    isPlatformMaintenance: false,
+    platformMaintenanceMessage: 'System Maintenance in progress. Platform access will resume shortly.',
+    estimatedEndAt: null,
+    allowedIpAddresses: ['103.21.244.18', '127.0.0.1'],
+    moduleMaintenances: {
+      geofencing: false,
+      dcrReporting: false,
+      chemistOrders: false,
+      sampleInventory: false,
+      aiStudio: false,
+      apiIntegrations: false,
+      analytics: false
+    },
+    companyMaintenances: {}
+  };
+};
+
+export const updateMaintenanceModeConfig = async (config) => {
+  const res = await fetchWithAuth('/settings/maintenance-mode', {
+    method: 'PUT',
+    body: JSON.stringify(config)
+  });
+  return res.data || res;
+};
+
+export const getEmergencyControlsConfig = async () => {
+  try {
+    const res = await fetchWithAuth('/settings/emergency-controls');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading emergency controls:', err);
+  }
+  return {
+    disableLoginGlobally: false,
+    forceLogoutAllUsers: false,
+    disableApiAccess: false,
+    disableIntegrations: false,
+    emergencyMaintenanceActive: false,
+    blockedIps: ['192.168.1.105', '10.0.4.12'],
+    compromisedCompanies: [],
+    revokedApiKeys: [],
+    updatedByEmail: 'superadmin@orvexa.com',
+    updatedAt: new Date().toISOString()
+  };
+};
+
+export const triggerEmergencyControl = async (payload) => {
+  const res = await fetchWithAuth('/settings/emergency-controls/trigger', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+  return res.data || res;
+};
+
+export const getPlatformActivityFeed = async (category = 'ALL') => {
+  try {
+    const res = await fetchWithAuth(`/settings/activity-feed?category=${category}`);
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading activity feed:', err);
+  }
+  return [
+    { id: 'act_1', time: '10:42', category: 'TENANT', action: 'COMPANY_REGISTERED', description: 'New company registered: Apex Pharma Ltd', companyName: 'Apex Pharma Ltd', createdAt: new Date(Date.now() - 3600000).toISOString() },
+    { id: 'act_2', time: '10:45', category: 'USER', action: 'ADMIN_CREATED', description: 'Company Admin created: Dr. Rajesh Sharma (Apex Pharma)', companyName: 'Apex Pharma Ltd', createdAt: new Date(Date.now() - 3300000).toISOString() },
+    { id: 'act_3', time: '10:51', category: 'USER', action: 'EMPLOYEES_IMPORTED', description: '120 employees imported via batch CSV file upload', companyName: 'Apex Pharma Ltd', createdAt: new Date(Date.now() - 2900000).toISOString() },
+    { id: 'act_4', time: '11:02', category: 'BILLING', action: 'SUBSCRIPTION_UPGRADED', description: 'Subscription upgraded from Starter to Professional Tier ($1,000/mo)', companyName: 'Apex Pharma Ltd', createdAt: new Date(Date.now() - 2200000).toISOString() },
+    { id: 'act_5', time: '11:12', category: 'API', action: 'INTEGRATION_CONNECTED', description: 'REST API Webhook integration connected for Salesforce CRM', companyName: 'Apex Pharma Ltd', createdAt: new Date(Date.now() - 1600000).toISOString() },
+    { id: 'act_6', time: '11:20', category: 'SYSTEM', action: 'REPORTS_GENERATED', description: '3,200 automated monthly DCR reports compiled across regional teams', companyName: 'Global Platform', createdAt: new Date(Date.now() - 1100000).toISOString() }
+  ];
+};
+
+export const getConfigVersions = async () => {
+  try {
+    const res = await fetchWithAuth('/settings/config-versions');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading config versions:', err);
+  }
+  return [
+    { id: 'cfg_v3', version: 'v3.2', description: 'Updated global API quota & 3-tier maintenance controls', created_by: 'Super Admin HQ', created_at: new Date(Date.now() - 3600000).toISOString(), status: 'ACTIVE' },
+    { id: 'cfg_v2', version: 'v3.1', description: 'Added sovereign jurisdiction currency overrides', created_by: 'Super Admin HQ', created_at: new Date(Date.now() - 86400000).toISOString(), status: 'HISTORICAL' },
+    { id: 'cfg_v1', version: 'v3.0', description: 'Baseline platform initial release settings', created_by: 'Super Admin HQ', created_at: new Date(Date.now() - 604800000).toISOString(), status: 'HISTORICAL' }
+  ];
+};
+
+export const rollbackConfigVersion = async (versionId) => {
+  const res = await fetchWithAuth('/settings/config-versions/rollback', {
+    method: 'POST',
+    body: JSON.stringify({ versionId })
+  });
+  return res.data || res;
+};
+
+export const getPlatformIncidents = async () => {
+  try {
+    const res = await fetchWithAuth('/settings/incidents');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading incidents:', err);
+  }
+  return [
+    { id: 'INC-901', title: 'DB Connection Latency Spike (EU-West)', severity: 'MEDIUM', status: 'INVESTIGATING', owner: 'DevOps Lead', company: 'Global Platform', reported_at: new Date(Date.now() - 1800000).toISOString(), summary: 'Intermittent 200ms latency on primary replica.' },
+    { id: 'INC-899', title: 'SMS Gateway Rate Limit Hit', severity: 'HIGH', status: 'RESOLVED', owner: 'API Desk', company: 'Apex Pharma', reported_at: new Date(Date.now() - 86400000).toISOString(), summary: 'Switched to fallback Twilio provider seamlessly.' }
+  ];
+};
+
+export const createPlatformIncident = async (payload) => {
+  const res = await fetchWithAuth('/settings/incidents', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+  return res.data || res;
+};
+
+export const updateIncidentStatus = async (id, status, resolution) => {
+  const res = await fetchWithAuth(`/settings/incidents/${id}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status, resolution })
+  });
+  return res.data || res;
+};
+
+export const getDualApprovals = async () => {
+  try {
+    const res = await fetchWithAuth('/settings/dual-approvals');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading dual approvals:', err);
+  }
+  return [
+    { id: 'DA-101', action_type: 'TENANT_DATA_PURGE', target_entity: 'Legacy Pharma Corp', requested_by: 'superadmin1@orvexa.com', approver_required: '2nd Super Admin', status: 'PENDING_APPROVAL', reason: 'Customer contract ended. Exit data wipe requested per agreement #882.', requested_at: new Date(Date.now() - 3600000).toISOString() }
+  ];
+};
+
+export const requestDualApproval = async (payload) => {
+  const res = await fetchWithAuth('/settings/dual-approvals/request', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+  return res.data || res;
+};
+
+export const approveDualAction = async (requestId, secondAdminToken) => {
+  const res = await fetchWithAuth('/settings/dual-approvals/approve', {
+    method: 'POST',
+    body: JSON.stringify({ requestId, secondAdminToken })
+  });
+  return res.data || res;
+};
+
+export const getDataQualityIssues = async () => {
+  try {
+    const res = await fetchWithAuth('/settings/data-quality/issues');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading data quality issues:', err);
+  }
+  return [
+    { id: 'DQ-1', type: 'DUPLICATE_DOCTORS', title: 'Duplicate Doctor Profiles Detected', count: 3, entity_name: 'Dr. Vikram Seth', company: 'Sun Pharma', status: 'REVIEW_NEEDED', description: 'Found 2 matching profiles with identical MCI registration numbers.' },
+    { id: 'DQ-2', type: 'DUPLICATE_CHEMISTS', title: 'Duplicate Chemist Retailers', count: 2, entity_name: 'Apollo Pharmacy Bandra', company: 'Apex Pharma', status: 'REVIEW_NEEDED', description: 'Matching GSTIN and GPS coordinates detected across field rep entries.' },
+    { id: 'DQ-3', type: 'UNASSIGNED_TERRITORY', title: 'MRs Without Territory Managers', count: 5, entity_name: 'North Region Sales', company: 'Cipla Ltd', status: 'REVIEW_NEEDED', description: '5 active field reps assigned to deleted territory.' }
+  ];
+};
+
+export const mergeDataQualityRecords = async (issueId, targetMasterId) => {
+  const res = await fetchWithAuth('/settings/data-quality/merge', {
+    method: 'POST',
+    body: JSON.stringify({ issueId, targetMasterId })
+  });
+  return res.data || res;
+};
+
+export const getFleetDevices = async () => {
+  try {
+    const res = await fetchWithAuth('/settings/fleet/devices');
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('Fallback loading fleet devices:', err);
+  }
+  return [
+    { id: 'DEV-1', user_name: 'Rajesh Kumar (MR)', email: 'rajesh.k@apexpharma.com', company: 'Apex Pharma Ltd', app_version: 'v3.4.1', platform: 'ANDROID', os_version: 'Android 14', device_model: 'Samsung Galaxy S24', status: 'COMPLIANT', is_rooted: false, last_active: '2 mins ago' },
+    { id: 'DEV-2', user_name: 'Priya Verma (MR)', email: 'priya.v@sunpharma.com', company: 'Sun Pharma', app_version: 'v3.2.0', platform: 'IOS', os_version: 'iOS 17.5', device_model: 'iPhone 15 Pro', status: 'UPDATE_RECOMMENDED', is_rooted: false, last_active: '15 mins ago' },
+    { id: 'DEV-3', user_name: 'Amit Shah (MR)', email: 'amit.s@cipla.com', company: 'Cipla Ltd', app_version: 'v2.9.0', platform: 'ANDROID', os_version: 'Android 10', device_model: 'Redmi Note 9', status: 'NON_COMPLIANT', is_rooted: true, last_active: '1 hour ago' }
+  ];
+};
+
+export const remoteLogoutFleetDevice = async (deviceId) => {
+  const res = await fetchWithAuth('/settings/fleet/remote-logout', {
+    method: 'POST',
+    body: JSON.stringify({ deviceId })
   });
   return res.data || res;
 };

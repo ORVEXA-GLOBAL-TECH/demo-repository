@@ -770,9 +770,56 @@ ALTER TABLE IF EXISTS users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS tenants_companies DISABLE ROW LEVEL SECURITY;
 
 -- ==============================================================================
--- 23. VERIFICATION QUERY OUTPUT
+-- 24. EMERGENCY CONTROLS & REAL-TIME PLATFORM ACTIVITY STREAM
 -- ==============================================================================
-SELECT '🎉 Database successfully updated with Support / Ticket Management (Company -> Admin -> Ticket) and Enterprise Billing Management (Invoices, Payments, Failed, Refunds, Subscription History, Renewal, Plan Changes, Tax, Contacts) schemas!' as migration_status;
+CREATE TABLE IF NOT EXISTS platform_emergency_controls (
+    id VARCHAR(50) PRIMARY KEY DEFAULT 'global_emergency_config',
+    disable_login_globally BOOLEAN DEFAULT false,
+    force_logout_all_users BOOLEAN DEFAULT false,
+    disable_api_access BOOLEAN DEFAULT false,
+    disable_integrations BOOLEAN DEFAULT false,
+    emergency_maintenance_active BOOLEAN DEFAULT false,
+    blocked_ips JSONB DEFAULT '[]'::jsonb,
+    compromised_companies JSONB DEFAULT '[]'::jsonb,
+    revoked_api_keys JSONB DEFAULT '[]'::jsonb,
+    updated_by_email VARCHAR(255) DEFAULT 'superadmin@orvexa.com',
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+INSERT INTO platform_emergency_controls (id) VALUES ('global_emergency_config')
+ON CONFLICT (id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS platform_activity_stream (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    category VARCHAR(50) NOT NULL DEFAULT 'SYSTEM', -- TENANT, USER, BILLING, SECURITY, API, SYSTEM
+    action VARCHAR(100) NOT NULL,
+    description TEXT NOT NULL,
+    company_name VARCHAR(255),
+    actor_email VARCHAR(255) DEFAULT 'superadmin@orvexa.com',
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_activity_stream_cat ON platform_activity_stream(category);
+CREATE INDEX IF NOT EXISTS idx_activity_stream_time ON platform_activity_stream(created_at DESC);
+
+ALTER TABLE IF EXISTS platform_emergency_controls DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS platform_activity_stream DISABLE ROW LEVEL SECURITY;
+
+GRANT ALL ON TABLE platform_emergency_controls TO anon, authenticated, postgres, service_role;
+GRANT ALL ON TABLE platform_activity_stream TO anon, authenticated, postgres, service_role;
+
+-- Seed initial activity events for live stream demo
+INSERT INTO platform_activity_stream (category, action, description, company_name)
+VALUES
+('TENANT', 'COMPANY_REGISTERED', 'New company registered: Apex Pharma Ltd', 'Apex Pharma Ltd'),
+('USER', 'ADMIN_CREATED', 'Company Admin created: Dr. Rajesh Sharma (Apex Pharma)', 'Apex Pharma Ltd'),
+('USER', 'EMPLOYEES_IMPORTED', '120 field representatives imported via CSV batch upload', 'Apex Pharma Ltd'),
+('BILLING', 'SUBSCRIPTION_UPGRADED', 'Subscription upgraded from Starter to Professional Tier ($1,000/mo)', 'Apex Pharma Ltd'),
+('API', 'INTEGRATION_CONNECTED', 'REST API Webhook integration connected for Salesforce CRM', 'Apex Pharma Ltd'),
+('SYSTEM', 'REPORTS_GENERATED', '3,200 automated monthly DCR reports compiled across regional teams', 'Global Platform');
+
+SELECT '🎉 Database updated with Global Search, Activity Stream, and Disaster Emergency Controls tables!' as migration_status;
 
 
 
