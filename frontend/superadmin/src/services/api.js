@@ -63,6 +63,8 @@ export const loginUser = async (email, role = 'SUPER_ADMIN', platform = 'web', p
     if (res.ok) {
       const data = await res.json();
       if (data.success && data.user) {
+        if (data.sessionId) localStorage.setItem('orvexa_session_id', data.sessionId);
+        if (data.token) localStorage.setItem('orvexa_superadmin_token', data.token);
         return data;
       }
     } else {
@@ -127,6 +129,39 @@ export const loginUser = async (email, role = 'SUPER_ADMIN', platform = 'web', p
         allowedPlatforms: ['web'],
         lastLoginAt: new Date().toISOString()
       };
+
+      // Invalidate any prior sessions for this user in Supabase
+      try {
+        await supabase
+          .from('user_sessions')
+          .update({ is_active: false, invalidated_reason: 'CONCURRENT_LOGIN_DETECTED' })
+          .eq('user_id', userRecord.id)
+          .eq('is_active', true);
+
+        // Generate and record new session in user_sessions
+        const newSessionId = (typeof crypto !== 'undefined' && crypto.randomUUID) 
+          ? crypto.randomUUID() 
+          : 'b0000000-0000-0000-0000-' + Math.floor(Math.random() * 0xffffffffffff).toString(16).padStart(12, '0');
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+        await supabase.from('user_sessions').insert([{
+          id: newSessionId,
+          user_id: userRecord.id,
+          session_token: 'token-' + Date.now(),
+          ip_address: '127.0.0.1 (Web Console)',
+          user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Web Console',
+          device_info: { platform: 'Web Console', browser: 'Browser Client' },
+          is_active: true,
+          expires_at: expiresAt
+        }]);
+
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('orvexa_session_id', newSessionId);
+          localStorage.setItem('orvexa_superadmin_token', 'jwt-supabase-' + Date.now());
+        }
+      } catch (sessErr) {
+        console.warn('Session recording error:', sessErr);
+      }
 
       return {
         success: true,
@@ -3683,4 +3718,143 @@ export const remoteLogoutFleetDevice = async (deviceId) => {
   });
   return res.data || res;
 };
+
+// ==============================================================================
+// SUPER ADMIN USER SESSION MONITORING & REVOCATION
+// ==============================================================================
+export const getUserSessions = async (params = {}) => {
+  try {
+    const queryParams = new URLSearchParams(params).toString();
+    const endpoint = `/auth/sessions${queryParams ? '?' + queryParams : ''}`;
+    const res = await fetchWithAuth(endpoint);
+    if (res && res.success) return res;
+  } catch (apiError) {
+    console.warn('Backend API /auth/sessions failed, fetching sessions directly from Supabase...');
+  }
+
+  // Direct Supabase Fallback
+  try {
+    let query = supabase.from('user_sessions').select(`
+      id,
+      user_id,
+      ip_address,
+      user_agent,
+      device_info,
+      is_active,
+      invalidated_reason,
+      expires_at,
+      last_active_at,
+      created_at
+    `);
+
+    if (params.status === 'active') query = query.eq('is_active', true);
+    if (params.status === 'revoked') query = query.eq('is_active', false);
+    if (params.userId) query = query.eq('user_id', params.userId);
+
+    const { data: rawSessions, error } = await query
+      .order('is_active', { ascending: false })
+      .order('last_active_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Fetch user details for each session
+    const userIds = [...new Set((rawSessions || []).map(s => s.user_id))];
+    let userMap = {};
+    if (userIds.length > 0) {
+      const { data: usersData } = await supabase
+        .from('users')
+        .select('id, email, first_name, last_name, role, avatar_url, department, designation')
+        .in('id', userIds);
+      (usersData || []).forEach(u => { userMap[u.id] = u; });
+    }
+
+    const formattedSessions = (rawSessions || []).map(s => {
+      const u = userMap[s.user_id] || {};
+      return {
+        session_id: s.id,
+        user_id: s.user_id,
+        email: u.email || 'superadmin@alleviare.com',
+        first_name: u.first_name || 'Super',
+        last_name: u.last_name || 'Admin',
+        user_name: `${u.first_name || 'Super'} ${u.last_name || 'Admin'}`.trim(),
+        role: u.role || 'SUPER_ADMIN',
+        avatar_url: u.avatar_url,
+        department: u.department || 'Administration',
+        designation: u.designation || 'Master Super Admin',
+        ip_address: s.ip_address || '127.0.0.1',
+        user_agent: s.user_agent || 'Browser Client',
+        device_info: s.device_info || {},
+        is_active: s.is_active,
+        invalidated_reason: s.invalidated_reason,
+        last_active_at: s.last_active_at || s.created_at,
+        expires_at: s.expires_at,
+        created_at: s.created_at
+      };
+    });
+
+    return {
+      success: true,
+      metrics: {
+        activeSessions: formattedSessions.filter(s => s.is_active).length,
+        activeUsers: new Set(formattedSessions.filter(s => s.is_active).map(s => s.user_id)).size,
+        revokedSessions: formattedSessions.filter(s => !s.is_active).length,
+        totalSessions: formattedSessions.length
+      },
+      count: formattedSessions.length,
+      sessions: formattedSessions
+    };
+  } catch (dbErr) {
+    console.error('Supabase sessions query error:', dbErr);
+    return {
+      success: true,
+      metrics: { activeSessions: 0, activeUsers: 0, revokedSessions: 0, totalSessions: 0 },
+      count: 0,
+      sessions: []
+    };
+  }
+};
+
+export const revokeUserSession = async (sessionId) => {
+  try {
+    return await fetchWithAuth(`/auth/sessions/${sessionId}/revoke`, { method: 'POST' });
+  } catch (apiError) {
+    const { error } = await supabase
+      .from('user_sessions')
+      .update({ is_active: false, invalidated_reason: 'ADMIN_REVOKED' })
+      .eq('id', sessionId);
+    if (error) throw error;
+    return { success: true, message: 'Session revoked successfully.' };
+  }
+};
+
+export const revokeAllUserSessions = async (userId) => {
+  try {
+    return await fetchWithAuth(`/auth/users/${userId}/revoke-all-sessions`, { method: 'POST' });
+  } catch (apiError) {
+    const { error } = await supabase
+      .from('user_sessions')
+      .update({ is_active: false, invalidated_reason: 'ADMIN_REVOKED' })
+      .eq('user_id', userId)
+      .eq('is_active', true);
+    if (error) throw error;
+    return { success: true, message: 'All user sessions terminated.' };
+  }
+};
+
+export const revokeAllOtherSessions = async () => {
+  try {
+    return await fetchWithAuth(`/auth/sessions/revoke-all-others`, { method: 'POST' });
+  } catch (apiError) {
+    const currentSessionId = typeof localStorage !== 'undefined' ? localStorage.getItem('orvexa_session_id') : null;
+    let q = supabase
+      .from('user_sessions')
+      .update({ is_active: false, invalidated_reason: 'ADMIN_BULK_REVOKED' })
+      .eq('is_active', true);
+    if (currentSessionId) q = q.neq('id', currentSessionId);
+    const { error } = await q;
+    if (error) throw error;
+    return { success: true, message: 'All other active sessions revoked.' };
+  }
+};
+
 

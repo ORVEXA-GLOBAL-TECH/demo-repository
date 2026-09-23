@@ -186,3 +186,28 @@ ON CONFLICT (email) DO UPDATE SET
     role = EXCLUDED.role,
     status = EXCLUDED.status,
     updated_at = CURRENT_TIMESTAMP;
+
+-- 10. Seed Initial Active Super Admin Session
+INSERT INTO public.user_sessions (
+    id,
+    user_id,
+    session_token,
+    ip_address,
+    user_agent,
+    device_info,
+    is_active,
+    expires_at,
+    last_active_at
+) VALUES (
+    'b0000000-0000-0000-0000-000000000001',
+    'a0000000-0000-0000-0000-000000000001',
+    'initial_superadmin_token_2026',
+    '127.0.0.1 (Local Host)',
+    'Chrome / Windows (Super Admin Primary Console)',
+    '{"browser": "Chrome", "os": "Windows 11", "platform": "Web Console"}'::jsonb,
+    TRUE,
+    CURRENT_TIMESTAMP + INTERVAL '30 days',
+    CURRENT_TIMESTAMP
+)
+ON CONFLICT (id) DO NOTHING;
+
