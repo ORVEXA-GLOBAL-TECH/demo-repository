@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, Shield, LogOut, Globe, Search, Command, AlertTriangle } from 'lucide-react';
+import { Bell, LogOut, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function SuperAdminNavbar({
@@ -21,24 +21,6 @@ export default function SuperAdminNavbar({
         </div>
       </div>
 
-      {/* Global Omnibox Search Bar */}
-      <div className="nav-omnibox-wrapper">
-        <div className="nav-omnibox" onClick={onOpenGlobalSearch}>
-          <Search size={16} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search across companies, admins, MRs, tickets, invoices..."
-            value={globalSearchQuery || ''}
-            onChange={(e) => setGlobalSearchQuery && setGlobalSearchQuery(e.target.value)}
-            className="omnibox-input"
-          />
-          <div className="keyboard-shortcut-tag">
-            <Command size={11} />
-            <span>K</span>
-          </div>
-        </div>
-      </div>
-
       <div className="top-actions">
         {isEmergencyActive && (
           <div className="emergency-alert-pill">
@@ -46,15 +28,6 @@ export default function SuperAdminNavbar({
             <span>EMERGENCY LOCK ACTIVE</span>
           </div>
         )}
-
-        <div className="saas-scope-tag">
-          <Globe size={14} color="#f59e0b" />
-          <span>Global HQ</span>
-        </div>
-
-        <span className="status-badge" style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
-          <Shield size={13} /> Super Admin
-        </span>
 
         {/* Notification Bell Button */}
         <button

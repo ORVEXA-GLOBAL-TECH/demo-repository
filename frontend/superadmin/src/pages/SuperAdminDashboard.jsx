@@ -4182,29 +4182,7 @@ export default function SuperAdminDashboard({
           </p>
         </div>
 
-        <div className="saas-quick-stats-pills">
-          <div className="header-stat-pill">
-            <span className="pill-label">Total MRR (USD)</span>
-            <span className="pill-value text-green">${totalMRR_USD.toLocaleString()}</span>
-          </div>
-          <div className="header-stat-pill">
-            <span className="pill-label">ARR Run-Rate</span>
-            <span className="pill-value text-purple">${totalARR_USD.toLocaleString()}</span>
-          </div>
-          <div className="header-stat-pill">
-            <span className="pill-label">Active / Trials</span>
-            <span className="pill-value">{activeCompanies} Paid &bull; {trialCompanies} Trial</span>
-          </div>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => setIsCreateCompanyOpen(true)}
-            style={{ padding: '8px 14px', fontSize: '0.8rem', marginLeft: '6px' }}
-          >
-            <Plus size={15} />
-            <span>Provision Tenant</span>
-          </button>
-        </div>
+
       </div>
 
       {/* =====================================================================
@@ -4316,82 +4294,7 @@ export default function SuperAdminDashboard({
           {/* 2-Column Operational Grid */}
           <div className="saas-overview-layout">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              <div className="card-section">
-                <div className="section-header">
-                  <div>
-                    <h2 className="section-title">Tenant Companies Overview</h2>
-                    <p className="section-desc">Multi-tenant isolation status, subscription duration, and live plan rates</p>
-                  </div>
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setActiveTab('companies')}>
-                    Manage Companies ({totalCompanies}) <ArrowUpRight size={14} />
-                  </button>
-                </div>
 
-                <div className="saas-table-container">
-                  {companies.length === 0 ? (
-                    <div style={{ padding: '36px 20px', textAlign: 'center', color: '#64748b' }}>
-                      <Inbox size={36} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
-                      <div style={{ fontWeight: '700', fontSize: '0.92rem', color: '#334155' }}>No Tenants Enrolled</div>
-                      <p style={{ fontSize: '0.8rem', margin: '4px auto 14px' }}>Get started by provisioning a Free Trial or Paid Pharma Tenant.</p>
-                      <button type="button" className="btn btn-primary btn-sm" onClick={() => setIsCreateCompanyOpen(true)}>
-                        <Plus size={14} /> Provision Tenant
-                      </button>
-                    </div>
-                  ) : (
-                    <table className="custom-table">
-                      <thead>
-                        <tr>
-                          <th>Company &amp; Flag</th>
-                          <th>Plan Tier</th>
-                          <th>Monthly Rate</th>
-                          <th>Status</th>
-                          <th>Start / End Date</th>
-                          <th style={{ textAlign: 'right' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {companies.slice(0, 5).map((comp) => (
-                          <tr key={comp.id}>
-                            <td>
-                              <div className="comp-name-group">
-                                <span className="comp-flag">{comp.flag}</span>
-                                <div>
-                                  <div className="comp-name-text">{comp.name}</div>
-                                  <div className="comp-code-sub">{comp.code} &bull; {comp.country}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td>
-                              <span className={`plan-pill plan-${comp.plan.toLowerCase()}`}>
-                                {comp.plan}
-                              </span>
-                            </td>
-                            <td><strong>{comp.mrr}</strong></td>
-                            <td>
-                              <span className={`status-tag status-${comp.status.toLowerCase()}`}>
-                                {comp.status === 'ACTIVE' ? '🟢 Active' : comp.status === 'TRIAL' ? '🟣 Trial' : '🟡 Suspended'}
-                              </span>
-                            </td>
-                            <td style={{ fontSize: '0.74rem', color: '#475569' }}>
-                              <div>Expires: <strong>{comp.renewalDate}</strong></div>
-                            </td>
-                            <td style={{ textAlign: 'right' }}>
-                              <div className="actions-cluster">
-                                <button type="button" className="action-pill-btn" onClick={() => handleOpenSubscriptionModal(comp)}>
-                                  Plan
-                                </button>
-                                <button type="button" className="action-pill-btn" onClick={() => handleOpenEditCompany(comp)}>
-                                  <Edit size={12} /> Edit
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              </div>
 
               {/* Real-Time Platform Activity Stream */}
               <div className="card-section">
