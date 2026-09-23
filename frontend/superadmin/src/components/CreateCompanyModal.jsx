@@ -21,6 +21,7 @@ import {
   ArrowLeft,
   ChevronRight
 } from 'lucide-react';
+import ImageKitUploader from './ImageKitUploader';
 
 const COUNTRY_OPTIONS = [
   { code: 'IN', name: 'India', flag: '🇮🇳', currency: 'INR', symbol: '₹', timezone: 'Asia/Kolkata' },
@@ -462,8 +463,8 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{
-                width: '32px',
-                height: '32px',
+                width: '36px',
+                height: '36px',
                 borderRadius: '8px',
                 background: formData.brandPrimaryColor || '#0284c7',
                 color: '#ffffff',
@@ -472,9 +473,20 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                 justifyContent: 'center',
                 fontWeight: 800,
                 fontSize: '14px',
-                flexShrink: 0
+                flexShrink: 0,
+                overflow: 'hidden',
+                border: '1px solid rgba(255,255,255,0.15)'
               }}>
-                {formData.name ? formData.name.charAt(0).toUpperCase() : 'T'}
+                {formData.logoUrl ? (
+                  <img
+                    src={formData.logoUrl}
+                    alt="Logo"
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#fff' }}
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                ) : (
+                  formData.name ? formData.name.charAt(0).toUpperCase() : 'T'
+                )}
               </div>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -700,16 +712,13 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                   />
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    Logo URL (Direct Image Link)
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="https://example.com/logo.png"
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <ImageKitUploader
                     value={formData.logoUrl}
-                    onChange={(e) => handleChange('logoUrl', e.target.value)}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
+                    onChange={(newUrl) => handleChange('logoUrl', newUrl)}
+                    companyName={formData.name || 'company'}
+                    label="Company Brand Logo (ImageKit CDN Hosted)"
+                    folder="/company-logos"
                   />
                 </div>
 

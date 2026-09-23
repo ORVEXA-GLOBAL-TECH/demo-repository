@@ -36,6 +36,7 @@ import appVersionRoutes from './routes/appVersionRoutes.js';
 import contentRoutes from './routes/contentRoutes.js';
 import ticketRoutes from './routes/ticketRoutes.js';
 import billingRoutes from './routes/billingRoutes.js';
+import uploadRoutes from './routes/uploadRoutes.js';
 
 const app = express();
 
@@ -119,6 +120,7 @@ app.use('/api/content', contentRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/support-tickets', ticketRoutes);
 app.use('/api/billing', billingRoutes);
+app.use('/api/upload', uploadRoutes);
 app.use('/api', auditRoutes);
 app.use('/api', tenantRoutes);
 

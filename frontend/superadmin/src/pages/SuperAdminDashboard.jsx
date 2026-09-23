@@ -904,6 +904,8 @@ export default function SuperAdminDashboard({
             code: t.code,
             name: t.name,
             legalName: t.legal_name || t.name,
+            logoUrl: t.logo_url || '',
+            brandPrimaryColor: t.brand_primary_color || '#0284c7',
             country: matchedCountry.name,
             countryCode: t.country_code || 'VN',
             flag: matchedCountry.flag || '🌐',
@@ -4570,8 +4572,26 @@ export default function SuperAdminDashboard({
                       .map((company) => (
                         <tr key={company.id}>
                           <td>
-                            <div className="comp-name-group">
-                              <span className="comp-flag">{company.flag}</span>
+                            <div className="comp-name-group" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              {company.logoUrl ? (
+                                <img
+                                  src={company.logoUrl}
+                                  alt={company.name}
+                                  style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '6px',
+                                    objectFit: 'contain',
+                                    background: '#ffffff',
+                                    border: '1px solid #e2e8f0',
+                                    padding: '2px',
+                                    flexShrink: 0
+                                  }}
+                                  onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                              ) : (
+                                <span className="comp-flag">{company.flag}</span>
+                              )}
                               <div>
                                 <div className="comp-name-text">{company.name}</div>
                                 <div className="comp-code-sub">{company.code}</div>
