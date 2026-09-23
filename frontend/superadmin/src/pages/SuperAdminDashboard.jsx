@@ -701,6 +701,7 @@ export default function SuperAdminDashboard({
   // Active Multi-Currency Display Setting
   const [selectedDisplayCurrency, setSelectedDisplayCurrency] = useState('USD');
   const [selectedCountryFilter, setSelectedCountryFilter] = useState('ALL');
+  const [currencyMatrixSearch, setCurrencyMatrixSearch] = useState('');
 
   // Config Versioning & Incident Management States
   const [configVersionsList, setConfigVersionsList] = useState([]);
@@ -4880,62 +4881,133 @@ export default function SuperAdminDashboard({
           )}
 
           {jurisdictionSubTab === 'currencies' && (
-            <div className="saas-overview-layout">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {/* Interactive Live FX & Tax Calculator */}
-              <div className="card-section" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '20px', marginBottom: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div className="card-section" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '22px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '18px' }}>
                   <div>
-                    <h3 style={{ fontSize: '1.05rem', fontWeight: '800', color: '#1e3a8a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Coins size={20} color="#2563eb" /> Live Real-Time Multi-Currency &amp; Tax Converter
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#1e3a8a', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                      <Coins size={22} color="#2563eb" /> Live Real-Time Multi-Currency &amp; Tax Converter
                     </h3>
-                    <p style={{ fontSize: '0.8rem', color: '#64748b', margin: 0 }}>
+                    <p style={{ fontSize: '0.82rem', color: '#64748b', margin: '4px 0 0' }}>
                       Calculate SaaS plan pricing, tax withholding, and local currency billing across all {sovereignRegistry.length} sovereign markets instantly.
                     </p>
                   </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ background: '#dbeafe', color: '#1e40af', padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '700' }}>
+                      Base Standard: 1 USD
+                    </span>
+                    <span style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '700' }}>
+                      {sovereignRegistry.length} Sovereign Rates Synced
+                    </span>
+                  </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', alignItems: 'flex-end' }}>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: '700' }}>Base Amount ($ USD)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={fxConverter.amount}
-                      onChange={(e) => setFxConverter(prev => ({ ...prev, amount: Number(e.target.value) }))}
-                      className="form-control"
-                      style={{ fontWeight: '800', fontSize: '1rem', background: '#ffffff' }}
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: '700' }}>Target Sovereign Country</label>
-                    <select
-                      className="form-control"
-                      value={fxConverter.toCurrency}
-                      onChange={(e) => setFxConverter(prev => ({ ...prev, toCurrency: e.target.value }))}
-                      style={{ fontWeight: '700', background: '#ffffff' }}
-                    >
-                      {sovereignRegistry.map((c) => (
-                        <option key={c.code} value={c.currencyCode}>
-                          {c.flag} {c.name} ({c.currencyCode})
-                        </option>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', alignItems: 'stretch' }}>
+                  {/* Column 1: Base Amount */}
+                  <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>Base Amount ($ USD)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={fxConverter.amount}
+                        onChange={(e) => setFxConverter(prev => ({ ...prev, amount: Number(e.target.value) }))}
+                        className="form-control"
+                        style={{ fontWeight: '800', fontSize: '1.1rem', background: '#f8fafc', color: '#0f172a' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '10px', flexWrap: 'wrap' }}>
+                      {[100, 500, 1000, 2500, 5000].map(val => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setFxConverter(prev => ({ ...prev, amount: val }))}
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: fxConverter.amount === val ? '800' : '600',
+                            background: fxConverter.amount === val ? '#2563eb' : '#f1f5f9',
+                            color: fxConverter.amount === val ? '#ffffff' : '#475569',
+                            border: '1px solid',
+                            borderColor: fxConverter.amount === val ? '#2563eb' : '#e2e8f0',
+                            borderRadius: '6px',
+                            padding: '3px 8px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ${val.toLocaleString()}
+                        </button>
                       ))}
-                    </select>
+                    </div>
                   </div>
 
+                  {/* Column 2: Target Country */}
+                  <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>Target Sovereign Country</label>
+                      <select
+                        className="form-control"
+                        value={fxConverter.toCurrency}
+                        onChange={(e) => setFxConverter(prev => ({ ...prev, toCurrency: e.target.value }))}
+                        style={{ fontWeight: '700', background: '#f8fafc', fontSize: '0.92rem' }}
+                      >
+                        {sovereignRegistry.map((c) => (
+                          <option key={c.code} value={c.currencyCode}>
+                            {c.flag} {c.name} ({c.currencyCode})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {(() => {
+                      const targetC = sovereignRegistry.find(c => c.currencyCode === fxConverter.toCurrency) || sovereignRegistry[0];
+                      return (
+                        <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Globe2 size={13} color="#2563eb" />
+                          <span>Jurisdiction: <strong>{targetC.name} ({targetC.code})</strong></span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Column 3: Converted Output */}
                   {(() => {
                     const targetC = sovereignRegistry.find(c => c.currencyCode === fxConverter.toCurrency) || sovereignRegistry[0];
-                    const convertedVal = (fxConverter.amount * (targetC.fxRateToUSD || 1)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    const rate = targetC.fxRateToUSD || 1;
+                    const convertedVal = (fxConverter.amount * rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    const invRate = (1 / rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
                     return (
-                      <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px 14px' }}>
-                        <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>
+                      <div style={{ background: '#ffffff', border: '1px solid #93c5fd', borderRadius: '10px', padding: '14px', boxShadow: '0 2px 6px rgba(37,99,235,0.06)' }}>
+                        <div style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                           Converted Value ({targetC.currencyCode})
                         </div>
-                        <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#0f172a', fontFamily: 'monospace' }}>
+                        <div style={{ fontSize: '1.35rem', fontWeight: '800', color: '#0f172a', fontFamily: 'monospace', margin: '4px 0' }}>
                           {targetC.currencySymbol} {convertedVal}
                         </div>
-                        <div style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: '600' }}>
-                          🏛️ Tax Scheme: {targetC.taxScheme}
+                        <div style={{ fontSize: '0.74rem', color: '#64748b', fontFamily: 'monospace' }}>
+                          1 USD = {rate.toLocaleString()} {targetC.currencyCode}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Column 4: Sovereign Tax & Parity Breakdown */}
+                  {(() => {
+                    const targetC = sovereignRegistry.find(c => c.currencyCode === fxConverter.toCurrency) || sovereignRegistry[0];
+                    const rate = targetC.fxRateToUSD || 1;
+                    const invRate = (1 / rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+                    return (
+                      <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px' }}>
+                        <div style={{ fontSize: '0.7rem', color: '#475569', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          Sovereign Tax &amp; FX Parity
+                        </div>
+                        <div style={{ fontSize: '0.76rem', color: '#1e40af', fontWeight: '700', marginTop: '6px' }}>
+                          🏛️ {targetC.taxScheme}
+                        </div>
+                        <div style={{ fontSize: '0.73rem', color: '#64748b', marginTop: '4px' }}>
+                          🛡️ {targetC.socialSecurity || 'Statutory Scheme'}
+                        </div>
+                        <div style={{ fontSize: '0.73rem', color: '#0f172a', marginTop: '4px', fontFamily: 'monospace' }}>
+                          1 {targetC.currencyCode} = ${invRate} USD
                         </div>
                       </div>
                     );
@@ -4943,55 +5015,157 @@ export default function SuperAdminDashboard({
                 </div>
               </div>
 
+              {/* Multi-Currency Exchange Matrix Full Width Card */}
               <div className="card-section">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h2 className="section-title">Multi-Currency Exchange Matrix</h2>
-                  <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Live rates synced with database &amp; sovereign registry</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <h2 className="section-title" style={{ margin: 0 }}>Multi-Currency Exchange Matrix</h2>
+                      <span style={{ background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe', padding: '3px 8px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: '700' }}>
+                        {sovereignRegistry.length} Currencies Configured
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginTop: '4px' }}>
+                      Live rates synced with database &amp; sovereign registry across all 24 markets
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div className="search-box-large" style={{ width: '280px', margin: 0 }}>
+                      <Search size={16} />
+                      <input
+                        type="text"
+                        placeholder="Search currency, code or tax..."
+                        value={currencyMatrixSearch}
+                        onChange={(e) => setCurrencyMatrixSearch(e.target.value)}
+                        className="search-input-field"
+                        style={{ fontSize: '0.82rem' }}
+                      />
+                      {currencyMatrixSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setCurrencyMatrixSearch('')}
+                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8', padding: '0 4px' }}
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setIsCreateCountryOpen(true)}
+                      style={{ fontSize: '0.8rem', padding: '7px 12px' }}
+                    >
+                      <Plus size={14} /> Add Country
+                    </button>
+                  </div>
                 </div>
-                <div className="saas-table-container" style={{ marginTop: '12px' }}>
-                  <table className="saas-data-table">
-                    <thead>
-                      <tr>
-                        <th>Jurisdiction &amp; Currency</th>
-                        <th>ISO Code</th>
-                        <th>Symbol</th>
-                        <th>Exchange Rate (per 1 USD)</th>
-                        <th>Tax / Withholding Standard</th>
-                        <th style={{ textAlign: 'right' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sovereignRegistry.map((c) => (
-                        <tr key={c.code}>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span>{c.flag}</span>
-                              <strong>{c.name}</strong>
-                            </div>
-                          </td>
-                          <td><span className="tenant-id-pill">{c.currencyCode}</span></td>
-                          <td><strong>{c.currencySymbol}</strong></td>
-                          <td style={{ fontFamily: 'monospace', fontWeight: '700', color: '#1e40af' }}>
-                            1 USD = {(c.fxRateToUSD || 1).toLocaleString()} {c.currencyCode}
-                          </td>
-                          <td style={{ fontSize: '0.78rem', color: '#475569' }}>
-                            {c.taxScheme}
-                          </td>
-                          <td style={{ textAlign: 'right' }}>
-                            <button
-                              type="button"
-                              className="action-pill-btn"
-                              onClick={() => handleOpenEditCountry(c)}
-                              title="Update Exchange Rate & Tax"
-                            >
-                              <Edit size={12} /> Edit FX &amp; Tax
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+
+                {(() => {
+                  const filteredCurrencies = sovereignRegistry.filter(c => {
+                    if (!currencyMatrixSearch.trim()) return true;
+                    const q = currencyMatrixSearch.toLowerCase().trim();
+                    return (
+                      (c.name && c.name.toLowerCase().includes(q)) ||
+                      (c.currencyCode && c.currencyCode.toLowerCase().includes(q)) ||
+                      (c.code && c.code.toLowerCase().includes(q)) ||
+                      (c.taxScheme && c.taxScheme.toLowerCase().includes(q))
+                    );
+                  });
+
+                  if (filteredCurrencies.length === 0) {
+                    return (
+                      <div style={{ padding: '40px 20px', textAlign: 'center', color: '#64748b' }}>
+                        <Coins size={36} color="#94a3b8" style={{ margin: '0 auto 8px', display: 'block' }} />
+                        <div style={{ fontWeight: '700', fontSize: '0.95rem', color: '#1e293b' }}>No Matching Currencies Found</div>
+                        <p style={{ fontSize: '0.8rem', margin: '4px auto 12px' }}>No jurisdiction matched "{currencyMatrixSearch}".</p>
+                        <button type="button" className="btn btn-secondary" onClick={() => setCurrencyMatrixSearch('')}>
+                          Clear Filter
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="saas-table-container" style={{ overflowX: 'auto', width: '100%' }}>
+                      <table className="saas-data-table" style={{ width: '100%', minWidth: '860px' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ minWidth: '190px' }}>Jurisdiction &amp; Territory</th>
+                            <th style={{ minWidth: '95px', textAlign: 'center' }}>ISO Code</th>
+                            <th style={{ minWidth: '75px', textAlign: 'center' }}>Symbol</th>
+                            <th style={{ minWidth: '200px' }}>Exchange Rate (per 1 USD)</th>
+                            <th style={{ minWidth: '160px' }}>Inverse FX (to USD)</th>
+                            <th style={{ minWidth: '220px' }}>Tax / Withholding Standard</th>
+                            <th style={{ minWidth: '120px', textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredCurrencies.map((c) => {
+                            const rate = c.fxRateToUSD || 1;
+                            const invRate = (1 / rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+                            return (
+                              <tr key={c.code}>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                                    <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>{c.flag}</span>
+                                    <div>
+                                      <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '0.88rem' }}>{c.name}</div>
+                                      <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Country ISO: {c.code}</div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td style={{ textAlign: 'center' }}>
+                                  <span className="tenant-id-pill" style={{ fontWeight: '800', letterSpacing: '0.5px' }}>{c.currencyCode}</span>
+                                </td>
+                                <td style={{ textAlign: 'center' }}>
+                                  <strong style={{ fontSize: '1rem', color: '#0f172a' }}>{c.currencySymbol}</strong>
+                                </td>
+                                <td>
+                                  <span style={{
+                                    fontFamily: 'monospace',
+                                    fontWeight: '800',
+                                    color: '#1d4ed8',
+                                    background: '#eff6ff',
+                                    border: '1px solid #bfdbfe',
+                                    borderRadius: '6px',
+                                    padding: '3px 8px',
+                                    fontSize: '0.84rem',
+                                    display: 'inline-block'
+                                  }}>
+                                    1 USD = {rate.toLocaleString()} {c.currencyCode}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: '#475569' }}>
+                                    1 {c.currencyCode} = ${invRate}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span style={{ fontSize: '0.78rem', color: '#334155', fontWeight: '500', display: 'block' }}>
+                                    {c.taxScheme || 'Standard Sovereign Tax'}
+                                  </span>
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <button
+                                    type="button"
+                                    className="action-pill-btn"
+                                    onClick={() => handleOpenEditCountry(c)}
+                                    title="Update Exchange Rate & Tax"
+                                    style={{ whiteSpace: 'nowrap' }}
+                                  >
+                                    <Edit size={12} /> Edit FX &amp; Tax
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}
