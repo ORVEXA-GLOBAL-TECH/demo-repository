@@ -18,7 +18,8 @@ import {
   UserCircle,
   FileCode2,
   AlertOctagon,
-  Database
+  Database,
+  Monitor
 } from 'lucide-react';
 
 export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
@@ -30,6 +31,7 @@ export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
         { id: 'companies', label: 'Company / Tenants', icon: Building2 },
         { id: 'jurisdictions', label: 'Countries, Timezones & FX', icon: Globe2 },
         { id: 'platform-users', label: 'Company Admins & Users', icon: Users },
+        { id: 'user-sessions', label: 'Active User Sessions', icon: Monitor },
         { id: 'subscriptions', label: 'Billing & Subscriptions', icon: CreditCard }
       ]
     },

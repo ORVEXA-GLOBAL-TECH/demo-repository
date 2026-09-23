@@ -92,6 +92,8 @@ import {
   Play
 } from 'lucide-react';
 
+import UserSessionsManager from '../components/UserSessionsManager';
+
 
 import {
   getTenants,
@@ -4494,6 +4496,15 @@ export default function SuperAdminDashboard({
         </div>
       )}
 
+
+      {/* =====================================================================
+          ACTIVE USER SESSIONS TAB
+          ===================================================================== */}
+      {activeTab === 'user-sessions' && (
+        <div className="tab-pane-content">
+          <UserSessionsManager />
+        </div>
+      )}
 
       {/* =====================================================================
           2. COMPANIES & TENANTS (FULL CRUD & TRIAL TIMERS)

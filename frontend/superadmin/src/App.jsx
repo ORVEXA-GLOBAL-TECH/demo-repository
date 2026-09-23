@@ -72,6 +72,7 @@ function MainSuperAdminApp() {
       case 'companies': return 'Company & Tenant Governance';
       case 'jurisdictions': return 'Multi-Country, Timezones & Currencies';
       case 'platform-users': return 'Platform Users & Directories';
+      case 'user-sessions': return 'Active User Sessions';
       case 'subscriptions': return 'Subscriptions & Monetization';
       case 'features': return 'Feature Flags & Rollouts';
       case 'settings': return 'Global Platform Configuration';
