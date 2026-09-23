@@ -4118,3 +4118,50 @@ export const revokeAllOtherSessions = async () => {
 };
 
 
+
+// ==============================================================================
+// DEDICATED FX RATES DATABASE API SERVICES
+// ==============================================================================
+
+export const getFxRatesTableApi = async () => {
+  try {
+    const res = await fetchWithAuth('/fx-rates');
+    if (res && res.success) return res;
+  } catch (err) {
+    console.warn('Backend FX rates API unreachable, fallback to memory...');
+  }
+  return { success: false, data: [] };
+};
+
+export const convertCurrencyApi = async (from, to, amount = 1) => {
+  try {
+    const res = await fetchWithAuth(`/fx-rates/convert?from=${from}&to=${to}&amount=${amount}`);
+    if (res && res.success) return res;
+  } catch (err) {
+    console.warn('FX Convert API error:', err);
+  }
+  return { success: false };
+};
+
+export const syncFxRatesTableApi = async () => {
+  try {
+    const res = await fetchWithAuth('/fx-rates/sync', { method: 'POST' });
+    if (res && res.success) return res;
+  } catch (err) {
+    console.warn('FX Sync API error:', err);
+  }
+  return { success: false };
+};
+
+export const saveFxRateApi = async (from_currency, to_currency, rate) => {
+  try {
+    const res = await fetchWithAuth('/fx-rates', {
+      method: 'POST',
+      body: JSON.stringify({ from_currency, to_currency, rate })
+    });
+    if (res && res.success) return res;
+  } catch (err) {
+    console.warn('FX Rate Save API error:', err);
+  }
+  return { success: false };
+};

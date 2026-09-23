@@ -37,6 +37,7 @@ import contentRoutes from './routes/contentRoutes.js';
 import ticketRoutes from './routes/ticketRoutes.js';
 import billingRoutes from './routes/billingRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import fxRoutes from './routes/fxRoutes.js';
 
 const app = express();
 
@@ -121,6 +122,7 @@ app.use('/api/tickets', ticketRoutes);
 app.use('/api/support-tickets', ticketRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/fx-rates', fxRoutes);
 app.use('/api', auditRoutes);
 app.use('/api', tenantRoutes);
 

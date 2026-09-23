@@ -134,6 +134,9 @@ import {
   updateCountry,
   deleteCountry,
   syncLiveFxRates,
+  getFxRatesTableApi,
+  syncFxRatesTableApi,
+  saveFxRateApi,
   getSubscriptions,
   createSubscription,
   updateSubscription,
@@ -1085,7 +1088,9 @@ export default function SuperAdminDashboard({
   const handleSyncLiveFxRates = async (showSuccessToast = true) => {
     setIsSyncingFxRates(true);
     try {
+      const tableRes = await syncFxRatesTableApi();
       const res = await syncLiveFxRates();
+      const ratesMap = tableRes?.data ? Object.fromEntries(tableRes.data.map(r => [r.to_currency, r.rate])) : res?.rates;
       if (res && res.rates) {
         setSovereignRegistry(prev => prev.map(c => {
           const curr = (c.currencyCode || '').toUpperCase();
