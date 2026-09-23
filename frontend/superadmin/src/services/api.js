@@ -52,39 +52,7 @@ export const loginUser = async (email, role = 'SUPER_ADMIN', platform = 'web', p
 
   const cleanEmail = email.trim().toLowerCase();
 
-  // 1. Try Backend Node.js Express API
-  try {
-    const res = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: cleanEmail, role, platform, password })
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && data.user) {
-        if (data.sessionId) localStorage.setItem('orvexa_session_id', data.sessionId);
-        if (data.token) localStorage.setItem('orvexa_superadmin_token', data.token);
-        return data;
-      }
-    } else {
-      const err = await res.json().catch(() => ({}));
-      if (err.message) {
-        throw new Error(err.message);
-      }
-    }
-  } catch (apiError) {
-    if (apiError.message && (
-      apiError.message.includes('Invalid credentials') || 
-      apiError.message.includes('Incorrect password') ||
-      apiError.message.includes('Account is currently')
-    )) {
-      throw apiError;
-    }
-    console.warn('Backend API offline, falling back to direct Supabase PostgreSQL authentication...');
-  }
-
-  // 2. Direct Supabase Database Authentication
+  // 1. Primary Direct Supabase Database Authentication
   try {
     const { data: userRecord, error: dbError } = await supabase
       .from('users')
@@ -92,17 +60,12 @@ export const loginUser = async (email, role = 'SUPER_ADMIN', platform = 'web', p
       .ilike('email', cleanEmail)
       .maybeSingle();
 
-    if (dbError) {
-      console.error('Supabase query error:', dbError);
-      throw new Error('Database connection failed: ' + dbError.message);
-    }
-
-    if (userRecord) {
-      if (userRecord.status && userRecord.status !== 'Active') {
-        throw new Error(`Account is currently ${userRecord.status}. Please contact the platform owner.`);
+    if (!dbError && userRecord) {
+      if (userRecord.status && userRecord.status.toLowerCase() !== 'active') {
+        throw new Error(`Account is currently ${userRecord.status}. Please contact the administrator.`);
       }
 
-      if (userRecord.role !== 'SUPER_ADMIN') {
+      if (userRecord.role !== 'SUPER_ADMIN' && !userRecord.is_superadmin) {
         throw new Error('Access Denied: This terminal is strictly reserved for Super Administrators.');
       }
 
@@ -117,15 +80,16 @@ export const loginUser = async (email, role = 'SUPER_ADMIN', platform = 'web', p
 
       const sanitizedUser = {
         id: userRecord.id,
-        name: `${userRecord.first_name || ''} ${userRecord.last_name || ''}`.trim() || 'Akshyatraj Pati',
-        firstName: userRecord.first_name || 'Akshyatraj',
-        lastName: userRecord.last_name || 'Pati',
+        name: `${userRecord.first_name || ''} ${userRecord.last_name || ''}`.trim() || 'Super Admin',
+        firstName: userRecord.first_name || 'Super',
+        lastName: userRecord.last_name || 'Admin',
         email: userRecord.email,
         role: userRecord.role,
+        isSuperAdmin: true,
         tenantId: userRecord.tenant_id,
         status: userRecord.status || 'Active',
         territory: userRecord.territory || 'Global HQ',
-        designation: 'Master Platform Super Administrator',
+        designation: userRecord.designation || 'Master Platform Super Administrator',
         allowedPlatforms: ['web'],
         lastLoginAt: new Date().toISOString()
       };
@@ -159,23 +123,57 @@ export const loginUser = async (email, role = 'SUPER_ADMIN', platform = 'web', p
           localStorage.setItem('orvexa_session_id', newSessionId);
           localStorage.setItem('orvexa_superadmin_token', 'jwt-supabase-' + Date.now());
         }
+
+        return {
+          success: true,
+          message: 'Authentication successful',
+          sessionId: newSessionId,
+          token: 'jwt-supabase-' + Date.now(),
+          user: sanitizedUser
+        };
       } catch (sessErr) {
         console.warn('Session recording error:', sessErr);
+        return {
+          success: true,
+          message: 'Authentication successful',
+          sessionId: 'b0000000-0000-0000-0000-000000000001',
+          token: 'jwt-supabase-' + Date.now(),
+          user: sanitizedUser
+        };
       }
-
-      return {
-        success: true,
-        message: 'Authentication successful',
-        sessionId: newSessionId,
-        token: 'jwt-supabase-' + Date.now(),
-        user: sanitizedUser
-      };
     }
-
-    throw new Error('Invalid credentials. No Super Administrator account found with this email.');
-  } catch (supabaseError) {
-    throw new Error(supabaseError.message || 'Authentication failed. Please check your credentials.');
+  } catch (err) {
+    if (err.message && (
+      err.message.includes('Incorrect password') ||
+      err.message.includes('Access Denied') ||
+      err.message.includes('Account is currently')
+    )) {
+      throw err;
+    }
+    console.warn('Direct Supabase check error, trying backend API:', err.message);
   }
+
+  // 2. Secondary Node.js Express API Fallback
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: cleanEmail, role, platform, password })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.user) {
+        if (data.sessionId) localStorage.setItem('orvexa_session_id', data.sessionId);
+        if (data.token) localStorage.setItem('orvexa_superadmin_token', data.token);
+        return data;
+      }
+    }
+  } catch (apiError) {
+    // API unavailable
+  }
+
+  throw new Error('Invalid credentials. No Super Administrator account found with this email.');
 };
 
 // ----------------------------------------------------------------------------
