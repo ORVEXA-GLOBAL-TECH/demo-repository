@@ -90,27 +90,49 @@ router.post('/tenants', async (req, res) => {
     name,
     legalName,
     code,
-    countryCode,
-    timezone,
-    currencyCode,
+    industrySegment = 'PHARMACEUTICALS',
+    companyType = 'ENTERPRISE',
+    taxId = '',
+    logoUrl = '',
+    faviconUrl = '',
+    brandPrimaryColor = '#0284c7',
+    websiteUrl = '',
+    subdomain = '',
+    customDomain = '',
+    countryCode = 'IN',
+    operatingCountries = ['IN'],
+    timezone = 'Asia/Kolkata',
+    currencyCode = 'INR',
+    dateFormat = 'DD/MM/YYYY',
+    fiscalYearStart = 'APRIL',
+    complianceFrameworks = ['21_CFR_PART_11', 'GXP', 'ISO_27001'],
+    dataResidencyRegion = 'ap-south-1',
     plan = 'STARTER',
-    status,
-    maxMrs,
-    maxAdmins,
-    maxDoctors,
-    maxStorageGb,
-    billingCycle,
+    billingCycle = 'Monthly',
     monthlyRate,
-    isCustomPricing,
-    customRate,
+    annualContractValue,
+    currency = 'USD',
+    paymentTerms = 'NET_30',
+    poNumber = '',
+    status,
     trialStartAt,
     trialEndAt,
     subscriptionStartAt,
     subscriptionEndAt,
+    gracePeriodDays = 14,
+    autoRenew = true,
+    maxUsers = 100,
+    maxStorageGb = 25,
+    apiRateLimitPerMin = 600,
+    contactName,
     contactEmail,
     contactPhone,
     adminName,
     adminPassword,
+    mfaEnforced = false,
+    sessionTimeoutMinutes = 15,
+    ipWhitelist = [],
+    auditRetentionYears = 7,
     settings
   } = req.body;
 
@@ -118,29 +140,23 @@ router.post('/tenants', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Company name and contact email are required.' });
   }
 
-  const tenantCode = code || name.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30);
+  const tenantCode = (code || name.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30)).toLowerCase();
   const normalizedPlan = (plan || 'STARTER').toUpperCase();
   const isTrial = normalizedPlan === 'FREE_TRIAL' || normalizedPlan === 'TRIAL';
-  const isCustom = normalizedPlan === 'CUSTOM' || isCustomPricing;
 
-  // Sanitize currencyCode to prevent DB column overflow (e.g. 'USD / KHR' -> 'USD')
+  // Sanitize currencyCode
   const cleanCurrencyCode = currencyCode 
     ? String(currencyCode).split(/[\s/()]/)[0].toUpperCase().slice(0, 5) || 'USD'
     : 'USD';
 
-  let calculatedRate = 0;
+  let calculatedRate = Number(monthlyRate) || 0;
   if (isTrial) {
     calculatedRate = 0;
-  } else if (isCustom) {
-    calculatedRate = customRate !== undefined ? Number(customRate) : (monthlyRate !== undefined ? Number(monthlyRate) : 0);
-  } else if (normalizedPlan === 'STARTER' || normalizedPlan === 'BASIC') {
-    calculatedRate = 100;
-  } else if (normalizedPlan === 'PROFESSIONAL' || normalizedPlan === 'PRO') {
-    calculatedRate = 1000;
-  } else if (normalizedPlan === 'ENTERPRISE') {
-    calculatedRate = 2500;
-  } else {
-    calculatedRate = Number(monthlyRate) || 100;
+  } else if (!calculatedRate) {
+    if (normalizedPlan === 'STARTER' || normalizedPlan === 'BASIC') calculatedRate = 100;
+    else if (normalizedPlan === 'GROWTH') calculatedRate = 450;
+    else if (normalizedPlan === 'PROFESSIONAL' || normalizedPlan === 'PRO') calculatedRate = 1000;
+    else if (normalizedPlan === 'ENTERPRISE' || normalizedPlan === 'ENTERPRISE_SOVEREIGN') calculatedRate = 2500;
   }
 
   const finalStatus = status || (isTrial ? 'Trial' : 'Active');
@@ -150,66 +166,110 @@ router.post('/tenants', async (req, res) => {
     if (dbHealth.status === 'CONNECTED') {
       const insertRes = await query(`
         INSERT INTO tenants_companies (
-          code, name, legal_name, country_code, default_timezone,
-          currency_code, plan, status,
-          billing_cycle, monthly_rate, is_custom_pricing, custom_rate,
-          trial_start_at, trial_end_at, subscription_start_at, subscription_end_at,
-          contact_email, contact_phone, settings
+          code, name, legal_name, industry_segment, company_type, tax_id,
+          logo_url, favicon_url, brand_primary_color, website_url, subdomain, custom_domain,
+          country_code, operating_countries, default_timezone, currency_code, date_format, fiscal_year_start,
+          compliance_frameworks, data_residency_region, plan, billing_cycle, monthly_rate, annual_contract_value,
+          currency, payment_terms, po_number, status, trial_start_at, trial_end_at,
+          subscription_start_at, subscription_end_at, grace_period_days, auto_renew,
+          max_users, max_storage_gb, api_rate_limit_per_min,
+          contact_name, contact_email, contact_phone,
+          mfa_enforced, session_timeout_minutes, ip_whitelist, audit_retention_years, settings
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+        VALUES (
+          $1, $2, $3, $4, $5, $6,
+          $7, $8, $9, $10, $11, $12,
+          $13, $14, $15, $16, $17, $18,
+          $19, $20, $21, $22, $23, $24,
+          $25, $26, $27, $28, $29, $30,
+          $31, $32, $33, $34,
+          $35, $36, $37,
+          $38, $39, $40,
+          $41, $42, $43, $44, $45
+        )
         RETURNING *;
       `, [
         tenantCode,
         name,
         legalName || name,
-        countryCode ? String(countryCode).slice(0, 3) : 'VN',
-        timezone || 'Asia/Ho_Chi_Minh',
+        industrySegment,
+        companyType,
+        taxId,
+        logoUrl,
+        faviconUrl,
+        brandPrimaryColor,
+        websiteUrl,
+        subdomain ? subdomain.toLowerCase() : `${tenantCode}.alleviare.com`,
+        customDomain || '',
+        countryCode ? String(countryCode).slice(0, 3) : 'IN',
+        JSON.stringify(operatingCountries || ['IN']),
+        timezone || 'Asia/Kolkata',
         cleanCurrencyCode,
+        dateFormat,
+        fiscalYearStart,
+        JSON.stringify(complianceFrameworks || []),
+        dataResidencyRegion,
         normalizedPlan,
-        finalStatus,
         billingCycle || 'Monthly',
         calculatedRate,
-        isCustom || false,
-        isCustom ? calculatedRate : 0,
+        annualContractValue || calculatedRate * 12,
+        currency,
+        paymentTerms,
+        poNumber,
+        finalStatus,
         trialStartAt || (isTrial ? new Date().toISOString() : null),
         trialEndAt || (isTrial ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() : null),
         subscriptionStartAt || (!isTrial ? new Date().toISOString() : null),
         subscriptionEndAt || (!isTrial ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() : null),
+        gracePeriodDays,
+        autoRenew,
+        maxUsers,
+        maxStorageGb,
+        apiRateLimitPerMin,
+        contactName || adminName || 'Company Administrator',
         contactEmail,
         contactPhone || '',
+        mfaEnforced,
+        sessionTimeoutMinutes,
+        JSON.stringify(ipWhitelist || []),
+        auditRetentionYears,
         JSON.stringify(settings || {
           modules: {
             mrReporting: true,
             dcr: true,
-            attendance: true,
+            tourPlan: true,
+            gpsLiveTracking: true,
             doctorManagement: true,
-            chemistManagement: true,
-            expense: true,
-            gpsTracking: true,
-            targetManagement: true,
+            chemistStockist: true,
             orderManagement: true,
-            sampleManagement: false,
-            analytics: true,
-            aiStudio: normalizedPlan === 'ENTERPRISE'
+            expenseManagement: true,
+            sampleDistribution: false,
+            visualAids: true,
+            aiAnalytics: normalizedPlan.includes('ENTERPRISE'),
+            whatsappAlerts: true,
+            offlineSync: true
           }
         })
       ]);
 
       const newTenant = insertRes.rows[0];
 
-      // Provision default Company Admin user for this tenant if provided
+      // Provision default Company Admin user for this tenant
+      let adminUserId = null;
       if (adminName || contactEmail) {
-        const [firstName, ...lastNameParts] = (adminName || 'Company Admin').split(' ');
+        const [firstName, ...lastNameParts] = (adminName || contactName || 'Company Admin').split(' ');
         const initialPassword = adminPassword || 'Admin@1234!';
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(initialPassword, salt);
 
-        await query(`
+        const adminInsert = await query(`
           INSERT INTO users (
-            tenant_id, email, password_hash, first_name, last_name, role, status, country_code
+            tenant_id, email, password_hash, first_name, last_name, role, status, country_code, company_name, designation
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-          ON CONFLICT DO NOTHING;
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          ON CONFLICT (email) DO UPDATE 
+          SET tenant_id = EXCLUDED.tenant_id, company_name = EXCLUDED.company_name
+          RETURNING id;
         `, [
           newTenant.id,
           contactEmail.toLowerCase(),
@@ -218,24 +278,36 @@ router.post('/tenants', async (req, res) => {
           lastNameParts.join(' ') || 'User',
           'COMPANY_ADMIN',
           'Active',
-          countryCode || 'VN'
+          countryCode || 'IN',
+          name,
+          'Company Master Administrator'
         ]);
+
+        if (adminInsert.rows.length > 0) {
+          adminUserId = adminInsert.rows[0].id;
+          await query('UPDATE tenants_companies SET admin_user_id = $1 WHERE id = $2', [adminUserId, newTenant.id]);
+          newTenant.admin_user_id = adminUserId;
+        }
       }
 
       // Write platform audit log
-      await query(`
-        INSERT INTO platform_audit_logs (
-          actor_email, actor_role, action, target_entity, entity_id, details
-        )
-        VALUES ($1, $2, $3, $4, $5, $6);
-      `, [
-        'superadmin@alleviaresfa.com',
-        'SUPER_ADMIN',
-        'TENANT_PROVISIONED',
-        'tenants_companies',
-        newTenant.id,
-        JSON.stringify({ tenantName: name, code: tenantCode, country: countryCode, plan: normalizedPlan, monthlyRate: calculatedRate })
-      ]);
+      try {
+        await query(`
+          INSERT INTO platform_audit_logs (
+            actor_email, actor_role, action, target_entity, entity_id, details
+          )
+          VALUES ($1, $2, $3, $4, $5, $6);
+        `, [
+          'superadmin@alleviare.com',
+          'SUPER_ADMIN',
+          'TENANT_PROVISIONED',
+          'tenants_companies',
+          newTenant.id,
+          JSON.stringify({ tenantName: name, code: tenantCode, country: countryCode, plan: normalizedPlan, monthlyRate: calculatedRate, maxUsers })
+        ]);
+      } catch (auditErr) {
+        console.warn('Audit log write skipped:', auditErr.message);
+      }
 
       return res.status(201).json({
         success: true,
@@ -246,9 +318,25 @@ router.post('/tenants', async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Tenant accepted in demo mode (PostgreSQL offline).',
-      data: { id: 'temp-' + Date.now(), name, code: tenantCode, countryCode, plan: normalizedPlan, status: finalStatus }
+      message: 'Tenant provisioned in sovereign demo mode.',
+      data: {
+        id: 'tc-' + Date.now(),
+        name,
+        code: tenantCode,
+        countryCode,
+        plan: normalizedPlan,
+        status: finalStatus,
+        maxUsers,
+        maxStorageGb,
+        apiRateLimitPerMin,
+        contactEmail
+      }
     });
+  } catch (err) {
+    console.error('Tenant provisioning error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

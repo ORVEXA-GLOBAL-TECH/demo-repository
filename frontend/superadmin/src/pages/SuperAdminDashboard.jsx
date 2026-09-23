@@ -93,6 +93,7 @@ import {
 } from 'lucide-react';
 
 import UserSessionsManager from '../components/UserSessionsManager';
+import CreateCompanyModal from '../components/CreateCompanyModal';
 
 
 import {
@@ -1536,6 +1537,20 @@ export default function SuperAdminDashboard({
       });
     } catch (err) {
       showToast(`Failed to create tenant: ${err.message}`, 'error');
+    }
+  };
+
+  const handleCreateCompanyWithPayload = async (payload) => {
+    try {
+      const res = await createTenant(payload);
+      showToast(`Company "${payload.name}" successfully provisioned with ${payload.plan} tier!`, 'success');
+      logAudit('TENANT_PROVISIONED', `Created pharma company ${payload.name} on ${payload.plan} ($${payload.monthlyRate}/mo) with ${payload.maxUsers} max users`, payload.name);
+      setIsCreateCompanyOpen(false);
+      await loadAllData();
+      return res;
+    } catch (err) {
+      showToast(`Failed to create tenant: ${err.message}`, 'error');
+      throw err;
     }
   };
 
@@ -12822,215 +12837,16 @@ export default function SuperAdminDashboard({
       )}
 
       {/* =====================================================================
-          MODAL: PROVISION TENANT (FREE TRIAL, STARTER, PRO, ENTERPRISE, CUSTOM)
+          MODAL: PROVISION TENANT WIZARD (COMPREHENSIVE ENTERPRISE ONBOARDING)
           ===================================================================== */}
       {isCreateCompanyOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '650px' }}>
-            <div className="modal-header">
-              <div className="modal-title-group">
-                <Building2 size={24} color="#d97706" />
-                <div>
-                  <h3>Provision Isolated Pharma Tenant</h3>
-                  <p>Configure Free Trial, Starter, Professional, Enterprise or Custom tier with start/end times.</p>
-                </div>
-              </div>
-              <button type="button" className="close-modal-btn" onClick={() => setIsCreateCompanyOpen(false)}>&times;</button>
-            </div>
-
-            <form onSubmit={handleCreateCompany} className="modal-form-body">
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label>Company Legal Commercial Name *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Alleviare Pharma Global Ltd."
-                    value={newCompanyForm.name}
-                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, name: e.target.value })}
-                    className="form-control"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Tenant Unique Code</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. alleviare-global"
-                    value={newCompanyForm.code}
-                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, code: e.target.value })}
-                    className="form-control"
-                  />
-                </div>
-              </div>
-
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label>Sovereign Country Jurisdiction *</label>
-                  <select
-                    className="form-control"
-                    value={newCompanyForm.country}
-                    onChange={(e) => handleCountrySelectionChange(e.target.value)}
-                  >
-                    {sovereignRegistry.map((c) => (
-                      <option key={c.code} value={c.name}>
-                        {c.flag} {c.name} ({c.currencyCode})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Subscription Tier *</label>
-                  <select
-                    value={newCompanyForm.plan}
-                    onChange={(e) => {
-                      const selectedPlan = e.target.value;
-                      if (selectedPlan === 'FREE_TRIAL') {
-                        applyDurationPreset(setNewCompanyForm, newCompanyForm.startAt, 14);
-                      } else {
-                        applyDurationPreset(setNewCompanyForm, newCompanyForm.startAt, 365);
-                      }
-                      setNewCompanyForm(prev => ({ ...prev, plan: selectedPlan }));
-                    }}
-                    className="form-control"
-                    style={{ fontWeight: '700' }}
-                  >
-                    <option value="FREE_TRIAL">Free Trial / Demo ($0)</option>
-                    <option value="STARTER">Starter Tier ($100/mo)</option>
-                    <option value="PROFESSIONAL">Professional Tier ($1,000/mo)</option>
-                    <option value="ENTERPRISE">Enterprise Tier ($2,500/mo)</option>
-                    <option value="CUSTOM">Custom Pricing (User Defined)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Custom Pricing Input if CUSTOM is selected */}
-              {newCompanyForm.plan === 'CUSTOM' && (
-                <div className="form-group" style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '10px 14px', borderRadius: '8px' }}>
-                  <label>Custom Monthly Rate ($ USD) *</label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="e.g. 5000"
-                    value={newCompanyForm.customRate}
-                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, customRate: Number(e.target.value) })}
-                    className="form-control"
-                  />
-                </div>
-              )}
-
-              {/* Dynamic Local Currency & Tax Scheme Preview */}
-              {(() => {
-                const currentCountry = sovereignRegistry.find(c => c.name === newCompanyForm.country || c.code === newCompanyForm.countryCode) || sovereignRegistry[0];
-                const isTrial = newCompanyForm.plan === 'FREE_TRIAL';
-                const usdRate = isTrial ? 0 : (newCompanyForm.plan === 'CUSTOM' ? Number(newCompanyForm.customRate) || 0 : (newCompanyForm.plan === 'ENTERPRISE' ? 2500 : (newCompanyForm.plan === 'PROFESSIONAL' ? 1000 : 100)));
-                const localRate = (usdRate * (currentCountry.fxRateToUSD || 1)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-                return (
-                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 14px', margin: '6px 0 12px', fontSize: '0.8rem', color: '#166534' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <span><strong>💱 Real-Time Local Billing:</strong> {isTrial ? 'Free Trial ($0.00)' : `${currentCountry.currencySymbol} ${localRate} ${currentCountry.currencyCode}`}</span>
-                      <span style={{ fontSize: '0.72rem', color: '#15803d', fontFamily: 'monospace' }}>(1 USD = {(currentCountry.fxRateToUSD || 1).toLocaleString()} {currentCountry.currencyCode})</span>
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: '#14532d' }}>
-                      <strong>🏛️ Statutory Tax Standard:</strong> {currentCountry.taxScheme} | <strong>⏰ Timezone:</strong> {currentCountry.timezone}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Start & End Date Time Picker with Duration Presets */}
-              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', margin: '4px 0 14px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#0f172a' }}>Subscription / Trial Validity Timestamps:</span>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <button type="button" className="action-pill-btn" onClick={() => applyDurationPreset(setNewCompanyForm, newCompanyForm.startAt, 7)}>+7d Trial</button>
-                    <button type="button" className="action-pill-btn" onClick={() => applyDurationPreset(setNewCompanyForm, newCompanyForm.startAt, 14)}>+14d Trial</button>
-                    <button type="button" className="action-pill-btn" onClick={() => applyDurationPreset(setNewCompanyForm, newCompanyForm.startAt, 30)}>+30d Demo</button>
-                    <button type="button" className="action-pill-btn" onClick={() => applyDurationPreset(setNewCompanyForm, newCompanyForm.startAt, 365)}>+1 Year</button>
-                  </div>
-                </div>
-
-                <div className="form-grid-2">
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label style={{ fontSize: '0.72rem' }}>Start Date &amp; Time *</label>
-                    <input
-                      type="datetime-local"
-                      required
-                      value={newCompanyForm.startAt}
-                      onChange={(e) => setNewCompanyForm({ ...newCompanyForm, startAt: e.target.value })}
-                      className="form-control"
-                    />
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label style={{ fontSize: '0.72rem' }}>End / Expiry Date &amp; Time *</label>
-                    <input
-                      type="datetime-local"
-                      required
-                      value={newCompanyForm.endAt}
-                      onChange={(e) => setNewCompanyForm({ ...newCompanyForm, endAt: e.target.value })}
-                      className="form-control"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label>Initial Company Admin Full Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Dr. Nguyen Van Minh"
-                    value={newCompanyForm.adminName}
-                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, adminName: e.target.value })}
-                    className="form-control"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Company Admin Corporate Email *</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="admin@company.com"
-                    value={newCompanyForm.adminEmail}
-                    onChange={(e) => setNewCompanyForm({ ...newCompanyForm, adminEmail: e.target.value })}
-                    className="form-control"
-                  />
-                </div>
-              </div>
-
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label>Auto-Assigned Currency</label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={`${newCompanyForm.currency}`}
-                    className="form-control"
-                    style={{ background: '#f1f5f9', fontWeight: '700' }}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Auto-Assigned Timezone</label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={newCompanyForm.timezone}
-                    className="form-control"
-                    style={{ background: '#f1f5f9', fontWeight: '700' }}
-                  />
-                </div>
-              </div>
-
-              <div className="modal-actions-bar">
-                <button type="button" className="cancel-btn" onClick={() => setIsCreateCompanyOpen(false)}>Cancel</button>
-                <button type="submit" className="submit-create-btn">
-                  <CheckCircle2 size={16} /> <span>Provision Tenant</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <CreateCompanyModal
+          isOpen={isCreateCompanyOpen}
+          onClose={() => setIsCreateCompanyOpen(false)}
+          onCreated={handleCreateCompanyWithPayload}
+        />
       )}
+
 
       {/* =====================================================================
           MODAL: EDIT COMPANY (UPDATE & TRIAL SETTINGS)
