@@ -183,7 +183,7 @@ export const loginUser = async (email, role = 'SUPER_ADMIN', platform = 'web', p
 export const getTenants = async () => {
   try {
     const res = await fetchWithAuth('/tenants');
-    if (res.success && Array.isArray(res.data) && res.data.length > 0) return res.data;
+    if (res && res.success && Array.isArray(res.data)) return res.data;
   } catch (err) {
     console.warn('API error fetching tenants, querying Supabase directly...');
   }
@@ -194,7 +194,7 @@ export const getTenants = async () => {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (!error && Array.isArray(data) && data.length > 0) {
+    if (!error && Array.isArray(data)) {
       return data;
     }
   } catch (e) {

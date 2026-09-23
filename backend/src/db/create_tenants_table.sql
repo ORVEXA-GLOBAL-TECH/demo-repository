@@ -1,13 +1,19 @@
 -- ==============================================================================
 -- COMPREHENSIVE TENANTS & COMPANIES TABLE FOR SUPABASE / POSTGRESQL
--- Enterprise Multi-Tenant Pharma Governance Schema
+-- Enterprise Multi-Tenant Pharma Governance Schema (EMPTY - NO SEED DATA)
 -- ==============================================================================
+
+-- [OPTIONAL RESET COMMANDS]:
+-- Run this if you already have the table and want to wipe all records clean:
+-- TRUNCATE TABLE public.tenants_companies CASCADE;
+-- OR to drop and recreate completely:
+-- DROP TABLE IF EXISTS public.tenants_companies CASCADE;
 
 -- 1. Ensure Required Extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- 2. Create tenants_companies Table
+-- 2. Create tenants_companies Table (Guaranteed Empty)
 CREATE TABLE IF NOT EXISTS public.tenants_companies (
     -- Unique Identifiers
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
