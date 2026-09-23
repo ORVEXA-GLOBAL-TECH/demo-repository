@@ -6,7 +6,6 @@ import SuperAdminNavbar from './components/SuperAdminNavbar';
 import NotificationDrawer from './components/NotificationDrawer';
 import SuperAdminLoginPage from './pages/SuperAdminLoginPage';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
-import UserSessionsManager from './components/UserSessionsManager';
 import { getNotifications, SOCKET_URL } from './services/api';
 import './styles/theme.css';
 
@@ -73,7 +72,6 @@ function MainSuperAdminApp() {
       case 'companies': return 'Company & Tenant Governance';
       case 'jurisdictions': return 'Multi-Country, Timezones & Currencies';
       case 'platform-users': return 'Platform Users & Directories';
-      case 'user-sessions': return 'Live User Sessions & Window Oversight';
       case 'subscriptions': return 'Subscriptions & Monetization';
       case 'features': return 'Feature Flags & Rollouts';
       case 'settings': return 'Global Platform Configuration';
@@ -103,16 +101,12 @@ function MainSuperAdminApp() {
           setGlobalSearchQuery={setGlobalSearchQuery}
         />
         <main className="content-area">
-          {activeTab === 'user-sessions' ? (
-            <UserSessionsManager />
-          ) : (
-            <SuperAdminDashboard
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              globalSearchQuery={globalSearchQuery}
-              setGlobalSearchQuery={setGlobalSearchQuery}
-            />
-          )}
+          <SuperAdminDashboard
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            globalSearchQuery={globalSearchQuery}
+            setGlobalSearchQuery={setGlobalSearchQuery}
+          />
         </main>
       </div>
 

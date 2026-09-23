@@ -89,11 +89,9 @@ import {
   Shield,
   History,
   AlertCircle,
-  Play,
-  Monitor
+  Play
 } from 'lucide-react';
 
-import UserSessionsManager from '../components/UserSessionsManager';
 
 import {
   getTenants,
@@ -4262,28 +4260,8 @@ export default function SuperAdminDashboard({
                 <strong>{activeCompanies} Paid Subscriptions</strong> &bull; ARR: ${totalARR_USD.toLocaleString()}
               </div>
             </div>
-            <div className="saas-kpi-card" onClick={() => setActiveTab('user-sessions')} style={{ cursor: 'pointer' }}>
-              <div className="kpi-top">
-                <span className="kpi-label">Active User Sessions</span>
-                <Monitor size={18} className="kpi-icon blue" />
-              </div>
-              <div className="kpi-number text-green" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 10px #10b981' }}></span>
-                Single-Session Active
-              </div>
-              <div className="kpi-sub">
-                <strong className="text-green">Live Enforced</strong> &bull; Click to Manage
-              </div>
-              <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '3px' }}>
-                Auto-terminates concurrent windows
-              </div>
-            </div>
           </div>
 
-          {/* Live User Sessions & Window Oversight Panel */}
-          <div style={{ marginBottom: '24px' }}>
-            <UserSessionsManager />
-          </div>
 
           {/* Customer Health Score Matrix Card */}
           <div className="card-section" style={{ marginBottom: '24px' }}>
@@ -4516,14 +4494,6 @@ export default function SuperAdminDashboard({
         </div>
       )}
 
-      {/* =====================================================================
-          LIVE USER SESSIONS & WINDOW MANAGEMENT TAB
-          ===================================================================== */}
-      {activeTab === 'user-sessions' && (
-        <div className="tab-pane-content">
-          <UserSessionsManager />
-        </div>
-      )}
 
       {/* =====================================================================
           2. COMPANIES & TENANTS (FULL CRUD & TRIAL TIMERS)
@@ -8859,13 +8829,6 @@ export default function SuperAdminDashboard({
             </button>
             <button
               type="button"
-              className={`sub-nav-pill ${securitySubTab === 'sessions' ? 'active' : ''}`}
-              onClick={() => setSecuritySubTab('sessions')}
-            >
-              <Radio size={14} /> ⚡ Live Active Sessions ({activeSessionsList.length}) &amp; Force Logout
-            </button>
-            <button
-              type="button"
               className={`sub-nav-pill ${securitySubTab === 'alerts' ? 'active' : ''}`}
               onClick={() => setSecuritySubTab('alerts')}
             >
@@ -9629,200 +9592,6 @@ export default function SuperAdminDashboard({
                       suspiciousLoginDetection: { ...securityPolicies.suspiciousLoginDetection, velocityThresholdKmPerHour: Number(e.target.value) }
                     })}
                   />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ===================================================================
-              SUB-TAB 2: LIVE ACTIVE SESSIONS & FORCE LOGOUT
-              =================================================================== */}
-          {securitySubTab === 'sessions' && (
-            <div>
-              {/* Sessions Filter Strip */}
-              <div className="card-section" style={{ padding: '14px 16px', marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                <div style={{ position: 'relative', flex: '1 1 240px' }}>
-                  <Search size={15} color="#64748b" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
-                  <input
-                    type="text"
-                    placeholder="Search by User, Email, Company, IP or Device..."
-                    value={activeSessionsSearch}
-                    onChange={(e) => setActiveSessionsSearch(e.target.value)}
-                    className="form-control"
-                    style={{ paddingLeft: '32px', fontSize: '0.82rem', height: '36px' }}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '0.78rem', color: '#475569', fontWeight: '700' }}>Tenant:</span>
-                  <select
-                    className="form-control"
-                    style={{ height: '36px', fontSize: '0.8rem', minWidth: '160px' }}
-                    value={activeSessionsTenantFilter}
-                    onChange={(e) => setActiveSessionsTenantFilter(e.target.value)}
-                  >
-                    <option value="ALL">All Tenants (Platform-Wide)</option>
-                    {companies.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setIsEmergencyLogoutOpen(true)}
-                  style={{ marginLeft: 'auto', background: '#fef2f2', borderColor: '#fca5a5', color: '#b91c1c' }}
-                >
-                  <AlertOctagon size={14} color="#dc2626" />
-                  <span>Terminate All Tenant Sessions</span>
-                </button>
-              </div>
-
-              {/* Active Sessions Table */}
-              <div className="card-section" style={{ padding: 0, overflow: 'hidden' }}>
-                <div className="saas-table-container">
-                  {activeSessionsList.length === 0 ? (
-                    <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
-                      <Radio size={38} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
-                      <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b' }}>No Active Sessions</div>
-                      <p style={{ fontSize: '0.8rem', margin: '4px auto 14px' }}>Live authenticated user sessions will be tracked in real-time.</p>
-                    </div>
-                  ) : (
-                    <table className="saas-data-table" style={{ margin: 0 }}>
-                      <thead>
-                        <tr>
-                          <th style={{ minWidth: '180px' }}>User &amp; Role</th>
-                          <th style={{ minWidth: '140px' }}>Company</th>
-                          <th style={{ minWidth: '130px' }}>IP &amp; Location</th>
-                          <th style={{ minWidth: '160px' }}>Device &amp; Client</th>
-                          <th style={{ minWidth: '100px' }}>MFA Verified</th>
-                          <th style={{ minWidth: '130px' }}>Login / Last Active</th>
-                          <th style={{ textAlign: 'right', minWidth: '180px' }}>Security Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {activeSessionsList
-                          .filter(s => {
-                            const q = activeSessionsSearch.toLowerCase();
-                            const matchesSearch = !q ||
-                              s.userName.toLowerCase().includes(q) ||
-                              s.userEmail.toLowerCase().includes(q) ||
-                              s.companyName.toLowerCase().includes(q) ||
-                              s.ipAddress.includes(q) ||
-                              s.deviceInfo.toLowerCase().includes(q);
-                            const matchesTenant = activeSessionsTenantFilter === 'ALL' || s.tenantId === activeSessionsTenantFilter;
-                            return matchesSearch && matchesTenant;
-                          })
-                          .map(sess => (
-                            <tr key={sess.sessionId} style={{ background: sess.isCurrentSession ? '#f0fdf4' : 'transparent' }}>
-                              {/* 1. User & Role */}
-                              <td>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: sess.role === 'SUPER_ADMIN' ? '#0284c7' : '#475569', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '0.76rem' }}>
-                                    {sess.userName.charAt(0).toUpperCase()}
-                                  </div>
-                                  <div>
-                                    <div style={{ fontWeight: '700', fontSize: '0.82rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                      <span>{sess.userName}</span>
-                                      {sess.isCurrentSession && (
-                                        <span className="status-badge-green" style={{ fontSize: '0.62rem', padding: '1px 5px' }}>YOU</span>
-                                      )}
-                                    </div>
-                                    <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{sess.userEmail}</div>
-                                    <span className={`status-tag ${sess.role === 'SUPER_ADMIN' ? 'status-active' : 'status-trial'}`} style={{ fontSize: '0.62rem', padding: '1px 5px', marginTop: '2px', display: 'inline-block' }}>
-                                      {sess.role}
-                                    </span>
-                                  </div>
-                                </div>
-                              </td>
-
-                              {/* 2. Company */}
-                              <td>
-                                <div style={{ fontWeight: '700', fontSize: '0.8rem', color: '#1e293b' }}>
-                                  {sess.companyName}
-                                </div>
-                                <div style={{ fontSize: '0.68rem', color: '#64748b', fontFamily: 'monospace' }}>
-                                  {sess.tenantId || 'GLOBAL_HQ'}
-                                </div>
-                              </td>
-
-                              {/* 3. IP & Location */}
-                              <td>
-                                <div style={{ fontFamily: 'monospace', fontSize: '0.76rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', fontWeight: '700' }}>
-                                  {sess.ipAddress}
-                                </div>
-                                <div style={{ fontSize: '0.72rem', color: '#334155', marginTop: '3px' }}>
-                                  {sess.location}
-                                </div>
-                              </td>
-
-                              {/* 4. Device */}
-                              <td>
-                                <div style={{ fontSize: '0.76rem', color: '#0f172a', fontWeight: '600' }}>
-                                  {sess.deviceInfo}
-                                </div>
-                                <div style={{ fontSize: '0.68rem', color: '#64748b', fontFamily: 'monospace' }}>
-                                  ID: {sess.sessionId}
-                                </div>
-                              </td>
-
-                              {/* 5. MFA Status */}
-                              <td>
-                                {sess.mfaVerified ? (
-                                  <span className="status-badge-green" style={{ fontSize: '0.68rem', padding: '2px 6px' }}>
-                                    ✓ 2FA VERIFIED
-                                  </span>
-                                ) : (
-                                  <span style={{ fontSize: '0.68rem', color: '#94a3b8', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>
-                                    Single Factor
-                                  </span>
-                                )}
-                              </td>
-
-                              {/* 6. Login / Last Active */}
-                              <td>
-                                <div style={{ fontSize: '0.74rem', color: '#0f172a' }}>
-                                  Active: <strong>{new Date(sess.lastActivity).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong>
-                                </div>
-                                <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
-                                  Login: {new Date(sess.loginTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </div>
-                              </td>
-
-                              {/* 7. Actions */}
-                              <td style={{ textAlign: 'right' }}>
-                                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                                  <button
-                                    type="button"
-                                    className="btn btn-secondary btn-sm"
-                                    style={{ padding: '3px 8px', fontSize: '0.72rem', color: '#dc2626', borderColor: '#fecaca', background: '#fff5f5' }}
-                                    onClick={() => handleTerminateActiveSession(sess.sessionId)}
-                                    disabled={sess.isCurrentSession}
-                                    title={sess.isCurrentSession ? 'Cannot terminate current Super Admin session' : 'Terminate this session'}
-                                  >
-                                    <LogOut size={12} />
-                                    <span>Terminate</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    className="btn btn-secondary btn-sm"
-                                    style={{ padding: '3px 8px', fontSize: '0.72rem', color: '#991b1b', background: '#fee2e2', borderColor: '#fca5a5' }}
-                                    onClick={() => handleOpenForceLogoutModal(sess)}
-                                    disabled={sess.isCurrentSession}
-                                    title="Force logout all devices for this user"
-                                  >
-                                    <RotateCcw size={12} />
-                                    <span>Force Logout</span>
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  )}
                 </div>
               </div>
             </div>
