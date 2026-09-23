@@ -89,8 +89,11 @@ import {
   Shield,
   History,
   AlertCircle,
-  Play
+  Play,
+  Monitor
 } from 'lucide-react';
+
+import UserSessionsManager from '../components/UserSessionsManager';
 
 import {
   getTenants,
@@ -4259,6 +4262,27 @@ export default function SuperAdminDashboard({
                 <strong>{activeCompanies} Paid Subscriptions</strong> &bull; ARR: ${totalARR_USD.toLocaleString()}
               </div>
             </div>
+            <div className="saas-kpi-card" onClick={() => setActiveTab('user-sessions')} style={{ cursor: 'pointer' }}>
+              <div className="kpi-top">
+                <span className="kpi-label">Active User Sessions</span>
+                <Monitor size={18} className="kpi-icon blue" />
+              </div>
+              <div className="kpi-number text-green" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 10px #10b981' }}></span>
+                Single-Session Active
+              </div>
+              <div className="kpi-sub">
+                <strong className="text-green">Live Enforced</strong> &bull; Click to Manage
+              </div>
+              <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '3px' }}>
+                Auto-terminates concurrent windows
+              </div>
+            </div>
+          </div>
+
+          {/* Live User Sessions & Window Oversight Panel */}
+          <div style={{ marginBottom: '24px' }}>
+            <UserSessionsManager />
           </div>
 
           {/* Customer Health Score Matrix Card */}
@@ -4489,6 +4513,15 @@ export default function SuperAdminDashboard({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          LIVE USER SESSIONS & WINDOW MANAGEMENT TAB
+          ===================================================================== */}
+      {activeTab === 'user-sessions' && (
+        <div className="tab-pane-content">
+          <UserSessionsManager />
         </div>
       )}
 
