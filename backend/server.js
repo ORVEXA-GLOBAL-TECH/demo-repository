@@ -11,12 +11,22 @@ const server = http.createServer(app);
 const io = new SocketIOServer(server, {
   cors: {
     origin: '*',
+    credentials: true,
     methods: ['GET', 'POST']
   }
 });
 
+// Attach io to Express app for use in routes & middlewares
+app.set('io', io);
+
 io.on('connection', (socket) => {
   console.log(`🔌 Client connected to Real-Time Socket: ${socket.id}`);
+
+  // Room for user session - used for single-session force logout across windows
+  socket.on('join_user_session', (userId) => {
+    socket.join(`user_${userId}`);
+    console.log(`🔒 Socket ${socket.id} joined personal session room: user_${userId}`);
+  });
 
   socket.on('join_territory', (territory) => {
     socket.join(territory);
