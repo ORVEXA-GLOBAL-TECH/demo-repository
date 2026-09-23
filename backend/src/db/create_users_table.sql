@@ -169,7 +169,7 @@ INSERT INTO public.users (
     'superadmin@alleviare.com',
     '+91 9876543210',
     '+91',
-    '$2b$10$glkNKABGtY2G6BpDniMDPu9iAAs0VdXE5/LFzySAREHwqV7u6oy9G',
+    '$2b$10$lda2POB8P6EHB0WF/TFJ9.fBAZ8cJCa3cNf9M/qiEQJD4mcWpYX0y',
     'SUPER_ADMIN',
     TRUE,
     'Master Platform Super Administrator',
