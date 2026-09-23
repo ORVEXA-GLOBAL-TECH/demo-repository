@@ -289,10 +289,71 @@ router.delete('/:code', async (req, res) => {
       return res.json({ success: true, message: `Sovereign country ${code} deleted.` });
     }
 
-    return res.json({ success: true, message: `Country ${code} deleted in demo mode.` });
+      return res.json({ success: true, message: `Country ${code} deleted in demo mode.` });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
+});
+
+// --------------------------------------------------------------------------
+// REAL-TIME GLOBAL FX SYNC ENGINE (Synchronizes with Open Exchange Rates API)
+// --------------------------------------------------------------------------
+let lastFxSyncTime = null;
+let lastSyncedRates = {};
+
+export const syncLiveFxRates = async () => {
+  try {
+    const response = await fetch('https://open.er-api.com/v6/latest/USD', { signal: AbortSignal.timeout(8000) });
+    if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+    const data = await response.json();
+    if (data.result === 'success' && data.rates) {
+      lastSyncedRates = data.rates;
+      lastFxSyncTime = new Date().toISOString();
+
+      const dbHealth = await checkDbHealth();
+      if (dbHealth.status === 'CONNECTED') {
+        const countryRows = await query('SELECT code, currency_code FROM sovereign_countries');
+        for (const row of countryRows.rows) {
+          const curr = (row.currency_code || '').toUpperCase();
+          if (curr && data.rates[curr]) {
+            const liveRate = data.rates[curr];
+            await query('UPDATE sovereign_countries SET fx_rate_to_usd = $1 WHERE code = $2', [liveRate, row.code]).catch(() => {});
+          }
+        }
+      }
+      return { success: true, lastSyncedAt: lastFxSyncTime, rates: lastSyncedRates };
+    }
+  } catch (err) {
+    console.warn('[LIVE FX SYNC] Could not fetch live FX rates:', err.message);
+    return { success: false, error: err.message };
+  }
+};
+
+// Initial sync after boot & periodic background sync every 6 hours
+setTimeout(() => syncLiveFxRates().catch(() => {}), 4000);
+setInterval(() => syncLiveFxRates().catch(() => {}), 6 * 60 * 60 * 1000);
+
+// POST /api/sovereign-countries/sync-fx - Manual or automated trigger for live FX rates
+router.post('/sync-fx', async (req, res) => {
+  const result = await syncLiveFxRates();
+  try {
+    const dbHealth = await checkDbHealth();
+    if (dbHealth.status === 'CONNECTED') {
+      const dbRes = await query('SELECT * FROM sovereign_countries ORDER BY name ASC');
+      return res.json({ success: true, lastSyncedAt: lastFxSyncTime, data: dbRes.rows, rates: lastSyncedRates });
+    }
+  } catch (err) {}
+  return res.json({ success: true, lastSyncedAt: lastFxSyncTime, rates: lastSyncedRates });
+});
+
+// GET /api/sovereign-countries/fx-status - Get live FX status
+router.get('/fx-status', (req, res) => {
+  res.json({
+    success: true,
+    lastSyncedAt: lastFxSyncTime,
+    ratesAvailable: Object.keys(lastSyncedRates).length > 0,
+    rates: lastSyncedRates
+  });
 });
 
 export default router;

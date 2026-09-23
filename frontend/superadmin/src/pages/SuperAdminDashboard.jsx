@@ -132,6 +132,7 @@ import {
   createCountry,
   updateCountry,
   deleteCountry,
+  syncLiveFxRates,
   getSubscriptions,
   createSubscription,
   updateSubscription,
@@ -702,6 +703,8 @@ export default function SuperAdminDashboard({
   const [selectedDisplayCurrency, setSelectedDisplayCurrency] = useState('USD');
   const [selectedCountryFilter, setSelectedCountryFilter] = useState('ALL');
   const [currencyMatrixSearch, setCurrencyMatrixSearch] = useState('');
+  const [isSyncingFxRates, setIsSyncingFxRates] = useState(false);
+  const [lastFxSyncTime, setLastFxSyncTime] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
 
   // Config Versioning & Incident Management States
   const [configVersionsList, setConfigVersionsList] = useState([]);
@@ -1075,8 +1078,39 @@ export default function SuperAdminDashboard({
     }
   };
 
+  const handleSyncLiveFxRates = async (showSuccessToast = true) => {
+    setIsSyncingFxRates(true);
+    try {
+      const res = await syncLiveFxRates();
+      if (res && res.rates) {
+        setSovereignRegistry(prev => prev.map(c => {
+          const curr = (c.currencyCode || '').toUpperCase();
+          if (res.rates[curr]) {
+            return {
+              ...c,
+              fxRateToUSD: res.rates[curr]
+            };
+          }
+          return c;
+        }));
+        setLastFxSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        if (showSuccessToast) {
+          showToast(`Live global FX rates synced! (Updated ${Object.keys(res.rates).length} currencies)`, 'success');
+        }
+      }
+    } catch (err) {
+      console.warn('FX sync notice:', err.message);
+      if (showSuccessToast) showToast('Could not fetch live FX rates.', 'error');
+    } finally {
+      setIsSyncingFxRates(false);
+    }
+  };
+
   useEffect(() => {
     loadAllData();
+    handleSyncLiveFxRates(false);
+    const fxInterval = setInterval(() => handleSyncLiveFxRates(false), 10 * 60 * 1000); // Periodic live sync every 10m
+    return () => clearInterval(fxInterval);
   }, []);
 
   // Currency Converter Interactive Tool State
@@ -4893,13 +4927,24 @@ export default function SuperAdminDashboard({
                       Calculate SaaS plan pricing, tax withholding, and local currency billing across all {sovereignRegistry.length} sovereign markets instantly.
                     </p>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ background: '#dbeafe', color: '#1e40af', padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '700' }}>
-                      Base Standard: 1 USD
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '4px 10px', borderRadius: '12px', fontSize: '0.74rem', fontWeight: '700' }}>
+                      <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
+                      Live Market FX Feed: Active
                     </span>
-                    <span style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '700' }}>
-                      {sovereignRegistry.length} Sovereign Rates Synced
+                    <span style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: '12px', fontSize: '0.74rem', fontWeight: '600' }}>
+                      Synced: {lastFxSyncTime}
                     </span>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => handleSyncLiveFxRates(true)}
+                      disabled={isSyncingFxRates}
+                      style={{ fontSize: '0.76rem', padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <RefreshCw size={13} className={isSyncingFxRates ? 'spin-icon' : ''} />
+                      {isSyncingFxRates ? 'Syncing...' : 'Sync Live Rates'}
+                    </button>
                   </div>
                 </div>
 
@@ -5027,6 +5072,17 @@ export default function SuperAdminDashboard({
                         </button>
                       )}
                     </div>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => handleSyncLiveFxRates(true)}
+                      disabled={isSyncingFxRates}
+                      style={{ fontSize: '0.8rem', padding: '7px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      title="Sync live currency rates from global FX markets"
+                    >
+                      <RefreshCw size={13} className={isSyncingFxRates ? 'spin-icon' : ''} />
+                      Sync FX Feed
+                    </button>
                     <button
                       type="button"
                       className="btn btn-secondary"

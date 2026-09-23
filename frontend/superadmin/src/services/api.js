@@ -971,6 +971,28 @@ export const deleteCountry = async (code) => {
   return true;
 };
 
+export const syncLiveFxRates = async () => {
+  try {
+    const res = await fetchWithAuth('/sovereign-countries/sync-fx', {
+      method: 'POST'
+    });
+    if (res && res.success) return res;
+  } catch (err) {
+    console.warn('API error syncing live FX from backend, falling back to direct exchange feed...');
+  }
+
+  try {
+    const response = await fetch('https://open.er-api.com/v6/latest/USD');
+    const data = await response.json();
+    if (data && data.result === 'success' && data.rates) {
+      return { success: true, rates: data.rates, lastSyncedAt: new Date().toISOString() };
+    }
+  } catch (err) {
+    console.error('Direct FX feed error:', err);
+  }
+  return { success: false, error: 'Could not fetch live rates' };
+};
+
 // ----------------------------------------------------------------------------
 // SUBSCRIPTIONS & INVOICES CRUD
 // ----------------------------------------------------------------------------
