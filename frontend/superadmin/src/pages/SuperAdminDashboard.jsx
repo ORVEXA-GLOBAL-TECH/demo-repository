@@ -4535,12 +4535,9 @@ export default function SuperAdminDashboard({
                 <div style={{ padding: '48px 20px', textAlign: 'center', color: '#64748b' }}>
                   <Building2 size={40} color="#94a3b8" style={{ margin: '0 auto 12px', display: 'block' }} />
                   <div style={{ fontWeight: '800', fontSize: '1rem', color: '#1e293b' }}>No Companies Enrolled Yet</div>
-                  <p style={{ fontSize: '0.84rem', margin: '6px auto 16px', color: '#64748b' }}>
-                    Click "Create / Provision Tenant" to onboard your first organization.
+                  <p style={{ fontSize: '0.84rem', margin: '6px auto 0', color: '#64748b' }}>
+                    Click "Create / Provision Tenant" above to onboard your first organization.
                   </p>
-                  <button type="button" className="btn btn-primary" onClick={() => setIsCreateCompanyOpen(true)}>
-                    <Plus size={16} /> Create / Provision Tenant
-                  </button>
                 </div>
               ) : (
                 <table className="saas-data-table">
