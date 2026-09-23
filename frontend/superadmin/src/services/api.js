@@ -166,6 +166,7 @@ export const loginUser = async (email, role = 'SUPER_ADMIN', platform = 'web', p
       return {
         success: true,
         message: 'Authentication successful',
+        sessionId: newSessionId,
         token: 'jwt-supabase-' + Date.now(),
         user: sanitizedUser
       };
@@ -178,7 +179,7 @@ export const loginUser = async (email, role = 'SUPER_ADMIN', platform = 'web', p
       }
 
       const masterUser = {
-        id: '00000000-0000-0000-0000-000000000001',
+        id: 'a0000000-0000-0000-0000-000000000001',
         name: 'Akshyatraj Pati',
         firstName: 'Akshyatraj',
         lastName: 'Pati',
@@ -192,9 +193,41 @@ export const loginUser = async (email, role = 'SUPER_ADMIN', platform = 'web', p
         lastLoginAt: new Date().toISOString()
       };
 
+      const newSessionId = (typeof crypto !== 'undefined' && crypto.randomUUID) 
+        ? crypto.randomUUID() 
+        : 'b0000000-0000-0000-0000-' + Math.floor(Math.random() * 0xffffffffffff).toString(16).padStart(12, '0');
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      try {
+        await supabase
+          .from('user_sessions')
+          .update({ is_active: false, invalidated_reason: 'CONCURRENT_LOGIN_DETECTED' })
+          .eq('user_id', masterUser.id)
+          .eq('is_active', true);
+
+        await supabase.from('user_sessions').insert([{
+          id: newSessionId,
+          user_id: masterUser.id,
+          session_token: 'token-' + Date.now(),
+          ip_address: '127.0.0.1 (Web Console)',
+          user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Web Console',
+          device_info: { platform: 'Web Console', browser: 'Browser Client' },
+          is_active: true,
+          expires_at: expiresAt
+        }]);
+
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('orvexa_session_id', newSessionId);
+          localStorage.setItem('orvexa_superadmin_token', 'jwt-master-' + Date.now());
+        }
+      } catch (err) {
+        console.warn('Session error:', err);
+      }
+
       return {
         success: true,
         message: 'Master Super Admin authenticated successfully',
+        sessionId: newSessionId,
         token: 'jwt-master-' + Date.now(),
         user: masterUser
       };

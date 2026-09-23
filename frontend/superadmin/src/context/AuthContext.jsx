@@ -177,35 +177,101 @@ export function AuthProvider({ children }) {
       console.warn('BroadcastChannel not supported in this environment');
     }
 
-    // B. Periodic Database Heartbeat (Polls session status every 5 seconds)
-    // Ensures single-session across different browsers, private windows, and devices
+    // B. Periodic & Real-time Database Session Heartbeat (Cross-Device & Cross-Browser)
     const verifyDatabaseSessionStatus = async () => {
-      const activeId = localStorage.getItem('orvexa_session_id');
-      if (!activeId) return;
+      let mySessionId = localStorage.getItem('orvexa_session_id');
 
       try {
-        const { data, error } = await supabase
+        // Query the currently active session for this user in Supabase
+        const { data: latestActiveSession, error } = await supabase
           .from('user_sessions')
-          .select('is_active, invalidated_reason')
-          .eq('id', activeId)
+          .select('id, is_active, invalidated_reason, created_at')
+          .eq('user_id', currentUser.id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
           .maybeSingle();
 
-        if (data && data.is_active === false) {
-          const reason = data.invalidated_reason === 'CONCURRENT_LOGIN_DETECTED'
-            ? '⚠️ You have been logged out because another window logged in with this account.'
-            : '🔒 Your session was terminated by an administrator.';
-          alert(reason);
+        if (error) return;
+
+        // If no active session exists at all (e.g. was revoked or closed by admin)
+        if (!latestActiveSession) {
+          alert('⚠️ Security Notice: Your active session has ended. Please log in again.');
+          logout('CONCURRENT_LOGIN');
+          return;
+        }
+
+        // If mySessionId was not stored, adopt the active session
+        if (!mySessionId) {
+          localStorage.setItem('orvexa_session_id', latestActiveSession.id);
+          mySessionId = latestActiveSession.id;
+          return;
+        }
+
+        // If a new session was created with a different ID (i.e. another device or window logged in)
+        if (latestActiveSession.id !== mySessionId) {
+          alert('⚠️ Security Notice: Your Super Admin account was opened on another device or window. This session has been terminated.');
+          logout('CONCURRENT_LOGIN');
+          return;
+        }
+
+        // Verify that my own session has not been marked inactive
+        const { data: mySession } = await supabase
+          .from('user_sessions')
+          .select('is_active, invalidated_reason')
+          .eq('id', mySessionId)
+          .maybeSingle();
+
+        if (mySession && mySession.is_active === false) {
+          alert('⚠️ Security Notice: Your session was terminated because another window or device logged in.');
           logout('CONCURRENT_LOGIN');
         }
       } catch (e) {
-        // Silently handle transient connection issues
+        // Network resilience
       }
     };
 
-    const heartbeatInterval = setInterval(verifyDatabaseSessionStatus, 5000);
+    // Run check immediately on mount
+    verifyDatabaseSessionStatus();
+
+    // Check immediately whenever user switches to or focuses this window/tab
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        verifyDatabaseSessionStatus();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', verifyDatabaseSessionStatus);
+
+    // Continuous 2-second background heartbeat
+    const heartbeatInterval = setInterval(verifyDatabaseSessionStatus, 2000);
+
+    // Supabase Realtime WebSocket listener for instant push
+    let realtimeChannel = null;
+    try {
+      realtimeChannel = supabase
+        .channel('realtime_session_enforcement_' + currentUser.id)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'user_sessions'
+          },
+          () => {
+            verifyDatabaseSessionStatus();
+          }
+        )
+        .subscribe();
+    } catch (rtErr) {
+      console.warn('Realtime subscription not available:', rtErr);
+    }
 
     return () => {
       if (sessionChannel) sessionChannel.close();
+      if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', verifyDatabaseSessionStatus);
       clearInterval(heartbeatInterval);
     };
   }, [currentUser]);
