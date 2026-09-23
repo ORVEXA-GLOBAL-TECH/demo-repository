@@ -336,11 +336,6 @@ router.post('/tenants', async (req, res) => {
     console.error('Tenant provisioning error:', err);
     res.status(500).json({ success: false, error: err.message });
   }
-});
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
 
 // PUT /api/tenants/:id - Update tenant company details
 router.put('/tenants/:id', async (req, res) => {
@@ -883,4 +878,300 @@ router.put('/tenants/:id/usage-limits', async (req, res) => {
   }
 });
 
+// ==============================================================================
+// TENANT ADMIN MANAGEMENT — Full CRUD for per-tenant admin accounts
+// ==============================================================================
+
+// GET /api/tenants/:id/admins — List all admin users for a tenant
+router.get('/tenants/:id/admins', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const dbHealth = await checkDbHealth();
+    if (dbHealth.status === 'CONNECTED') {
+      const adminsRes = await query(`
+        SELECT 
+          id, tenant_id, first_name, last_name, email, phone, avatar_url,
+          role, status, designation, department, permissions, 
+          two_factor_enabled, last_login_at, login_count,
+          created_at, updated_at
+        FROM users
+        WHERE tenant_id = $1
+          AND role IN ('COMPANY_ADMIN', 'ADMIN', 'MANAGER', 'DIRECTOR', 'ACCOUNTANT', 'SALES_MANAGER', 'SUPERVISOR')
+          AND deleted_at IS NULL
+        ORDER BY 
+          CASE role 
+            WHEN 'COMPANY_ADMIN' THEN 1 
+            WHEN 'DIRECTOR' THEN 2
+            WHEN 'MANAGER' THEN 3
+            WHEN 'ADMIN' THEN 4
+            ELSE 5 
+          END, created_at ASC;
+      `, [id]);
+
+      return res.json({ success: true, count: adminsRes.rows.length, data: adminsRes.rows });
+    }
+    return res.status(503).json({ success: false, message: 'Database offline.' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/tenants/:id/admins — Create a new admin for the tenant
+router.post('/tenants/:id/admins', async (req, res) => {
+  const { id } = req.params;
+  const {
+    firstName,
+    lastName,
+    email,
+    phone = '',
+    password,
+    role = 'COMPANY_ADMIN',
+    designation = '',
+    department = '',
+    permissions = [],
+    avatarUrl = '',
+    mfaEnforced = false,
+    sendWelcomeEmail = false
+  } = req.body;
+
+  if (!email || !firstName) {
+    return res.status(400).json({ success: false, message: 'First name and email are required.' });
+  }
+
+  try {
+    // Verify tenant exists
+    const tenantRes = await query('SELECT id, name, country_code FROM tenants_companies WHERE id = $1', [id]);
+    if (tenantRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Tenant not found.' });
+    }
+    const tenant = tenantRes.rows[0];
+
+    const rawPassword = password || `Admin@${Math.floor(100000 + Math.random() * 900000)}!`;
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(rawPassword, salt);
+
+    const adminInsert = await query(`
+      INSERT INTO users (
+        tenant_id, email, password_hash, first_name, last_name,
+        phone, avatar_url, role, status, designation, department,
+        country_code, company_name, permissions, two_factor_enabled,
+        is_verified, territory
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Active', $9, $10, $11, $12, $13, $14, TRUE, 'Corporate HQ')
+      ON CONFLICT (email) DO UPDATE
+        SET tenant_id = EXCLUDED.tenant_id,
+            role = EXCLUDED.role,
+            status = 'Active',
+            updated_at = CURRENT_TIMESTAMP
+      RETURNING id, tenant_id, first_name, last_name, email, role, status, designation, department, created_at;
+    `, [
+      id,
+      email.toLowerCase().trim(),
+      hashedPassword,
+      firstName.trim(),
+      lastName?.trim() || '',
+      phone,
+      avatarUrl,
+      role,
+      designation || `${role.replace(/_/g, ' ')} — ${tenant.name}`,
+      department || 'Executive Administration',
+      tenant.country_code || 'IN',
+      tenant.name,
+      JSON.stringify(permissions.length > 0 ? permissions : ['TENANT_ACCESS', 'MANAGE_USERS', 'VIEW_REPORTS']),
+      mfaEnforced
+    ]);
+
+    const newAdmin = adminInsert.rows[0];
+
+    // If this is the first COMPANY_ADMIN, set as primary admin on the tenant
+    if (role === 'COMPANY_ADMIN') {
+      const existingPrimary = await query(
+        'SELECT admin_user_id FROM tenants_companies WHERE id = $1',
+        [id]
+      );
+      if (!existingPrimary.rows[0]?.admin_user_id) {
+        await query(
+          'UPDATE tenants_companies SET admin_user_id = $1, contact_email = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
+          [newAdmin.id, email.toLowerCase().trim(), id]
+        );
+      }
+    }
+
+    // Platform audit log
+    try {
+      await query(`
+        INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, entity_id, details)
+        VALUES ($1, $2, $3, $4, $5, $6);
+      `, [
+        'superadmin@alleviare.com', 'SUPER_ADMIN', 'TENANT_ADMIN_CREATED',
+        'users', newAdmin.id,
+        JSON.stringify({ tenantId: id, tenantName: tenant.name, adminEmail: email, role, temporaryPassword: sendWelcomeEmail ? rawPassword : '[REDACTED]' })
+      ]);
+    } catch (auditErr) { console.warn('Audit log skip:', auditErr.message); }
+
+    return res.status(201).json({
+      success: true,
+      message: `Admin account created for ${email} in ${tenant.name}.`,
+      data: { ...newAdmin, temporaryPassword: sendWelcomeEmail ? rawPassword : undefined }
+    });
+  } catch (err) {
+    console.error('Create tenant admin error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT /api/tenants/:id/admins/:userId — Update a tenant admin's profile or role
+router.put('/tenants/:id/admins/:userId', async (req, res) => {
+  const { id, userId } = req.params;
+  const { firstName, lastName, phone, role, designation, department, permissions, avatarUrl } = req.body;
+
+  try {
+    const updateRes = await query(`
+      UPDATE users SET
+        first_name = COALESCE($1, first_name),
+        last_name = COALESCE($2, last_name),
+        phone = COALESCE($3, phone),
+        role = COALESCE($4, role),
+        designation = COALESCE($5, designation),
+        department = COALESCE($6, department),
+        permissions = COALESCE($7, permissions),
+        avatar_url = COALESCE($8, avatar_url),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $9 AND tenant_id = $10
+      RETURNING id, first_name, last_name, email, role, status, designation, department, permissions, avatar_url, updated_at;
+    `, [
+      firstName, lastName, phone, role, designation, department,
+      permissions ? JSON.stringify(permissions) : null,
+      avatarUrl, userId, id
+    ]);
+
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Admin user not found for this tenant.' });
+    }
+
+    try {
+      await query(`INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, entity_id, details) VALUES ($1,$2,$3,$4,$5,$6);`,
+        ['superadmin@alleviare.com', 'SUPER_ADMIN', 'TENANT_ADMIN_UPDATED', 'users', userId, JSON.stringify({ tenantId: id, changes: req.body })]);
+    } catch (e) {}
+
+    return res.json({ success: true, message: 'Admin profile updated.', data: updateRes.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PATCH /api/tenants/:id/admins/:userId/status — Suspend or reactivate a tenant admin
+router.patch('/tenants/:id/admins/:userId/status', async (req, res) => {
+  const { id, userId } = req.params;
+  const { status } = req.body;
+
+  if (!['Active', 'Inactive', 'Suspended'].includes(status)) {
+    return res.status(400).json({ success: false, message: 'Status must be Active, Inactive, or Suspended.' });
+  }
+
+  try {
+    const updateRes = await query(`
+      UPDATE users SET status = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2 AND tenant_id = $3
+      RETURNING id, email, first_name, last_name, role, status;
+    `, [status, userId, id]);
+
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Admin not found.' });
+    }
+
+    try {
+      await query(`INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, entity_id, details) VALUES ($1,$2,$3,$4,$5,$6);`,
+        ['superadmin@alleviare.com', 'SUPER_ADMIN', `TENANT_ADMIN_${status.toUpperCase()}`, 'users', userId, JSON.stringify({ tenantId: id, newStatus: status })]);
+    } catch (e) {}
+
+    return res.json({ success: true, message: `Admin ${status === 'Active' ? 'reactivated' : 'suspended'} successfully.`, data: updateRes.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/tenants/:id/admins/:userId/reset-password — Force-reset a tenant admin's password
+router.post('/tenants/:id/admins/:userId/reset-password', async (req, res) => {
+  const { id, userId } = req.params;
+  const { newPassword } = req.body;
+
+  const rawPassword = newPassword || `Reset@${Math.floor(100000 + Math.random() * 900000)}!`;
+
+  try {
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(rawPassword, salt);
+
+    const updateRes = await query(`
+      UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2 AND tenant_id = $3
+      RETURNING id, email, first_name, last_name, role;
+    `, [hashedPassword, userId, id]);
+
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Admin not found.' });
+    }
+
+    // Invalidate all active sessions for this admin
+    try {
+      await query(
+        `UPDATE user_sessions SET is_active = false, invalidated_reason = 'ADMIN_PASSWORD_RESET' WHERE user_id = $1 AND is_active = true`,
+        [userId]
+      );
+    } catch (e) {}
+
+    try {
+      await query(`INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, entity_id, details) VALUES ($1,$2,$3,$4,$5,$6);`,
+        ['superadmin@alleviare.com', 'SUPER_ADMIN', 'TENANT_ADMIN_PASSWORD_RESET', 'users', userId, JSON.stringify({ tenantId: id, adminEmail: updateRes.rows[0].email })]);
+    } catch (e) {}
+
+    return res.json({
+      success: true,
+      message: `Password reset for ${updateRes.rows[0].email}. Sessions invalidated.`,
+      data: { ...updateRes.rows[0], temporaryPassword: rawPassword }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DELETE /api/tenants/:id/admins/:userId — Remove a tenant admin
+router.delete('/tenants/:id/admins/:userId', async (req, res) => {
+  const { id, userId } = req.params;
+
+  try {
+    // Soft delete — set deleted_at instead of hard delete
+    const deleteRes = await query(`
+      UPDATE users SET deleted_at = CURRENT_TIMESTAMP, status = 'Inactive', updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1 AND tenant_id = $2
+      RETURNING id, email, first_name, last_name;
+    `, [userId, id]);
+
+    if (deleteRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Admin not found.' });
+    }
+
+    // Invalidate all sessions
+    try {
+      await query(`UPDATE user_sessions SET is_active = false, invalidated_reason = 'ACCOUNT_DELETED' WHERE user_id = $1`, [userId]);
+    } catch (e) {}
+
+    // If this was the primary admin, clear the tenant's admin_user_id
+    await query(
+      `UPDATE tenants_companies SET admin_user_id = NULL WHERE id = $1 AND admin_user_id = $2`,
+      [id, userId]
+    );
+
+    try {
+      await query(`INSERT INTO platform_audit_logs (actor_email, actor_role, action, target_entity, entity_id, details) VALUES ($1,$2,$3,$4,$5,$6);`,
+        ['superadmin@alleviare.com', 'SUPER_ADMIN', 'TENANT_ADMIN_REMOVED', 'users', userId, JSON.stringify({ tenantId: id, adminEmail: deleteRes.rows[0].email })]);
+    } catch (e) {}
+
+    return res.json({ success: true, message: `Admin ${deleteRes.rows[0].email} removed from tenant.`, data: deleteRes.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export default router;
+

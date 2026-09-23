@@ -94,6 +94,7 @@ import {
 
 import UserSessionsManager from '../components/UserSessionsManager';
 import CreateCompanyModal from '../components/CreateCompanyModal';
+import TenantAdminManagerPanel from '../components/TenantAdminManagerPanel';
 
 
 import {
@@ -724,6 +725,9 @@ export default function SuperAdminDashboard({
 
   // Toast Notification State
   const [toast, setToast] = useState(null);
+
+  // Tenant Admin Manager Panel State
+  const [adminManagerTenant, setAdminManagerTenant] = useState(null);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -4691,14 +4695,15 @@ export default function SuperAdminDashboard({
                                 <CalendarPlus size={12} /> Extend
                               </button>
 
-                              {/* 5. Assign Root Company Admin */}
+                              {/* 5. Manage Tenant Admins — opens full Admin Manager Panel */}
                               <button
                                 type="button"
                                 className="action-pill-btn"
-                                onClick={() => handleOpenAssignAdmin(company)}
-                                title="Assign Root Company Administrator"
+                                onClick={() => setAdminManagerTenant({ id: company.id, name: company.name, logo_url: company.logoUrl, country_code: company.countryCode })}
+                                title="Manage Admin Accounts for this Tenant"
+                                style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(14,165,233,0.15))', color: '#a78bfa', borderColor: 'rgba(139,92,246,0.35)' }}
                               >
-                                <UserPlus size={12} /> Admin
+                                <UserCog size={12} /> Manage Admins
                               </button>
 
                               {/* 6. Reset Admin Password */}
@@ -5495,6 +5500,15 @@ export default function SuperAdminDashboard({
                                   onClick={() => handleOpenEditCompany(c)}
                                 >
                                   <Edit size={12} /> Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="action-pill-btn"
+                                  onClick={() => setAdminManagerTenant({ id: c.id, name: c.name, logo_url: c.logo_url || c.logoUrl, country_code: c.country_code || c.countryCode })}
+                                  title="Manage Admin Accounts"
+                                  style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(14,165,233,0.15))', color: '#a78bfa', borderColor: 'rgba(139,92,246,0.35)' }}
+                                >
+                                  <UserCog size={12} /> Manage Admins
                                 </button>
                                 <button
                                   type="button"
@@ -17840,6 +17854,63 @@ export default function SuperAdminDashboard({
           </div>
         </div>
       )}
+
+      {/* ─── TENANT ADMIN MANAGER PANEL ─────────────────────────────────────── */}
+      {adminManagerTenant && (
+        <TenantAdminManagerPanel
+          tenant={adminManagerTenant}
+          onClose={() => setAdminManagerTenant(null)}
+        />
+      )}
+
+      {/* ─── FLOATING MANAGE ADMINS SHORTCUT (visible in Companies tab) ─────── */}
+      <style>{`
+        .tam-fab-container {
+          position: fixed;
+          bottom: 30px;
+          right: 30px;
+          z-index: 8000;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          align-items: flex-end;
+        }
+        .tam-fab {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 20px;
+          border-radius: 50px;
+          background: linear-gradient(135deg, #8b5cf6, #0ea5e9);
+          color: #fff;
+          font-size: 13px;
+          font-weight: 700;
+          border: none;
+          cursor: pointer;
+          box-shadow: 0 8px 30px rgba(139,92,246,0.45);
+          transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+          white-space: nowrap;
+        }
+        .tam-fab:hover { transform: translateY(-3px) scale(1.03); box-shadow: 0 12px 40px rgba(139,92,246,0.6); }
+        .tam-select-company-list {
+          background: #1e293b;
+          border: 1px solid rgba(139,92,246,0.3);
+          border-radius: 16px;
+          padding: 12px;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+          min-width: 260px;
+          max-height: 320px;
+          overflow-y: auto;
+        }
+        .tam-select-company-item {
+          display: flex; align-items: center; gap: 10px;
+          padding: 10px 14px; border-radius: 10px; cursor: pointer;
+          color: #e2e8f0; font-size: 13px; transition: all 0.15s;
+        }
+        .tam-select-company-item:hover { background: rgba(139,92,246,0.15); color: #a78bfa; }
+        .tam-select-company-item .tam-ci { font-size: 18px; }
+      `}</style>
+
     </div>
   );
 }

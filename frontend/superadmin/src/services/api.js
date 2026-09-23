@@ -490,6 +490,144 @@ export const assignTenantAdmin = async (tenantId, adminData) => {
   return { success: true };
 };
 
+// ----------------------------------------------------------------------------
+// TENANT ADMIN MANAGEMENT — Per-Tenant Admin CRUD
+// ----------------------------------------------------------------------------
+export const getTenantAdmins = async (tenantId) => {
+  try {
+    const res = await fetchWithAuth(`/tenants/${tenantId}/admins`);
+    if (res && res.success && Array.isArray(res.data)) return res.data;
+  } catch (err) {
+    console.warn('API error fetching tenant admins, fallback to Supabase...');
+  }
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, tenant_id, first_name, last_name, email, phone, avatar_url, role, status, designation, department, permissions, two_factor_enabled, last_login_at, login_count, created_at, updated_at')
+      .eq('tenant_id', tenantId)
+      .in('role', ['COMPANY_ADMIN', 'ADMIN', 'MANAGER', 'DIRECTOR', 'ACCOUNTANT', 'SALES_MANAGER', 'SUPERVISOR'])
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true });
+    if (!error && Array.isArray(data)) return data;
+  } catch (e) { console.warn('Supabase getTenantAdmins error:', e); }
+  return [];
+};
+
+export const createTenantAdmin = async (tenantId, adminData) => {
+  try {
+    const res = await fetchWithAuth(`/tenants/${tenantId}/admins`, {
+      method: 'POST',
+      body: JSON.stringify(adminData)
+    });
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('API error creating tenant admin, fallback to Supabase...');
+  }
+  // Supabase direct fallback
+  const salt = bcrypt.genSaltSync(12);
+  const password_hash = bcrypt.hashSync(adminData.password || `Admin@${Math.floor(100000 + Math.random() * 900000)}!`, salt);
+  const { data, error } = await supabase
+    .from('users')
+    .insert([{
+      tenant_id: tenantId,
+      email: adminData.email.toLowerCase().trim(),
+      password_hash,
+      first_name: adminData.firstName || 'Admin',
+      last_name: adminData.lastName || '',
+      phone: adminData.phone || '',
+      avatar_url: adminData.avatarUrl || '',
+      role: adminData.role || 'COMPANY_ADMIN',
+      status: 'Active',
+      designation: adminData.designation || '',
+      department: adminData.department || 'Executive Administration',
+      permissions: adminData.permissions || ['TENANT_ACCESS', 'MANAGE_USERS', 'VIEW_REPORTS'],
+      is_verified: true,
+      territory: 'Corporate HQ'
+    }])
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
+};
+
+export const updateTenantAdmin = async (tenantId, userId, adminData) => {
+  try {
+    const res = await fetchWithAuth(`/tenants/${tenantId}/admins/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(adminData)
+    });
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('API error updating tenant admin, fallback to Supabase...');
+  }
+  const updateFields = {
+    first_name: adminData.firstName,
+    last_name: adminData.lastName,
+    phone: adminData.phone,
+    role: adminData.role,
+    designation: adminData.designation,
+    department: adminData.department,
+    avatar_url: adminData.avatarUrl,
+    permissions: adminData.permissions,
+    updated_at: new Date().toISOString()
+  };
+  Object.keys(updateFields).forEach(k => updateFields[k] === undefined && delete updateFields[k]);
+  const { data, error } = await supabase
+    .from('users').update(updateFields).eq('id', userId).eq('tenant_id', tenantId).select().single();
+  if (error) throw new Error(error.message);
+  return data;
+};
+
+export const toggleTenantAdminStatus = async (tenantId, userId, status) => {
+  try {
+    const res = await fetchWithAuth(`/tenants/${tenantId}/admins/${userId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status })
+    });
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('API error toggling tenant admin status, fallback to Supabase...');
+  }
+  const { data, error } = await supabase
+    .from('users').update({ status, updated_at: new Date().toISOString() }).eq('id', userId).eq('tenant_id', tenantId).select().single();
+  if (error) throw new Error(error.message);
+  return data;
+};
+
+export const resetTenantAdminPasswordById = async (tenantId, userId, newPassword) => {
+  try {
+    const res = await fetchWithAuth(`/tenants/${tenantId}/admins/${userId}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ newPassword })
+    });
+    if (res && res.success) return res.data;
+  } catch (err) {
+    console.warn('API error resetting tenant admin password, fallback to Supabase...');
+  }
+  const rawPwd = newPassword || `Reset@${Math.floor(100000 + Math.random() * 900000)}!`;
+  const salt = await bcrypt.genSalt(12);
+  const hashedPassword = await bcrypt.hash(rawPwd, salt);
+  const { data, error } = await supabase
+    .from('users').update({ password_hash: hashedPassword, updated_at: new Date().toISOString() }).eq('id', userId).eq('tenant_id', tenantId)
+    .select('id, email, first_name, last_name').single();
+  if (error) throw new Error(error.message);
+  return { ...data, temporaryPassword: rawPwd };
+};
+
+export const deleteTenantAdmin = async (tenantId, userId) => {
+  try {
+    const res = await fetchWithAuth(`/tenants/${tenantId}/admins/${userId}`, { method: 'DELETE' });
+    if (res && res.success) return true;
+  } catch (err) {
+    console.warn('API error deleting tenant admin, fallback to Supabase...');
+  }
+  const { error } = await supabase
+    .from('users').update({ deleted_at: new Date().toISOString(), status: 'Inactive', updated_at: new Date().toISOString() })
+    .eq('id', userId).eq('tenant_id', tenantId);
+  if (error) throw new Error(error.message);
+  return true;
+};
+
 export const extendTenantSubscription = async (tenantId, extendData) => {
   try {
     const res = await fetchWithAuth(`/tenants/${tenantId}/extend-subscription`, {
