@@ -11,7 +11,7 @@ import { getNotifications, SOCKET_URL } from './services/api';
 import './styles/theme.css';
 
 function MainSuperAdminApp() {
-  const { currentUser } = useAuth();
+  const { currentUser, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -27,7 +27,13 @@ function MainSuperAdminApp() {
     try {
       socket = io(SOCKET_URL, { transports: ['websocket', 'polling'], autoConnect: true });
       socket.on('connect', () => {
+        socket.emit('join_user_session', currentUser.id);
         socket.emit('join_territory', 'Enterprise Global HQ');
+      });
+
+      socket.on('FORCE_LOGOUT', (data) => {
+        alert(data?.message || '⚠️ Security Alert: Another window was opened. This session has been terminated.');
+        logout();
       });
 
       socket.on('new_dcr_notification', () => {
