@@ -27,6 +27,7 @@ import {
   Stethoscope
 } from 'lucide-react';
 import ImageKitUploader from './ImageKitUploader';
+import { DEFAULT_SOVEREIGN_REGISTRY } from '../data/sovereignRegistry';
 
 export const ROLE_MODULES_CONFIG = [
   {
@@ -146,16 +147,17 @@ export const ROLE_MODULES_CONFIG = [
   }
 ];
 
-const COUNTRY_OPTIONS = [
-  { code: 'IN', name: 'India', flag: '🇮🇳', currency: 'INR', symbol: '₹', timezone: 'Asia/Kolkata' },
-  { code: 'VN', name: 'Vietnam', flag: '🇻🇳', currency: 'VND', symbol: '₫', timezone: 'Asia/Ho_Chi_Minh' },
-  { code: 'US', name: 'United States', flag: '🇺🇸', currency: 'USD', symbol: '$', timezone: 'America/New_York' },
-  { code: 'GB', name: 'United Kingdom', flag: '🇬🇧', currency: 'GBP', symbol: '£', timezone: 'Europe/London' },
-  { code: 'AE', name: 'United Arab Emirates', flag: '🇦🇪', currency: 'AED', symbol: 'د.إ', timezone: 'Asia/Dubai' },
-  { code: 'SG', name: 'Singapore', flag: '🇸🇬', currency: 'SGD', symbol: 'S$', timezone: 'Asia/Singapore' },
-  { code: 'DE', name: 'Germany', flag: '🇩🇪', currency: 'EUR', symbol: '€', timezone: 'Europe/Berlin' },
-  { code: 'PH', name: 'Philippines', flag: '🇵🇭', currency: 'PHP', symbol: '₱', timezone: 'Asia/Manila' }
-];
+const COUNTRY_OPTIONS = DEFAULT_SOVEREIGN_REGISTRY.map(c => ({
+  code: c.code,
+  name: c.name,
+  flag: c.flag,
+  currency: c.currencyCode,
+  symbol: c.currencySymbol,
+  timezone: c.timezone,
+  taxScheme: c.taxScheme,
+  socialSecurity: c.socialSecurity,
+  fiscalYear: c.fiscalYear
+}));
 
 const PLAN_PRESETS = [
   { id: 'FREE_TRIAL', name: 'Free Trial', rate: 0, users: 25, storage: 10, desc: '14-Day evaluation with core DCR & Doctor CRM' },
@@ -241,6 +243,9 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
     operatingCountries: ['IN'],
     timezone: 'Asia/Kolkata',
     currencyCode: 'INR',
+    currency: 'INR',
+    taxScheme: 'New/Old Tax Regime (0%-30%) + 18% GST',
+    socialSecurity: 'EPFO (12%) + ESIC (0.75%) + Gratuity + PT',
     dateFormat: 'DD/MM/YYYY',
     fiscalYearStart: 'APRIL',
     complianceFrameworks: ['21_CFR_PART_11', 'GXP', 'ISO_27001'],
@@ -251,7 +256,6 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
     billingCycle: 'Monthly',
     monthlyRate: 100,
     annualContractValue: 1200,
-    currency: 'USD',
     paymentTerms: 'NET_30',
     poNumber: '',
     trialDays: 14,
@@ -288,6 +292,28 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
   const handleChange = (field, val) => {
     setFormData(prev => {
       const next = { ...prev, [field]: val };
+
+      if (field === 'countryCode') {
+        const matched = DEFAULT_SOVEREIGN_REGISTRY.find(c => c.code === val);
+        if (matched) {
+          next.countryCode = matched.code;
+          next.operatingCountries = [matched.code];
+          next.timezone = matched.timezone || prev.timezone;
+          next.currencyCode = matched.currencyCode || prev.currencyCode;
+          next.currency = matched.currencyCode || prev.currency;
+          next.taxScheme = matched.taxScheme || '';
+          next.socialSecurity = matched.socialSecurity || '';
+          if (matched.fiscalYear?.toLowerCase().includes('april')) {
+            next.fiscalYearStart = 'APRIL';
+          } else if (matched.fiscalYear?.toLowerCase().includes('july')) {
+            next.fiscalYearStart = 'JULY';
+          } else if (matched.fiscalYear?.toLowerCase().includes('october')) {
+            next.fiscalYearStart = 'OCTOBER';
+          } else {
+            next.fiscalYearStart = 'JANUARY';
+          }
+        }
+      }
 
       if (field === 'name') {
         const slug = val.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30);
@@ -489,6 +515,8 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
         operatingCountries: formData.operatingCountries,
         timezone: formData.timezone,
         currencyCode: formData.currencyCode,
+        taxScheme: formData.taxScheme,
+        socialSecurity: formData.socialSecurity,
         dateFormat: formData.dateFormat,
         fiscalYearStart: formData.fiscalYearStart,
         complianceFrameworks: formData.complianceFrameworks,
@@ -516,6 +544,8 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
         ipWhitelist: formData.ipWhitelist ? formData.ipWhitelist.split(',').map(s => s.trim()).filter(Boolean) : [],
         auditRetentionYears: Number(formData.auditRetentionYears) || 7,
         settings: {
+          taxScheme: formData.taxScheme,
+          socialSecurity: formData.socialSecurity,
           modules: formData.modules
         }
       };
@@ -1001,6 +1031,18 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                 -------------------------------------------------------- */}
             {activeTab === 'regional' && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '18px' }}>
+                <div style={{ gridColumn: '1 / -1', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Sparkles size={18} color="#2563eb" style={{ flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1e40af' }}>
+                      Automated Sovereign Governance Synchronization
+                    </div>
+                    <div style={{ fontSize: '0.76rem', color: '#3b82f6' }}>
+                      Selecting a sovereign country automatically synchronizes Timezone, Currency, Tax Scheme, and Social Security standards.
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
                     HQ Sovereign Country
@@ -1019,43 +1061,73 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    Default Operational Timezone
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                    <span>Operational Timezone</span>
+                    <span style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: 600 }}>Auto-Updated</span>
                   </label>
                   <select
                     value={formData.timezone}
                     onChange={(e) => handleChange('timezone', e.target.value)}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', background: '#fff', outline: 'none' }}
                   >
-                    <option value="Asia/Kolkata">Asia/Kolkata (IST +5:30)</option>
-                    <option value="Asia/Ho_Chi_Minh">Asia/Ho_Chi_Minh (ICT +7:00)</option>
-                    <option value="Asia/Singapore">Asia/Singapore (SGT +8:00)</option>
-                    <option value="Asia/Dubai">Asia/Dubai (GST +4:00)</option>
-                    <option value="Europe/London">Europe/London (GMT/BST)</option>
-                    <option value="Europe/Berlin">Europe/Berlin (CET/CEST)</option>
-                    <option value="America/New_York">America/New_York (EST/EDT)</option>
-                    <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
-                    <option value="UTC">UTC (Coordinated Universal Time)</option>
+                    {DEFAULT_SOVEREIGN_REGISTRY.map(c => (
+                      <option key={c.timezone} value={c.timezone}>
+                        {c.timezone} ({c.name} &bull; {c.utcOffset})
+                      </option>
+                    ))}
+                    {!DEFAULT_SOVEREIGN_REGISTRY.some(c => c.timezone === formData.timezone) && (
+                      <option value={formData.timezone}>{formData.timezone}</option>
+                    )}
                   </select>
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    Operational Currency
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                    <span>Operational Currency</span>
+                    <span style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: 600 }}>Auto-Updated</span>
                   </label>
                   <select
                     value={formData.currencyCode}
                     onChange={(e) => handleChange('currencyCode', e.target.value)}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', background: '#fff', outline: 'none' }}
                   >
-                    <option value="INR">INR (₹ - Indian Rupee)</option>
-                    <option value="USD">USD ($ - US Dollar)</option>
-                    <option value="VND">VND (₫ - Vietnamese Dong)</option>
-                    <option value="EUR">EUR (€ - Euro)</option>
-                    <option value="GBP">GBP (£ - British Pound)</option>
-                    <option value="AED">AED (د.إ - UAE Dirham)</option>
-                    <option value="SGD">SGD (S$ - Singapore Dollar)</option>
+                    {DEFAULT_SOVEREIGN_REGISTRY.map(c => (
+                      <option key={c.currencyCode} value={c.currencyCode}>
+                        {c.currencyCode} ({c.currencySymbol} - {c.currencyName || c.name})
+                      </option>
+                    ))}
+                    {!DEFAULT_SOVEREIGN_REGISTRY.some(c => c.currencyCode === formData.currencyCode) && (
+                      <option value={formData.currencyCode}>{formData.currencyCode}</option>
+                    )}
                   </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                    <span>Statutory Tax &amp; Withholding Scheme</span>
+                    <span style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: 600 }}>Auto-Updated</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.taxScheme}
+                    onChange={(e) => handleChange('taxScheme', e.target.value)}
+                    placeholder="e.g. VAT / PIT Regime"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.86rem', background: '#f8fafc', color: '#0f172a', fontWeight: 600, outline: 'none' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                    <span>Social Security / Statutory Care</span>
+                    <span style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: 600 }}>Auto-Updated</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.socialSecurity}
+                    onChange={(e) => handleChange('socialSecurity', e.target.value)}
+                    placeholder="e.g. EPFO / NSSF / Statutory Fund"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.86rem', background: '#f8fafc', color: '#0f172a', fontWeight: 600, outline: 'none' }}
+                  />
                 </div>
 
                 <div>

@@ -4903,7 +4903,7 @@ export default function SuperAdminDashboard({
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', alignItems: 'stretch' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', alignItems: 'stretch' }}>
                   {/* Column 1: Base Amount */}
                   <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     <div>
@@ -4974,7 +4974,6 @@ export default function SuperAdminDashboard({
                     const targetC = sovereignRegistry.find(c => c.currencyCode === fxConverter.toCurrency) || sovereignRegistry[0];
                     const rate = targetC.fxRateToUSD || 1;
                     const convertedVal = (fxConverter.amount * rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                    const invRate = (1 / rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
                     return (
                       <div style={{ background: '#ffffff', border: '1px solid #93c5fd', borderRadius: '10px', padding: '14px', boxShadow: '0 2px 6px rgba(37,99,235,0.06)' }}>
                         <div style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -4985,29 +4984,6 @@ export default function SuperAdminDashboard({
                         </div>
                         <div style={{ fontSize: '0.74rem', color: '#64748b', fontFamily: 'monospace' }}>
                           1 USD = {rate.toLocaleString()} {targetC.currencyCode}
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Column 4: Sovereign Tax & Parity Breakdown */}
-                  {(() => {
-                    const targetC = sovereignRegistry.find(c => c.currencyCode === fxConverter.toCurrency) || sovereignRegistry[0];
-                    const rate = targetC.fxRateToUSD || 1;
-                    const invRate = (1 / rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
-                    return (
-                      <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px' }}>
-                        <div style={{ fontSize: '0.7rem', color: '#475569', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          Sovereign Tax &amp; FX Parity
-                        </div>
-                        <div style={{ fontSize: '0.76rem', color: '#1e40af', fontWeight: '700', marginTop: '6px' }}>
-                          🏛️ {targetC.taxScheme}
-                        </div>
-                        <div style={{ fontSize: '0.73rem', color: '#64748b', marginTop: '4px' }}>
-                          🛡️ {targetC.socialSecurity || 'Statutory Scheme'}
-                        </div>
-                        <div style={{ fontSize: '0.73rem', color: '#0f172a', marginTop: '4px', fontFamily: 'monospace' }}>
-                          1 {targetC.currencyCode} = ${invRate} USD
                         </div>
                       </div>
                     );
@@ -14435,6 +14411,39 @@ export default function SuperAdminDashboard({
             </div>
 
             <form onSubmit={handleCreateCountry} className="modal-form-body">
+              <div style={{ marginBottom: '14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '10px 14px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1e40af', display: 'block', marginBottom: '4px' }}>
+                  ✨ Auto-Populate from Sovereign Registry:
+                </label>
+                <select
+                  className="form-control"
+                  style={{ background: '#fff', fontSize: '0.85rem' }}
+                  onChange={(e) => {
+                    const matched = DEFAULT_SOVEREIGN_REGISTRY.find(c => c.code === e.target.value);
+                    if (matched) {
+                      setNewCountryForm({
+                        code: matched.code,
+                        name: matched.name,
+                        currencyCode: matched.currencyCode,
+                        currencySymbol: matched.currencySymbol,
+                        fxRateToUSD: matched.fxRateToUSD || 1.0,
+                        primaryTimezone: matched.timezone,
+                        taxScheme: matched.taxScheme,
+                        socialSecurity: matched.socialSecurity,
+                        fiscalYear: matched.fiscalYear
+                      });
+                    }
+                  }}
+                >
+                  <option value="">-- Choose Sovereign Market to Auto-Fill Timezone, Currency, Tax &amp; Social Security --</option>
+                  {DEFAULT_SOVEREIGN_REGISTRY.map(c => (
+                    <option key={c.code} value={c.code}>
+                      {c.flag} {c.name} ({c.code} &bull; {c.currencyCode} &bull; {c.timezone})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="form-grid-2">
                 <div className="form-group">
                   <label>Country ISO Code (2 Letters) *</label>
@@ -14444,7 +14453,26 @@ export default function SuperAdminDashboard({
                     maxLength={3}
                     placeholder="e.g. AE"
                     value={newCountryForm.code}
-                    onChange={(e) => setNewCountryForm({ ...newCountryForm, code: e.target.value.toUpperCase() })}
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase();
+                      const matched = DEFAULT_SOVEREIGN_REGISTRY.find(c => c.code === val);
+                      if (matched) {
+                        setNewCountryForm(prev => ({
+                          ...prev,
+                          code: val,
+                          name: prev.name || matched.name,
+                          currencyCode: matched.currencyCode,
+                          currencySymbol: matched.currencySymbol,
+                          fxRateToUSD: matched.fxRateToUSD || 1.0,
+                          primaryTimezone: matched.timezone,
+                          taxScheme: matched.taxScheme,
+                          socialSecurity: matched.socialSecurity,
+                          fiscalYear: matched.fiscalYear
+                        }));
+                      } else {
+                        setNewCountryForm(prev => ({ ...prev, code: val }));
+                      }
+                    }}
                     className="form-control"
                   />
                 </div>
