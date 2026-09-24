@@ -99,6 +99,7 @@ import TenantAdminManagerPanel from '../components/TenantAdminManagerPanel';
 
 import {
   getTenants,
+  getCompanyUserSummaries,
   createTenant,
   updateTenant,
   deleteTenant,
@@ -775,20 +776,10 @@ export default function SuperAdminDashboard({
   // --------------------------------------------------------------------------
   const loadAllData = async () => {
     try {
-      const [
-        tenantsRes, usersRes, countriesRes, subsRes, alertsRes, auditRes,
-        plansRes, settingsRes, rolesRes, analyticsRes, healthRes, secPolRes,
-        activeSessRes, secAlertsRes, dataOverRes, dataExpRes, dataRetRes,
-        dataRestRes, dataDelRes, apiOverRes, apiKeysRes, apiClientsRes,
-        apiWhkRes, apiDlqRes, apiLogsRes, apiIntRes,
-        notifOverRes, annListRes, notifChanRes, annAcksRes,
-        appOverRes, appListRes, appOldUsersRes,
-        contentOverRes, contentArtRes, privPolRes, termsRes, suppInfoRes,
-        tktOverRes, tktListRes, billOverRes, invListRes, payListRes, refListRes, subhListRes, bcListRes,
-        globalLimitsRes, maintConfigRes, emergRes, actFeedRes
-      ] = await Promise.allSettled([
+      const allResults = await Promise.allSettled([
         getTenants(),
         getPlatformUsers(),
+        getCompanyUserSummaries(),
         getSovereignCountries(),
         getSubscriptions(),
         getSystemAlerts(),
@@ -844,99 +835,153 @@ export default function SuperAdminDashboard({
         getFleetDevices()
       ]);
 
-      if (globalLimitsRes.status === 'fulfilled' && globalLimitsRes.value) setGlobalUsageLimits(globalLimitsRes.value);
-      if (maintConfigRes.status === 'fulfilled' && maintConfigRes.value) setMaintenanceModeConfig(maintConfigRes.value);
-      if (emergRes && emergRes.status === 'fulfilled' && emergRes.value) setEmergencyControlsConfig(emergRes.value);
-      if (actFeedRes && actFeedRes.status === 'fulfilled' && Array.isArray(actFeedRes.value)) setActivityFeedList(actFeedRes.value);
+      const [
+        tenantsRes, usersRes, companySummaryRes, countriesRes, subsRes, alertsRes, auditRes,
+        plansRes, settingsRes, rolesRes, analyticsRes, healthRes, secPolRes,
+        activeSessRes, secAlertsRes, dataOverRes, dataExpRes, dataRetRes,
+        dataRestRes, dataDelRes, apiOverRes, apiKeysRes, apiClientsRes,
+        apiWhkRes, apiDlqRes, apiLogsRes, apiIntRes,
+        notifOverRes, annListRes, notifChanRes, annAcksRes,
+        appOverRes, appListRes, appOldUsersRes,
+        contentOverRes, contentArtRes, privPolRes, termsRes, suppInfoRes,
+        tktOverRes, tktListRes, billOverRes, invListRes, payListRes, refListRes, subhListRes, bcListRes,
+        globalLimitsRes, maintConfigRes, emergRes, actFeedRes,
+        cfgVerRes, incRes, dualRes, dqRes, fleetRes
+      ] = allResults;
 
-      const cfgVerRes = res[47];
-      const incRes = res[48];
-      const dualRes = res[49];
-      const dqRes = res[50];
-      const fleetRes = res[51];
+      if (globalLimitsRes?.status === 'fulfilled' && globalLimitsRes.value) setGlobalUsageLimits(globalLimitsRes.value);
+      if (maintConfigRes?.status === 'fulfilled' && maintConfigRes.value) setMaintenanceModeConfig(maintConfigRes.value);
+      if (emergRes?.status === 'fulfilled' && emergRes.value) setEmergencyControlsConfig(emergRes.value);
+      if (actFeedRes?.status === 'fulfilled' && Array.isArray(actFeedRes.value)) setActivityFeedList(actFeedRes.value);
 
-      if (cfgVerRes && cfgVerRes.status === 'fulfilled' && Array.isArray(cfgVerRes.value)) setConfigVersionsList(cfgVerRes.value);
-      if (incRes && incRes.status === 'fulfilled' && Array.isArray(incRes.value)) setIncidentsList(incRes.value);
-      if (dualRes && dualRes.status === 'fulfilled' && Array.isArray(dualRes.value)) setDualApprovalsList(dualRes.value);
-      if (dqRes && dqRes.status === 'fulfilled' && Array.isArray(dqRes.value)) setDataQualityIssuesList(dqRes.value);
-      if (fleetRes && fleetRes.status === 'fulfilled' && Array.isArray(fleetRes.value)) setFleetDevicesList(fleetRes.value);
+      if (cfgVerRes?.status === 'fulfilled' && Array.isArray(cfgVerRes.value)) setConfigVersionsList(cfgVerRes.value);
+      if (incRes?.status === 'fulfilled' && Array.isArray(incRes.value)) setIncidentsList(incRes.value);
+      if (dualRes?.status === 'fulfilled' && Array.isArray(dualRes.value)) setDualApprovalsList(dualRes.value);
+      if (dqRes?.status === 'fulfilled' && Array.isArray(dqRes.value)) setDataQualityIssuesList(dqRes.value);
+      if (fleetRes?.status === 'fulfilled' && Array.isArray(fleetRes.value)) setFleetDevicesList(fleetRes.value);
 
-      if (tktOverRes.status === 'fulfilled' && tktOverRes.value) setTicketsOverview(tktOverRes.value);
-      if (tktListRes.status === 'fulfilled' && Array.isArray(tktListRes.value)) setTicketsList(tktListRes.value);
-      if (billOverRes.status === 'fulfilled' && billOverRes.value) setBillingOverview(billOverRes.value);
-      if (invListRes.status === 'fulfilled' && Array.isArray(invListRes.value)) setInvoicesList(invListRes.value);
-      if (payListRes.status === 'fulfilled' && Array.isArray(payListRes.value)) setPaymentsList(payListRes.value);
-      if (refListRes.status === 'fulfilled' && Array.isArray(refListRes.value)) setRefundsList(refListRes.value);
-      if (subhListRes.status === 'fulfilled' && Array.isArray(subhListRes.value)) setSubscriptionHistoryList(subhListRes.value);
-      if (bcListRes.status === 'fulfilled' && Array.isArray(bcListRes.value)) setBillingContactsList(bcListRes.value);
+      if (tktOverRes?.status === 'fulfilled' && tktOverRes.value) setTicketsOverview(tktOverRes.value);
+      if (tktListRes?.status === 'fulfilled' && Array.isArray(tktListRes.value)) setTicketsList(tktListRes.value);
+      if (billOverRes?.status === 'fulfilled' && billOverRes.value) setBillingOverview(billOverRes.value);
+      if (invListRes?.status === 'fulfilled' && Array.isArray(invListRes.value)) setInvoicesList(invListRes.value);
+      if (payListRes?.status === 'fulfilled' && Array.isArray(payListRes.value)) setPaymentsList(payListRes.value);
+      if (refListRes?.status === 'fulfilled' && Array.isArray(refListRes.value)) setRefundsList(refListRes.value);
+      if (subhListRes?.status === 'fulfilled' && Array.isArray(subhListRes.value)) setSubscriptionHistoryList(subhListRes.value);
+      if (bcListRes?.status === 'fulfilled' && Array.isArray(bcListRes.value)) setBillingContactsList(bcListRes.value);
 
-      if (appOverRes.status === 'fulfilled' && appOverRes.value) setAppVersionsOverview(appOverRes.value);
-      if (appListRes.status === 'fulfilled' && Array.isArray(appListRes.value)) setAppVersionsList(appListRes.value);
-      if (appOldUsersRes.status === 'fulfilled' && Array.isArray(appOldUsersRes.value)) setUsersOnOldVersions(appOldUsersRes.value);
+      if (appOverRes?.status === 'fulfilled' && appOverRes.value) setAppVersionsOverview(appOverRes.value);
+      if (appListRes?.status === 'fulfilled' && Array.isArray(appListRes.value)) setAppVersionsList(appListRes.value);
+      if (appOldUsersRes?.status === 'fulfilled' && Array.isArray(appOldUsersRes.value)) setUsersOnOldVersions(appOldUsersRes.value);
 
-      if (contentOverRes.status === 'fulfilled' && contentOverRes.value) setContentOverview(contentOverRes.value);
-      if (contentArtRes.status === 'fulfilled' && Array.isArray(contentArtRes.value)) setContentArticlesList(contentArtRes.value);
-      if (privPolRes.status === 'fulfilled' && privPolRes.value) setPrivacyPolicyData(privPolRes.value);
-      if (termsRes.status === 'fulfilled' && termsRes.value) setTermsConditionsData(termsRes.value);
-      if (suppInfoRes.status === 'fulfilled' && suppInfoRes.value) setSupportInfoData(suppInfoRes.value);
+      if (contentOverRes?.status === 'fulfilled' && contentOverRes.value) setContentOverview(contentOverRes.value);
+      if (contentArtRes?.status === 'fulfilled' && Array.isArray(contentArtRes.value)) setContentArticlesList(contentArtRes.value);
+      if (privPolRes?.status === 'fulfilled' && privPolRes.value) setPrivacyPolicyData(privPolRes.value);
+      if (termsRes?.status === 'fulfilled' && termsRes.value) setTermsConditionsData(termsRes.value);
+      if (suppInfoRes?.status === 'fulfilled' && suppInfoRes.value) setSupportInfoData(suppInfoRes.value);
 
-      if (notifOverRes.status === 'fulfilled' && notifOverRes.value) setNotificationOverview(notifOverRes.value);
-      if (annListRes.status === 'fulfilled' && Array.isArray(annListRes.value)) setAnnouncementsList(annListRes.value);
-      if (notifChanRes.status === 'fulfilled' && Array.isArray(notifChanRes.value)) setNotificationChannelsList(notifChanRes.value);
-      if (annAcksRes.status === 'fulfilled' && Array.isArray(annAcksRes.value)) setAnnouncementAcksList(annAcksRes.value);
+      if (notifOverRes?.status === 'fulfilled' && notifOverRes.value) setNotificationOverview(notifOverRes.value);
+      if (annListRes?.status === 'fulfilled' && Array.isArray(annListRes.value)) setAnnouncementsList(annListRes.value);
+      if (notifChanRes?.status === 'fulfilled' && Array.isArray(notifChanRes.value)) setNotificationChannelsList(notifChanRes.value);
+      if (annAcksRes?.status === 'fulfilled' && Array.isArray(annAcksRes.value)) setAnnouncementAcksList(annAcksRes.value);
 
-      if (dataOverRes.status === 'fulfilled' && dataOverRes.value) setDataOverview(dataOverRes.value);
-      if (dataExpRes.status === 'fulfilled' && Array.isArray(dataExpRes.value)) setDataExports(dataExpRes.value);
-      if (dataRetRes.status === 'fulfilled' && Array.isArray(dataRetRes.value)) setDataRetentionPolicies(dataRetRes.value);
-      if (dataRestRes.status === 'fulfilled' && Array.isArray(dataRestRes.value)) setDataRestoreRequests(dataRestRes.value);
-      if (dataDelRes.status === 'fulfilled' && Array.isArray(dataDelRes.value)) setDataDeletionRequests(dataDelRes.value);
+      if (dataOverRes?.status === 'fulfilled' && dataOverRes.value) setDataOverview(dataOverRes.value);
+      if (dataExpRes?.status === 'fulfilled' && Array.isArray(dataExpRes.value)) setDataExports(dataExpRes.value);
+      if (dataRetRes?.status === 'fulfilled' && Array.isArray(dataRetRes.value)) setDataRetentionPolicies(dataRetRes.value);
+      if (dataRestRes?.status === 'fulfilled' && Array.isArray(dataRestRes.value)) setDataRestoreRequests(dataRestRes.value);
+      if (dataDelRes?.status === 'fulfilled' && Array.isArray(dataDelRes.value)) setDataDeletionRequests(dataDelRes.value);
 
-      if (apiOverRes.status === 'fulfilled' && apiOverRes.value) setApiOverview(apiOverRes.value);
-      if (apiKeysRes.status === 'fulfilled' && Array.isArray(apiKeysRes.value)) setApiKeys(apiKeysRes.value);
-      if (apiClientsRes.status === 'fulfilled' && Array.isArray(apiClientsRes.value)) setApiClients(apiClientsRes.value);
-      if (apiWhkRes.status === 'fulfilled' && Array.isArray(apiWhkRes.value)) setWebhooks(apiWhkRes.value);
-      if (apiDlqRes.status === 'fulfilled' && Array.isArray(apiDlqRes.value)) setApiFailedRequests(apiDlqRes.value);
-      if (apiLogsRes.status === 'fulfilled' && Array.isArray(apiLogsRes.value)) setLiveApiLogs(apiLogsRes.value);
-      if (apiIntRes.status === 'fulfilled' && Array.isArray(apiIntRes.value)) setIntegrationAccessList(apiIntRes.value);
+      if (apiOverRes?.status === 'fulfilled' && apiOverRes.value) setApiOverview(apiOverRes.value);
+      if (apiKeysRes?.status === 'fulfilled' && Array.isArray(apiKeysRes.value)) setApiKeys(apiKeysRes.value);
+      if (apiClientsRes?.status === 'fulfilled' && Array.isArray(apiClientsRes.value)) setApiClients(apiClientsRes.value);
+      if (apiWhkRes?.status === 'fulfilled' && Array.isArray(apiWhkRes.value)) setWebhooks(apiWhkRes.value);
+      if (apiDlqRes?.status === 'fulfilled' && Array.isArray(apiDlqRes.value)) setApiFailedRequests(apiDlqRes.value);
+      if (apiLogsRes?.status === 'fulfilled' && Array.isArray(apiLogsRes.value)) setLiveApiLogs(apiLogsRes.value);
+      if (apiIntRes?.status === 'fulfilled' && Array.isArray(apiIntRes.value)) setIntegrationAccessList(apiIntRes.value);
 
-      if (secPolRes.status === 'fulfilled' && secPolRes.value) {
+      if (secPolRes?.status === 'fulfilled' && secPolRes.value) {
         setSecurityPolicies(secPolRes.value);
       }
 
-      if (activeSessRes.status === 'fulfilled' && Array.isArray(activeSessRes.value)) {
+      if (activeSessRes?.status === 'fulfilled' && Array.isArray(activeSessRes.value)) {
         setActiveSessionsList(activeSessRes.value);
       }
 
-      if (secAlertsRes.status === 'fulfilled' && Array.isArray(secAlertsRes.value)) {
+      if (secAlertsRes?.status === 'fulfilled' && Array.isArray(secAlertsRes.value)) {
         setSecurityThreatAlerts(secAlertsRes.value);
       }
 
-      if (healthRes.status === 'fulfilled' && healthRes.value) {
+      if (healthRes?.status === 'fulfilled' && healthRes.value) {
         setSystemHealth(healthRes.value);
       }
 
-      if (analyticsRes.status === 'fulfilled' && analyticsRes.value) {
+      if (analyticsRes?.status === 'fulfilled' && analyticsRes.value) {
         setPlatformAnalytics(analyticsRes.value);
       }
 
-      if (settingsRes.status === 'fulfilled' && settingsRes.value) {
+      if (settingsRes?.status === 'fulfilled' && settingsRes.value) {
         setGlobalSettings(settingsRes.value);
       }
 
-      if (rolesRes.status === 'fulfilled' && Array.isArray(rolesRes.value) && rolesRes.value.length > 0) {
+      if (rolesRes?.status === 'fulfilled' && Array.isArray(rolesRes.value) && rolesRes.value.length > 0) {
         setRoleTemplates(rolesRes.value);
       }
 
-      if (plansRes.status === 'fulfilled' && Array.isArray(plansRes.value)) {
+      if (plansRes?.status === 'fulfilled' && Array.isArray(plansRes.value)) {
         setPlans(plansRes.value);
       }
 
-      if (tenantsRes.status === 'fulfilled' && Array.isArray(tenantsRes.value)) {
+      // Unpack users first so mappedUsers can be correlated with company stats
+      let mappedUsers = [];
+      if (usersRes?.status === 'fulfilled' && Array.isArray(usersRes.value)) {
+        mappedUsers = usersRes.value.map(u => ({
+          id: u.id,
+          name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email,
+          firstName: u.first_name || '',
+          lastName: u.last_name || '',
+          email: u.email,
+          mobile: u.phone || '--',
+          phone: u.phone || '',
+          company: u.company_name || u.tenants_companies?.name || 'Platform HQ',
+          tenantId: u.tenant_id,
+          role: u.role || 'COMPANY_ADMIN',
+          status: (u.status || 'Active').toUpperCase(),
+          isLocked: Boolean(u.is_locked || u.status?.toUpperCase() === 'LOCKED'),
+          lockReason: u.lock_reason || '',
+          permissions: typeof u.permissions === 'object' && u.permissions ? u.permissions : {
+            manage_users: true,
+            manage_products: true,
+            manage_orders: true,
+            manage_doctors: true,
+            manage_dcr: true,
+            view_analytics: true,
+            export_data: true,
+            manage_settings: true
+          },
+          territory: u.territory || 'Global HQ',
+          countryCode: u.country_code || 'IN',
+          lastLogin: u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : 'Never logged in'
+        }));
+        setPlatformUsers(mappedUsers);
+        setAdmins(mappedUsers.filter(u => u.role && (u.role.toUpperCase().includes('ADMIN'))));
+      }
+
+      const summaries = (companySummaryRes?.status === 'fulfilled' && Array.isArray(companySummaryRes.value)) ? companySummaryRes.value : [];
+
+      if (tenantsRes?.status === 'fulfilled' && Array.isArray(tenantsRes.value)) {
         const mappedCompanies = tenantsRes.value.map(t => {
           const matchedCountry = sovereignRegistry.find(c => c.code === t.country_code) || DEFAULT_SOVEREIGN_REGISTRY[0];
           const isTrial = t.plan === 'FREE_TRIAL' || t.plan === 'TRIAL' || t.status === 'TRIAL' || t.status === 'Trial';
           const isCustom = t.plan === 'CUSTOM' || t.is_custom_pricing;
           const planRate = getTierMonthlyRate(t.plan, t.custom_rate || t.monthly_rate);
+
+          const summary = summaries.find(s => s.tenant_id === t.id || s.tenant_code === t.code || (s.tenant_name && s.tenant_name.toLowerCase() === (t.name || '').toLowerCase()));
+          const matchingUsers = mappedUsers.filter(u => u.tenantId === t.id || u.tenant_id === t.id || (u.company && u.company.toLowerCase() === (t.name || '').toLowerCase()));
+          const matchingAdmins = matchingUsers.filter(u => u.role && (u.role.toUpperCase().includes('ADMIN')));
+          const matchingMrs = matchingUsers.filter(u => u.role && (u.role.toUpperCase().includes('MR') || u.role.toUpperCase().includes('REP') || u.role === 'MEDICAL_REP'));
+
+          const computedAdminsCount = summary?.total_admins !== undefined ? Number(summary.total_admins) : (matchingAdmins.length > 0 ? matchingAdmins.length : (t.admin_count !== undefined ? Number(t.admin_count) : 1));
+          const computedUsersCount = summary?.total_users !== undefined ? Number(summary.total_users) : (matchingUsers.length > 0 ? matchingUsers.length : (t.user_count !== undefined ? Number(t.user_count) : (matchingUsers.length || 1)));
+          const computedMrsCount = summary?.total_mrs !== undefined ? Number(summary.total_mrs) : (matchingMrs.length > 0 ? matchingMrs.length : (t.mr_count !== undefined ? Number(t.mr_count) : 0));
 
           return {
             id: t.id,
@@ -952,10 +997,14 @@ export default function SuperAdminDashboard({
             timezone: t.default_timezone || 'UTC',
             plan: (t.plan || 'STARTER').toUpperCase(),
             status: (t.status || 'ACTIVE').toUpperCase(),
-            usersCount: t.user_count || 1,
-            mrsCount: t.mr_count || 0,
-            adminEmail: t.contact_email,
-            adminName: t.contact_email?.split('@')[0] || 'Admin',
+            usersCount: computedUsersCount,
+            user_count: computedUsersCount,
+            adminCount: computedAdminsCount,
+            admin_count: computedAdminsCount,
+            mrsCount: computedMrsCount,
+            mr_count: computedMrsCount,
+            adminEmail: t.contact_email || matchingAdmins[0]?.email || '',
+            adminName: t.contact_email?.split('@')[0] || matchingAdmins[0]?.name || 'Admin',
             storageUsedGB: 1,
             storageLimitGB: t.max_storage_gb || 50,
             userLimit: t.max_mrs || 250,
@@ -990,39 +1039,6 @@ export default function SuperAdminDashboard({
           };
         });
         setCompanies(mappedCompanies);
-      }
-
-      if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value)) {
-        const mappedUsers = usersRes.value.map(u => ({
-          id: u.id,
-          name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email,
-          firstName: u.first_name || '',
-          lastName: u.last_name || '',
-          email: u.email,
-          mobile: u.phone || '--',
-          phone: u.phone || '',
-          company: u.company_name || u.tenants_companies?.name || 'Platform HQ',
-          tenantId: u.tenant_id,
-          role: u.role || 'COMPANY_ADMIN',
-          status: (u.status || 'Active').toUpperCase(),
-          isLocked: Boolean(u.is_locked || u.status?.toUpperCase() === 'LOCKED'),
-          lockReason: u.lock_reason || '',
-          permissions: typeof u.permissions === 'object' && u.permissions ? u.permissions : {
-            manage_users: true,
-            manage_products: true,
-            manage_orders: true,
-            manage_doctors: true,
-            manage_dcr: true,
-            view_analytics: true,
-            export_data: true,
-            manage_settings: true
-          },
-          territory: u.territory || 'Global HQ',
-          countryCode: u.country_code || 'IN',
-          lastLogin: u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : 'Never logged in'
-        }));
-        setPlatformUsers(mappedUsers);
-        setAdmins(mappedUsers.filter(u => u.role.includes('ADMIN')));
       }
 
       if (countriesRes.status === 'fulfilled' && Array.isArray(countriesRes.value) && countriesRes.value.length > 0) {
@@ -5646,12 +5662,142 @@ export default function SuperAdminDashboard({
           ) : (
             /* COMPANY TOTAL USERS TELEMETRY VIEW */
             <div>
+              {/* Executive Telemetry KPI Metric Cards */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                gap: '14px',
+                marginBottom: '18px'
+              }}>
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.08), rgba(2, 132, 199, 0.02))',
+                  border: '1px solid rgba(2, 132, 199, 0.2)',
+                  borderRadius: '12px',
+                  padding: '16px 18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px'
+                }}>
+                  <div style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ffffff',
+                    boxShadow: '0 4px 10px rgba(2, 132, 199, 0.3)'
+                  }}>
+                    <Building2 size={22} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b' }}>Total Companies</div>
+                    <div style={{ fontSize: '1.45rem', fontWeight: '900', color: '#0f172a', lineHeight: '1.2' }}>{companies.length}</div>
+                    <div style={{ fontSize: '0.72rem', color: '#0284c7', fontWeight: '600' }}>Active Sovereign Tenants</div>
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.08), rgba(14, 165, 233, 0.02))',
+                  border: '1px solid rgba(14, 165, 233, 0.2)',
+                  borderRadius: '12px',
+                  padding: '16px 18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px'
+                }}>
+                  <div style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ffffff',
+                    boxShadow: '0 4px 10px rgba(14, 165, 233, 0.3)'
+                  }}>
+                    <ShieldCheck size={22} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b' }}>Total Admins</div>
+                    <div style={{ fontSize: '1.45rem', fontWeight: '900', color: '#0369a1', lineHeight: '1.2' }}>
+                      {companies.reduce((sum, c) => sum + (Number(c.adminCount) || Number(c.admin_count) || 1), 0)}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#0ea5e9', fontWeight: '600' }}>Executive Company Admins</div>
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(99, 102, 241, 0.02))',
+                  border: '1px solid rgba(99, 102, 241, 0.2)',
+                  borderRadius: '12px',
+                  padding: '16px 18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px'
+                }}>
+                  <div style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ffffff',
+                    boxShadow: '0 4px 10px rgba(99, 102, 241, 0.3)'
+                  }}>
+                    <Users size={22} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b' }}>Total Platform Users</div>
+                    <div style={{ fontSize: '1.45rem', fontWeight: '900', color: '#4338ca', lineHeight: '1.2' }}>
+                      {companies.reduce((sum, c) => sum + (Number(c.usersCount) || Number(c.user_count) || 0), 0)}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#6366f1', fontWeight: '600' }}>Active Users Across Tenants</div>
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.02))',
+                  border: '1px solid rgba(16, 185, 129, 0.2)',
+                  borderRadius: '12px',
+                  padding: '16px 18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px'
+                }}>
+                  <div style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ffffff',
+                    boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)'
+                  }}>
+                    <UserCheck2 size={22} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b' }}>Field MRs &amp; Reps</div>
+                    <div style={{ fontSize: '1.45rem', fontWeight: '900', color: '#065f46', lineHeight: '1.2' }}>
+                      {companies.reduce((sum, c) => sum + (Number(c.mrsCount) || Number(c.mr_count) || 0), 0)}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '600' }}>Deployed Medical Field Reps</div>
+                  </div>
+                </div>
+              </div>
+
               <div className="pane-action-bar">
                 <div className="search-box-large">
                   <Search size={18} />
                   <input
                     type="text"
-                    placeholder="Search company user statistics: Name, Country, Plan..."
+                    placeholder="Search company user statistics: Name, Code, Country, Plan..."
                     value={globalSearchQuery}
                     onChange={(e) => setGlobalSearchQuery(e.target.value)}
                     className="search-input-field"
@@ -5673,11 +5819,12 @@ export default function SuperAdminDashboard({
                   <table className="saas-data-table">
                     <thead>
                       <tr>
-                        <th>Company &amp; Code</th>
-                        <th>Sovereign Country</th>
+                        <th>Company &amp; Tenant Identity</th>
+                        <th>Sovereign Region</th>
                         <th>Subscription Plan</th>
-                        <th>No. of Admins</th>
-                        <th>Total Users</th>
+                        <th>Total Admins</th>
+                        <th>Field Reps (MRs)</th>
+                        <th>Total Users &amp; Seat Capacity</th>
                         <th>Company Status</th>
                         <th style={{ textAlign: 'right' }}>Actions</th>
                       </tr>
@@ -5686,68 +5833,179 @@ export default function SuperAdminDashboard({
                       {companies
                         .filter(c =>
                           c.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-                          c.country.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-                          c.plan.toLowerCase().includes(globalSearchQuery.toLowerCase())
+                          (c.code && c.code.toLowerCase().includes(globalSearchQuery.toLowerCase())) ||
+                          (c.country && c.country.toLowerCase().includes(globalSearchQuery.toLowerCase())) ||
+                          (c.plan && c.plan.toLowerCase().includes(globalSearchQuery.toLowerCase())) ||
+                          (c.adminEmail && c.adminEmail.toLowerCase().includes(globalSearchQuery.toLowerCase()))
                         )
-                        .map((c) => (
-                          <tr key={c.id}>
-                            <td>
-                              <div className="comp-name-group">
-                                <span className="comp-flag">{c.flag}</span>
-                                <div>
-                                  <div className="comp-name-text">{c.name}</div>
-                                  <div className="comp-code-sub">{c.code}</div>
+                        .map((c) => {
+                          const totalAdmins = Number(c.adminCount) || Number(c.admin_count) || 1;
+                          const totalUsers = Number(c.usersCount) || Number(c.user_count) || 1;
+                          const totalMrs = Number(c.mrsCount) || Number(c.mr_count) || 0;
+                          const seatLimit = Number(c.userLimit) || 250;
+                          const seatPercent = Math.min(100, Math.round((totalUsers / seatLimit) * 100));
+
+                          return (
+                            <tr key={c.id}>
+                              <td>
+                                <div className="comp-name-group" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <div style={{
+                                    width: '36px',
+                                    height: '36px',
+                                    borderRadius: '8px',
+                                    background: c.brandPrimaryColor || '#0284c7',
+                                    color: '#ffffff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontWeight: '800',
+                                    fontSize: '0.85rem',
+                                    boxShadow: '0 2px 6px rgba(0,0,0,0.12)'
+                                  }}>
+                                    {c.logoUrl ? (
+                                      <img src={c.logoUrl} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '8px' }} />
+                                    ) : (
+                                      (c.name || 'C').charAt(0).toUpperCase()
+                                    )}
+                                  </div>
+                                  <div>
+                                    <div className="comp-name-text" style={{ fontWeight: '800', color: '#0f172a' }}>{c.name}</div>
+                                    <div className="comp-code-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span style={{ fontFamily: 'monospace', fontSize: '0.72rem', background: '#f1f5f9', padding: '1px 6px', borderRadius: '4px', color: '#475569', fontWeight: '700' }}>
+                                        {c.code || 'CODE'}
+                                      </span>
+                                      {c.legalName && c.legalName !== c.name && (
+                                        <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>• {c.legalName}</span>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            </td>
-                            <td><strong>{c.country}</strong></td>
-                            <td>
-                              <span className={`plan-pill plan-${c.plan.toLowerCase()}`}>{c.plan}</span>
-                            </td>
-                            <td>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: '700', color: '#0369a1' }}>
-                                <ShieldCheck size={14} color="#0284c7" /> {c.admin_count || 1} Admin{c.admin_count !== 1 ? 's' : ''}
-                              </span>
-                            </td>
-                            <td>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: '800', color: '#4338ca', background: '#eef2ff', padding: '4px 10px', borderRadius: '6px' }}>
-                                <Users size={14} color="#6366f1" /> {c.usersCount || c.user_count || 0} Total Users
-                              </span>
-                            </td>
-                            <td>
-                              <span className={`status-tag status-${c.status.toLowerCase()}`}>
-                                {c.status === 'ACTIVE' ? '🟢 Active' : c.status === 'TRIAL' ? '🟣 Trial' : '🟡 Suspended'}
-                              </span>
-                            </td>
-                            <td style={{ textAlign: 'right' }}>
-                              <div className="actions-cluster">
-                                <button
-                                  type="button"
-                                  className="action-pill-btn"
-                                  onClick={() => handleOpenEditCompany(c)}
-                                >
-                                  <Edit size={12} /> Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  className="action-pill-btn"
-                                  onClick={() => setAdminManagerTenant({ id: c.id, name: c.name, logo_url: c.logo_url || c.logoUrl, country_code: c.country_code || c.countryCode })}
-                                  title="Manage Admin Accounts"
-                                  style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(14,165,233,0.15))', color: '#a78bfa', borderColor: 'rgba(139,92,246,0.35)' }}
-                                >
-                                  <UserCog size={12} /> Manage Admins
-                                </button>
-                                <button
-                                  type="button"
-                                  className="action-pill-btn"
-                                  onClick={() => handleOpenResetAdminPassword(c)}
-                                >
-                                  <Key size={12} /> Reset Pwd
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                              <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontSize: '1.2rem' }}>{c.flag || '🌐'}</span>
+                                  <div>
+                                    <div style={{ fontWeight: '700', fontSize: '0.82rem', color: '#1e293b' }}>{c.country || 'Global'}</div>
+                                    <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{c.currency || 'USD'} • {c.timezone || 'UTC'}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td>
+                                <div>
+                                  <span className={`plan-pill plan-${c.plan?.toLowerCase() || 'starter'}`}>{c.plan || 'STARTER'}</span>
+                                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '3px', fontWeight: '600' }}>{c.mrr || '$100/mo'}</div>
+                                </div>
+                              </td>
+                              <td>
+                                <div>
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    fontWeight: '800',
+                                    color: '#0369a1',
+                                    background: 'linear-gradient(135deg, #e0f2fe, #bae6fd)',
+                                    border: '1px solid #7dd3fc',
+                                    padding: '4px 10px',
+                                    borderRadius: '8px',
+                                    fontSize: '0.82rem'
+                                  }}>
+                                    <ShieldCheck size={15} color="#0284c7" /> {totalAdmins} Admin{totalAdmins !== 1 ? 's' : ''}
+                                  </span>
+                                  {c.adminEmail && (
+                                    <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={c.adminEmail}>
+                                      {c.adminEmail}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td>
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  fontWeight: '800',
+                                  color: '#065f46',
+                                  background: 'linear-gradient(135deg, #d1fae5, #a7f3d0)',
+                                  border: '1px solid #6ee7b7',
+                                  padding: '4px 10px',
+                                  borderRadius: '8px',
+                                  fontSize: '0.82rem'
+                                }}>
+                                  <UserCheck2 size={15} color="#10b981" /> {totalMrs} Field Rep{totalMrs !== 1 ? 's' : ''}
+                                </span>
+                              </td>
+                              <td>
+                                <div style={{ minWidth: '150px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                    <span style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '5px',
+                                      fontWeight: '800',
+                                      color: '#4338ca',
+                                      fontSize: '0.85rem'
+                                    }}>
+                                      <Users size={15} color="#6366f1" /> {totalUsers} Total User{totalUsers !== 1 ? 's' : ''}
+                                    </span>
+                                    <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '700' }}>
+                                      {totalUsers} / {seatLimit} Seats
+                                    </span>
+                                  </div>
+                                  <div style={{
+                                    width: '100%',
+                                    height: '6px',
+                                    background: '#e2e8f0',
+                                    borderRadius: '3px',
+                                    overflow: 'hidden'
+                                  }}>
+                                    <div style={{
+                                      width: `${seatPercent}%`,
+                                      height: '100%',
+                                      background: seatPercent > 90 ? 'linear-gradient(90deg, #ef4444, #dc2626)' : 'linear-gradient(90deg, #6366f1, #3b82f6)',
+                                      borderRadius: '3px',
+                                      transition: 'width 0.4s ease'
+                                    }} />
+                                  </div>
+                                </div>
+                              </td>
+                              <td>
+                                <span className={`status-tag status-${c.status?.toLowerCase() || 'active'}`}>
+                                  {c.status === 'ACTIVE' ? '🟢 Active' : c.status === 'TRIAL' ? '🟣 Trial' : '🟡 Suspended'}
+                                </span>
+                              </td>
+                              <td style={{ textAlign: 'right' }}>
+                                <div className="actions-cluster">
+                                  <button
+                                    type="button"
+                                    className="action-pill-btn"
+                                    onClick={() => handleOpenEditCompany(c)}
+                                    title="Edit Company Details & Limits"
+                                  >
+                                    <Edit size={12} /> Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="action-pill-btn"
+                                    onClick={() => setAdminManagerTenant({ id: c.id, name: c.name, logo_url: c.logo_url || c.logoUrl, country_code: c.country_code || c.countryCode })}
+                                    title="Manage & Provision Admin Accounts"
+                                    style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(14,165,233,0.15))', color: '#7c3aed', borderColor: 'rgba(139,92,246,0.4)', fontWeight: '700' }}
+                                  >
+                                    <UserCog size={12} /> Manage Admins
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="action-pill-btn"
+                                    onClick={() => handleOpenResetAdminPassword(c)}
+                                    title="Reset Administrator Credentials"
+                                  >
+                                    <Key size={12} /> Reset Pwd
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 )}

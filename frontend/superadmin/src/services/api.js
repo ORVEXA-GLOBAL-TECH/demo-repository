@@ -718,6 +718,16 @@ export const updateTenantUsageLimits = async (tenantId, limits) => {
 // ----------------------------------------------------------------------------
 // PLATFORM USERS CRUD
 // ----------------------------------------------------------------------------
+export const getCompanyUserSummaries = async () => {
+  try {
+    const res = await fetchWithAuth('/users/company-summary');
+    if (res && res.success && Array.isArray(res.data)) return res.data;
+  } catch (err) {
+    console.warn('API error fetching company user summary:', err);
+  }
+  return [];
+};
+
 export const getPlatformUsers = async (filters = {}) => {
   const queryParams = new URLSearchParams();
   if (filters.role && filters.role !== 'ALL') queryParams.append('role', filters.role);

@@ -74,6 +74,41 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/users/company-summary - Aggregate total admins and total users for each company
+router.get('/company-summary', async (req, res) => {
+  try {
+    const dbHealth = await checkDbHealth();
+    if (dbHealth.status === 'CONNECTED') {
+      const summaryRes = await query(`
+        SELECT 
+          t.id as company_id,
+          t.name as company_name,
+          t.code as company_code,
+          t.country_code,
+          t.plan,
+          t.status,
+          t.max_users,
+          t.logo_url,
+          t.brand_primary_color,
+          COUNT(u.id)::int as total_users,
+          COUNT(CASE WHEN u.role IN ('COMPANY_ADMIN', 'ADMIN', 'TENANT_ADMIN') THEN 1 END)::int as total_admins,
+          COUNT(CASE WHEN u.role IN ('MEDICAL_REP', 'FIELD_MR', 'MR') THEN 1 END)::int as total_mrs,
+          COUNT(CASE WHEN u.role IN ('AREA_MANAGER', 'REGIONAL_MANAGER', 'SUPERVISOR', 'MANAGER') THEN 1 END)::int as total_managers,
+          COUNT(CASE WHEN u.status = 'ACTIVE' OR u.status = 'Active' THEN 1 END)::int as active_users
+        FROM tenants_companies t
+        LEFT JOIN users u ON u.tenant_id = t.id
+        GROUP BY t.id, t.name, t.code, t.country_code, t.plan, t.status, t.max_users, t.logo_url, t.brand_primary_color
+        ORDER BY t.created_at DESC;
+      `);
+      return res.json({ success: true, count: summaryRes.rows.length, data: summaryRes.rows });
+    }
+
+    return res.json({ success: true, count: 0, data: [] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // GET /api/users/:id - Get single user by ID
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
