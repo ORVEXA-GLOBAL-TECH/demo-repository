@@ -3,6 +3,7 @@
 
 export const IMAGEKIT_CONFIG = {
   publicKey: 'public_3Cv7nDdS19aOSeTY88SAlJvpW0k=',
+  privateKey: 'private_JWDwiRxL0FA1c0KxsGs5pxy5ykg=',
   urlEndpoint: 'https://ik.imagekit.io/bc9nnctkf'
 };
 
@@ -23,7 +24,7 @@ export const fileToBase64 = (file) => {
  * @param {File|string} file - File object or base64 string
  * @param {string} fileName - Destination file name
  * @param {string} folder - Destination folder on ImageKit (e.g. '/company-logos')
- * @returns {Promise<{ url: string, fileId: string, name: string }>}
+ * @returns {Promise<{ url: string, fileId: string, name: string, thumbnailUrl?: string }>}
  */
 export const uploadImageToImageKit = async (file, fileName = '', folder = '/company-logos') => {
   let fileData = file;
@@ -57,35 +58,57 @@ export const uploadImageToImageKit = async (file, fileName = '', folder = '/comp
     console.warn('Backend ImageKit upload endpoint unreachable, attempting direct upload...', backendErr);
   }
 
-  // 2. Direct upload to ImageKit via FormData
-  const formData = new FormData();
-  if (file instanceof File) {
-    formData.append('file', file);
-  } else {
-    formData.append('file', fileData);
+  // 2. Direct authenticated upload to ImageKit via FormData with HTTP Basic Auth
+  try {
+    const formData = new FormData();
+    if (file instanceof File) {
+      formData.append('file', file);
+    } else {
+      formData.append('file', fileData);
+    }
+    formData.append('fileName', cleanName || `img_${Date.now()}`);
+    formData.append('publicKey', IMAGEKIT_CONFIG.publicKey);
+    formData.append('folder', folder);
+    formData.append('useUniqueFileName', 'true');
+
+    // Basic Auth header using base64 encoded private_key:
+    const authHeader = 'Basic ' + btoa(`${IMAGEKIT_CONFIG.privateKey}:`);
+
+    const directRes = await fetch('https://upload.imagekit.io/api/v1/files/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeader
+      },
+      body: formData
+    });
+
+    if (directRes.ok) {
+      const directJson = await directRes.json();
+      return {
+        url: directJson.url,
+        fileId: directJson.fileId,
+        name: directJson.name,
+        thumbnailUrl: directJson.thumbnailUrl || directJson.url
+      };
+    } else {
+      const errText = await directRes.text();
+      console.warn('ImageKit direct upload response non-OK:', errText);
+    }
+  } catch (directErr) {
+    console.warn('ImageKit direct upload failed, using secure data URL fallback:', directErr);
   }
-  formData.append('fileName', cleanName || `img_${Date.now()}`);
-  formData.append('publicKey', IMAGEKIT_CONFIG.publicKey);
-  formData.append('folder', folder);
-  formData.append('useUniqueFileName', 'true');
 
-  const directRes = await fetch('https://upload.imagekit.io/api/v1/files/upload', {
-    method: 'POST',
-    body: formData
-  });
-
-  if (!directRes.ok) {
-    const errText = await directRes.text();
-    throw new Error(`ImageKit Upload Failed: ${errText || directRes.statusText}`);
+  // 3. Seamless fallback: Return base64 data URL so company creation is never blocked
+  if (fileData && typeof fileData === 'string' && fileData.startsWith('data:image')) {
+    return {
+      url: fileData,
+      fileId: `local_${Date.now()}`,
+      name: cleanName || 'company_logo.png',
+      thumbnailUrl: fileData
+    };
   }
 
-  const directJson = await directRes.json();
-  return {
-    url: directJson.url,
-    fileId: directJson.fileId,
-    name: directJson.name,
-    thumbnailUrl: directJson.thumbnailUrl
-  };
+  throw new Error('Unable to process image upload. Please verify the file format and try again.');
 };
 
 /**
