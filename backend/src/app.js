@@ -8,6 +8,7 @@ import swaggerUi from 'swagger-ui-express';
 import { swaggerDocument } from './swagger.js';
 import { config } from './config/index.js';
 import { checkDbHealth } from './config/db.js';
+import { telemetryMiddleware } from './middleware/telemetryLogger.js';
 
 // Route imports
 import authRoutes from './routes/authRoutes.js';
@@ -63,6 +64,7 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
+app.use(telemetryMiddleware);
 
 // OpenAPI / Swagger Documentation endpoint
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));

@@ -172,6 +172,7 @@ import {
   getDatabaseTableDetails,
   getBackendLogs,
   clearBackendLogs,
+  sendTestLog,
   getSecurityPolicies,
   updateSecurityPolicies,
   getActiveSessions,
@@ -3466,6 +3467,37 @@ export default function SuperAdminDashboard({
       handleLoadBackendLogs();
     } catch (err) {
       showToast(`Failed to clear logs: ${err.message}`, 'error');
+    }
+  };
+
+  const handleEmitTestLog = async (level = 'INFO') => {
+    try {
+      const messages = {
+        INFO: 'Manual operational probe: Tenant cache synchronized across cluster nodes',
+        HTTP: 'GET /api/tenants - 200 OK (Manual Super Admin request simulation)',
+        WARN: 'Memory pressure warning: Node heap allocation reached 68% threshold',
+        ERROR: 'Simulated exception: External webhook gateway timeout (504)',
+        DEBUG: 'DB Pool client acquired: Active lease 4.2ms on worker thread #4'
+      };
+      const services = {
+        INFO: 'Tenant Cluster',
+        HTTP: 'API Gateway',
+        WARN: 'System Telemetry',
+        ERROR: 'Webhook Dispatcher',
+        DEBUG: 'PostgreSQL Pool'
+      };
+      await sendTestLog({
+        level,
+        service: services[level] || 'Manual Test',
+        message: messages[level] || 'Manual test log event dispatched from Super Admin',
+        path: '/api/system-health/logs/test',
+        method: 'POST',
+        statusCode: level === 'ERROR' ? 504 : level === 'WARN' ? 429 : 200
+      });
+      showToast(`Dispatched real-time [${level}] test log!`, 'success');
+      handleLoadBackendLogs();
+    } catch (err) {
+      showToast(`Failed to dispatch test log: ${err.message}`, 'error');
     }
   };
 
@@ -9608,6 +9640,46 @@ export default function SuperAdminDashboard({
                       <FileSpreadsheet size={13} />
                       <span>CSV</span>
                     </button>
+
+                    <div style={{ display: 'flex', gap: '4px', background: '#0f172a', padding: '3px 6px', borderRadius: '6px', border: '1px solid #334155' }}>
+                      <span style={{ fontSize: '0.68rem', color: '#94a3b8', alignSelf: 'center', paddingRight: '4px', fontWeight: '700' }}>TEST LOG:</span>
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={() => handleEmitTestLog('INFO')}
+                        style={{ background: '#1e3a8a', color: '#93c5fd', fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', border: 'none' }}
+                        title="Emit real-time INFO log"
+                      >
+                        +INFO
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={() => handleEmitTestLog('HTTP')}
+                        style={{ background: '#064e3b', color: '#6ee7b7', fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', border: 'none' }}
+                        title="Emit real-time HTTP log"
+                      >
+                        +HTTP
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={() => handleEmitTestLog('WARN')}
+                        style={{ background: '#78350f', color: '#fde68a', fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', border: 'none' }}
+                        title="Emit real-time WARN log"
+                      >
+                        +WARN
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={() => handleEmitTestLog('ERROR')}
+                        style={{ background: '#7f1d1d', color: '#fca5a5', fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', border: 'none' }}
+                        title="Emit real-time ERROR log"
+                      >
+                        +ERROR
+                      </button>
+                    </div>
 
                     <button
                       type="button"

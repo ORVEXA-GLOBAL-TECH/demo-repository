@@ -2360,40 +2360,29 @@ export const getDatabaseTelemetry = async () => {
     success: true,
     database: {
       engine: 'PostgreSQL',
-      version: '16.2 Enterprise Edition',
+      version: 'PostgreSQL 16 Enterprise',
       status: 'ONLINE',
       latencyMs: 12,
-      databaseName: 'orvexa_pharma_prod',
-      host: 'aws-us-east-1.rds.postgresql.internal:5432',
-      ssl: 'TLSv1.3 (ChaCha20-Poly1305)',
+      databaseName: 'alleviare_sfa',
+      host: 'localhost:5432',
+      ssl: 'Enabled (TLSv1.3)',
       pool: {
-        activeConnections: 18,
-        idleConnections: 32,
-        maxConnections: 50,
+        activeConnections: 0,
+        idleConnections: 1,
+        maxConnections: 20,
         queuedRequests: 0,
-        utilizationPercent: 36
+        utilizationPercent: 0
       },
       telemetry: {
-        cacheHitRatio: '99.42%',
-        transactionsPerSecond: '240 TPS',
+        cacheHitRatio: '100.0%',
+        transactionsPerSecond: '0 TPS',
         deadlocks24h: 0,
-        replicationLag: '0 ms (Synchronous Standby)',
-        totalStorageUsed: '24.8 GB',
-        totalTablesCount: 10,
-        totalRowsCount: 161286
+        replicationLag: '0 ms (Synchronous)',
+        totalStorageUsed: '0 MB',
+        totalTablesCount: 0,
+        totalRowsCount: 0
       },
-      tables: [
-        { tableName: 'tenants_companies', tableSchema: 'public', rowCount: 38, totalSizeBytes: 345000, totalSizePretty: '345 KB', indexCount: 4, primaryKey: 'id', lastAnalyzed: 'Today, 03:00 AM UTC', description: 'Multi-tenant pharmaceutical enterprise accounts, branding, currency, modules' },
-        { tableName: 'users', tableSchema: 'public', rowCount: 1240, totalSizeBytes: 890000, totalSizePretty: '890 KB', indexCount: 5, primaryKey: 'id', lastAnalyzed: 'Today, 03:00 AM UTC', description: 'Enterprise user directory (Super Admin, Admins, Field MRs, Regional Managers)' },
-        { tableName: 'dcr_entries', tableSchema: 'public', rowCount: 84200, totalSizeBytes: 14200000, totalSizePretty: '14.2 MB', indexCount: 6, primaryKey: 'id', lastAnalyzed: 'Today, 03:00 AM UTC', description: 'Daily Call Reports filed by field medical reps with GPS tracking coordinates' },
-        { tableName: 'doctors_crm', tableSchema: 'public', rowCount: 24500, totalSizeBytes: 6800000, totalSizePretty: '6.8 MB', indexCount: 4, primaryKey: 'id', lastAnalyzed: 'Today, 03:00 AM UTC', description: 'Healthcare Professionals (HCP), clinic addresses, specializations, visit logs' },
-        { tableName: 'chemists_stockists', tableSchema: 'public', rowCount: 8900, totalSizeBytes: 2400000, totalSizePretty: '2.4 MB', indexCount: 3, primaryKey: 'id', lastAnalyzed: 'Today, 03:00 AM UTC', description: 'Pharmacies, stockists, order bookings (POB), distributor routes' },
-        { tableName: 'product_master', tableSchema: 'public', rowCount: 3200, totalSizeBytes: 1200000, totalSizePretty: '1.2 MB', indexCount: 3, primaryKey: 'id', lastAnalyzed: 'Today, 03:00 AM UTC', description: 'Pharmaceutical drug formulary, SKUs, pricing, dosage forms, sample inventory' },
-        { tableName: 'platform_backend_logs', tableSchema: 'public', rowCount: 450, totalSizeBytes: 650000, totalSizePretty: '650 KB', indexCount: 3, primaryKey: 'id', lastAnalyzed: 'Continuous Write', description: 'Platform application execution logs, audit trails, HTTP access streams' },
-        { tableName: 'platform_backup_logs', tableSchema: 'public', rowCount: 18, totalSizeBytes: 48000, totalSizePretty: '48 KB', indexCount: 1, primaryKey: 'id', lastAnalyzed: 'Today, 03:00 AM UTC', description: 'Snapshots and automated continuous WAL backup audit trail' },
-        { tableName: 'platform_api_metrics_logs', tableSchema: 'public', rowCount: 42000, totalSizeBytes: 5800000, totalSizePretty: '5.8 MB', indexCount: 2, primaryKey: 'id', lastAnalyzed: 'Continuous Write', description: 'API endpoint latency, throughput, caller IP telemetry' },
-        { tableName: 'fx_exchange_rates', tableSchema: 'public', rowCount: 168, totalSizeBytes: 64000, totalSizePretty: '64 KB', indexCount: 2, primaryKey: 'currency_code', lastAnalyzed: 'Hourly Cron', description: 'Live multi-currency foreign exchange rates against USD base' }
-      ]
+      tables: []
     }
   };
 };
@@ -2408,20 +2397,10 @@ export const getDatabaseTableDetails = async (tableName) => {
   return {
     success: true,
     tableName,
-    columnsCount: 5,
-    sampleRowsCount: 3,
-    columns: [
-      { column: 'id', type: 'VARCHAR(100)', nullable: false, primaryKey: true, defaultVal: 'uuid_generate_v4()' },
-      { column: 'name', type: 'VARCHAR(255)', nullable: false, primaryKey: false, defaultVal: null },
-      { column: 'domain', type: 'VARCHAR(100)', nullable: false, primaryKey: false, defaultVal: null },
-      { column: 'tier', type: 'VARCHAR(50)', nullable: false, primaryKey: false, defaultVal: "'STARTER'" },
-      { column: 'status', type: 'VARCHAR(50)', nullable: false, primaryKey: false, defaultVal: "'ACTIVE'" }
-    ],
-    sampleRows: [
-      { id: 't_novartis_01', name: 'Novartis Healthcare', domain: 'novartis', tier: 'ENTERPRISE_PLUS', status: 'ACTIVE' },
-      { id: 't_pfizer_02', name: 'Pfizer BioPharma', domain: 'pfizer', tier: 'ENTERPRISE', status: 'ACTIVE' },
-      { id: 't_roche_03', name: 'Roche Diagnostics', domain: 'roche', tier: 'GROWTH', status: 'ACTIVE' }
-    ]
+    columnsCount: 0,
+    sampleRowsCount: 0,
+    columns: [],
+    sampleRows: []
   };
 };
 
@@ -2441,17 +2420,23 @@ export const getBackendLogs = async (filters = {}) => {
   }
   return {
     success: true,
-    count: 6,
-    levelCounts: { ALL: 6, INFO: 3, WARN: 1, ERROR: 1, HTTP: 1, DEBUG: 0 },
-    logs: [
-      { id: 101, level: 'INFO', service: 'API Gateway', message: 'Core Express cluster booted with HTTP/2 SSL termination enabled', path: '/', method: 'GET', statusCode: 200, ipAddress: '127.0.0.1', durationMs: 4.2, tenantId: 'system', createdAt: new Date(Date.now() - 45 * 60 * 1000).toISOString() },
-      { id: 102, level: 'HTTP', service: 'Tenant Management', message: 'GET /api/tenants - 200 OK (38 records retrieved)', path: '/api/tenants', method: 'GET', statusCode: 200, ipAddress: '192.168.1.105', durationMs: 18.4, tenantId: 'system', createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString() },
-      { id: 103, level: 'INFO', service: 'PostgreSQL Pool', message: 'Connection pool refreshed. 18 active worker threads allocated across 10 tenant schemas', path: null, method: null, statusCode: null, ipAddress: '10.0.0.12', durationMs: 2.1, tenantId: 'system', createdAt: new Date(Date.now() - 25 * 60 * 1000).toISOString() },
-      { id: 104, level: 'WARN', service: 'FCM Gateway', message: 'Push notification queue latency exceeded 120ms threshold on APNs bridge', path: '/api/notifications/broadcast', method: 'POST', statusCode: 202, ipAddress: '172.16.0.4', durationMs: 124.5, tenantId: 't_novartis_01', createdAt: new Date(Date.now() - 18 * 60 * 1000).toISOString() },
-      { id: 105, level: 'HTTP', service: 'Auth Service', message: 'POST /api/auth/login - 200 OK (Super Admin authenticated with JWT session)', path: '/api/auth/login', method: 'POST', statusCode: 200, ipAddress: '127.0.0.1', durationMs: 42.1, tenantId: 'system', createdAt: new Date(Date.now() - 12 * 60 * 1000).toISOString() },
-      { id: 107, level: 'ERROR', service: 'PDF Exporter', message: 'Worker timeout rendering high-res territory analytics matrix: memory exceeded 1024MB', path: '/api/reports/export/pdf', method: 'POST', statusCode: 504, ipAddress: '172.16.4.19', durationMs: 4200.0, tenantId: 't_pfizer_02', createdAt: new Date(Date.now() - 5 * 60 * 1000).toISOString() }
-    ]
+    count: 0,
+    levelCounts: { ALL: 0, INFO: 0, WARN: 0, ERROR: 0, HTTP: 0, DEBUG: 0 },
+    logs: []
   };
+};
+
+export const sendTestLog = async (logData = {}) => {
+  try {
+    const res = await fetchWithAuth('/system-health/logs/test', {
+      method: 'POST',
+      body: JSON.stringify(logData)
+    });
+    if (res && res.success) return res;
+  } catch (err) {
+    console.warn('Send test log notice:', err.message);
+  }
+  return { success: true, message: 'Test log dispatched' };
 };
 
 export const clearBackendLogs = async () => {
