@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { TenantThemeProvider, useTenantTheme } from './context/TenantThemeContext';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import NotificationDrawer from './components/NotificationDrawer';
@@ -20,6 +21,7 @@ import './styles/theme.css';
 
 function MainStaffApp() {
   const { currentUser } = useAuth();
+  const { activeTenant } = useTenantTheme();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -70,8 +72,9 @@ function MainStaffApp() {
   }
 
   const getPageTitle = () => {
+    const brand = activeTenant?.name || 'Pharma';
     switch (activeTab) {
-      case 'dashboard': return 'Executive Pharma SFA Dashboard';
+      case 'dashboard': return `${brand} • Executive SFA Dashboard`;
       case 'dcr': return 'Daily Call Reporting (DCR 360°)';
       case 'orders': return 'POB Chemist Order Bookings & Stockists';
       case 'expenses': return 'Field Travel & Smart Expense Claims (TA/DA)';
@@ -81,7 +84,7 @@ function MainStaffApp() {
       case 'attendance': return 'Field Rep Attendance & Leave Management';
       case 'analytics': return 'Quota Achievement & Sales Velocity Analytics';
       case 'ai-tools': return 'AI Studio (Smart Route Optimizer & Prescription OCR)';
-      default: return 'Alleviare SFA Enterprise';
+      default: return `${brand} SFA Enterprise`;
     }
   };
 
@@ -127,8 +130,11 @@ function MainStaffApp() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <MainStaffApp />
-    </AuthProvider>
+    <TenantThemeProvider>
+      <AuthProvider>
+        <MainStaffApp />
+      </AuthProvider>
+    </TenantThemeProvider>
   );
 }
+

@@ -310,3 +310,12 @@ body { font-family: var(--font-sans); background-color: var(--bg-main); color: v
   .login-card-body { padding: 20px 16px; }
   .persona-grid, .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
 }
+
+@keyframes spinAnim {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.spin-anim {
+  animation: spinAnim 0.8s linear infinite;
+}
+

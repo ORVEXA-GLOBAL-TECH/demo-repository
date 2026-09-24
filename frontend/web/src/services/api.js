@@ -156,3 +156,8 @@ export const getUsers = (role) => {
   const query = role ? `?role=${role}` : '';
   return fetchWithAuth(`/users${query}`);
 };
+
+// Tenant Company Branding & Multi-Tenancy APIs
+export const getTenants = () => fetchWithAuth('/tenants');
+export const getTenantById = (id) => fetchWithAuth(`/tenants/${id}`);
+

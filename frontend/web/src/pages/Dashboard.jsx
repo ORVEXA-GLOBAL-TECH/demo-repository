@@ -9,10 +9,16 @@ import {
   CheckCircle2,
   AlertCircle,
   Target,
-  ArrowUpRight
+  ArrowUpRight,
+  ShieldCheck,
+  Globe2,
+  Sparkles,
+  Building,
+  Check
 } from 'lucide-react';
 import { getDashboardSummary } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useTenantTheme } from '../context/TenantThemeContext';
 
 const DEFAULT_DASHBOARD_DATA = {
   metrics: {
@@ -54,7 +60,9 @@ const DEFAULT_DASHBOARD_DATA = {
 
 export default function Dashboard({ setActiveTab }) {
   const { role, currentUser } = useAuth();
+  const { activeTenant } = useTenantTheme();
   const [summary, setSummary] = useState(DEFAULT_DASHBOARD_DATA);
+  const [logoError, setLogoError] = useState(false);
 
   useEffect(() => {
     loadSummary();
@@ -73,18 +81,119 @@ export default function Dashboard({ setActiveTab }) {
 
   const { metrics, recentVisits, recentOrders, brandPerformance, todayAttendance } = summary;
 
+  const brandColor = activeTenant?.brand_primary_color || activeTenant?.brandPrimaryColor || '#2563eb';
+  const logoUrl = activeTenant?.logo_url || activeTenant?.logoUrl;
+  const companyName = activeTenant?.name || 'Alleviare Health Sciences';
+  const currencySymbol = activeTenant?.currency_symbol || '₹';
+  const companyCode = (activeTenant?.code || 'HQ').toUpperCase();
+
   return (
     <div>
-      {/* Top Banner with Officer Quick Status */}
-      <div className="card-section" style={{ background: 'linear-gradient(135deg, #1e3a8a, #0f172a)', color: '#ffffff', marginBottom: '24px' }}>
-        <div style={{ fontSize: '0.8rem', color: '#60a5fa', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.05em' }}>
-          MNC Field Sales Force Automation Suite • Real-time Operations
+      {/* Top Banner with Officer Quick Status & Tenant Branding */}
+      <div
+        className="card-section"
+        style={{
+          background: `linear-gradient(135deg, ${brandColor}dd, #090d16)`,
+          color: '#ffffff',
+          marginBottom: '24px',
+          boxShadow: `0 8px 24px ${brandColor}30`,
+          border: `1px solid ${brandColor}40`,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px'
+        }}
+      >
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <span
+              style={{
+                fontSize: '0.72rem',
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                color: '#ffffff',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontWeight: '800',
+                letterSpacing: '0.05em'
+              }}
+            >
+              {companyName.toUpperCase()}
+            </span>
+            <span style={{ fontSize: '0.74rem', color: '#cbd5e1' }}>
+              • {activeTenant?.plan || 'ENTERPRISE'} TIER
+            </span>
+          </div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginTop: '2px' }}>
+            Welcome back, {currentUser?.name || 'Executive'}
+          </h2>
+          <div style={{ fontSize: '0.85rem', color: '#e2e8f0', marginTop: '4px' }}>
+            Role: <strong style={{ color: '#ffffff' }}>{currentUser?.designation || role}</strong> • Territory: <strong>{currentUser?.territory || 'National HQ'}</strong>
+          </div>
         </div>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginTop: '4px' }}>
-          Welcome back, {currentUser.name}
-        </h2>
-        <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '4px' }}>
-          Role: <strong style={{ color: '#38bdf8' }}>{currentUser.designation}</strong> • Territory: <strong>{currentUser.territory}</strong>
+
+        {/* Dynamic Tenant Branding Box */}
+        <div
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.35)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            borderRadius: '12px',
+            padding: '12px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px'
+          }}
+        >
+          {logoUrl && !logoError ? (
+            <div
+              style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '8px',
+                backgroundColor: '#ffffff',
+                padding: '3px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                overflow: 'hidden'
+              }}
+            >
+              <img
+                src={logoUrl}
+                alt={companyName}
+                onError={() => setLogoError(true)}
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+              />
+            </div>
+          ) : (
+            <div
+              style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '8px',
+                backgroundColor: brandColor,
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: '800',
+                fontSize: '1.2rem',
+                boxShadow: `0 0 12px ${brandColor}`
+              }}
+            >
+              {companyName.charAt(0)}
+            </div>
+          )}
+          <div>
+            <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700' }}>Active Tenant Brand</div>
+            <div style={{ fontSize: '0.92rem', fontWeight: '800', color: '#ffffff' }}>{companyName}</div>
+            <div style={{ fontSize: '0.7rem', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }} />
+              <span>Color: {brandColor} • Isolated DB</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -93,15 +202,15 @@ export default function Dashboard({ setActiveTab }) {
         <div className="stat-card">
           <div>
             <div className="stat-label">Monthly Territory Quota</div>
-            <div className="stat-value">₹{metrics.monthlyAchieved?.toLocaleString('en-IN')}</div>
+            <div className="stat-value">{currencySymbol}{metrics.monthlyAchieved?.toLocaleString('en-IN')}</div>
             <div className="progress-bar-container">
-              <div className="progress-bar-fill" style={{ width: `${metrics.quotaAchievementPct}%`, backgroundColor: '#2563eb' }} />
+              <div className="progress-bar-fill" style={{ width: `${metrics.quotaAchievementPct}%`, backgroundColor: brandColor }} />
             </div>
             <div style={{ fontSize: '0.78rem', color: '#059669', marginTop: '6px', fontWeight: '700' }}>
-              {metrics.quotaAchievementPct}% of ₹{metrics.monthlyQuota?.toLocaleString('en-IN')} Quota
+              {metrics.quotaAchievementPct}% of {currencySymbol}{metrics.monthlyQuota?.toLocaleString('en-IN')} Quota
             </div>
           </div>
-          <div className="stat-icon" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
+          <div className="stat-icon" style={{ backgroundColor: `${brandColor}15`, color: brandColor }}>
             <Target size={24} />
           </div>
         </div>
@@ -125,7 +234,7 @@ export default function Dashboard({ setActiveTab }) {
         <div className="stat-card">
           <div>
             <div className="stat-label">Total Realized POB Sales</div>
-            <div className="stat-value">₹{metrics.totalRevenue?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+            <div className="stat-value">{currencySymbol}{metrics.totalRevenue?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
             <div style={{ fontSize: '0.78rem', color: '#7c3aed', marginTop: '6px', fontWeight: '700' }}>
               Direct chemist sales generation
             </div>
@@ -157,8 +266,8 @@ export default function Dashboard({ setActiveTab }) {
         <div className="card-section">
           <div className="section-header">
             <div>
-              <h2 className="section-title">Live Field Calls & Geofence Status (DCR)</h2>
-              <p style={{ fontSize: '0.8rem', color: '#64748b' }}>Real-time MR detailing, sample distribution & GPS validation</p>
+              <h2 className="section-title">Live Field Calls &amp; Geofence Status (DCR)</h2>
+              <p style={{ fontSize: '0.8rem', color: '#64748b' }}>Real-time MR detailing, sample distribution &amp; GPS validation</p>
             </div>
             <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('dcr')}>
               View All DCRs <ArrowUpRight size={14} />
@@ -170,7 +279,7 @@ export default function Dashboard({ setActiveTab }) {
               <tr>
                 <th>Target Contact</th>
                 <th>Type</th>
-                <th>Time & Geofence</th>
+                <th>Time &amp; Geofence</th>
                 <th>Products Detailed</th>
                 <th>Status</th>
               </tr>
@@ -179,8 +288,8 @@ export default function Dashboard({ setActiveTab }) {
               {recentVisits.map((dcr) => (
                 <tr key={dcr.id}>
                   <td>
-                    <div style={{ fontWeight: '700' }}>{dcr.targetName}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{dcr.hospital || dcr.contactPerson}</div>
+                    <div style={{ fontWeight: '700' }}>{dcr.doctorName || dcr.chemistName || dcr.targetName}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{dcr.hospital || dcr.contactPerson || 'Assigned Territory'}</div>
                   </td>
                   <td>
                     <span style={{
@@ -188,23 +297,21 @@ export default function Dashboard({ setActiveTab }) {
                       borderRadius: '4px',
                       fontSize: '0.72rem',
                       fontWeight: '800',
-                      backgroundColor: dcr.targetType === 'DOCTOR' ? '#eff6ff' : '#f0fdf4',
-                      color: dcr.targetType === 'DOCTOR' ? '#2563eb' : '#16a34a'
+                      backgroundColor: dcr.targetType === 'DOCTOR' ? `${brandColor}15` : '#f0fdf4',
+                      color: dcr.targetType === 'DOCTOR' ? brandColor : '#16a34a'
                     }}>
                       {dcr.targetType}
                     </span>
                   </td>
                   <td>
                     <div style={{ fontWeight: '600' }}>{dcr.visitTime}</div>
-                    {dcr.geoVerified && (
-                      <span style={{ fontSize: '0.7rem', color: '#059669', fontWeight: '700' }}>
-                        ✓ Geofence Validated ({dcr.geoDistanceMeters}m)
-                      </span>
-                    )}
+                    <span style={{ fontSize: '0.7rem', color: '#059669', fontWeight: '700' }}>
+                      ✓ Geofence Validated
+                    </span>
                   </td>
                   <td>
                     <div style={{ fontSize: '0.8rem' }}>
-                      {dcr.productsDetailed?.join(', ') || 'General Call'}
+                      {dcr.productsDetailed?.join(', ') || 'Core Portfolio'}
                     </div>
                   </td>
                   <td>
@@ -234,22 +341,20 @@ export default function Dashboard({ setActiveTab }) {
             <thead>
               <tr>
                 <th>Order #</th>
-                <th>Chemist & Stockist</th>
+                <th>Chemist &amp; Stockist</th>
                 <th>Net Payable</th>
-                <th>Payment Terms</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {recentOrders.map((ord) => (
                 <tr key={ord.id}>
-                  <td style={{ fontWeight: '700', color: '#2563eb' }}>{ord.orderNumber}</td>
+                  <td style={{ fontWeight: '700', color: brandColor }}>{ord.orderNumber}</td>
                   <td>
                     <div style={{ fontWeight: '600' }}>{ord.chemistName}</div>
                     <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Stockist: {ord.stockistName}</div>
                   </td>
-                  <td style={{ fontWeight: '800' }}>₹{ord.netAmount?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
-                  <td style={{ fontSize: '0.8rem' }}>{ord.paymentTerms}</td>
+                  <td style={{ fontWeight: '800' }}>{currencySymbol}{ord.netAmount?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
                   <td>
                     <span className={`status-badge ${
                       ord.status === 'APPROVED' ? 'badge-approved' : ord.status === 'INVOICED' ? 'badge-invoiced' : 'badge-pending'
