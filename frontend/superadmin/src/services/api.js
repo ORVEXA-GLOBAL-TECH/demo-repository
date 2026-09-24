@@ -328,7 +328,10 @@ export const createTenant = async (tenantData) => {
       .single();
 
     if (error) {
-      console.warn('Supabase insert tenants_companies failed:', error.message);
+      console.error('⚠️ [Supabase Database Error]:', error.message, error.hint || '', error.details || '');
+      if (error.code === '42501') {
+        console.warn('⚠️ [RLS Notice]: Row-Level Security (RLS) is active on "tenants_companies". Run "ALTER TABLE public.tenants_companies DISABLE ROW LEVEL SECURITY;" in Supabase SQL Editor.');
+      }
     } else {
       newTenant = data;
     }
@@ -344,6 +347,7 @@ export const createTenant = async (tenantData) => {
       updated_at: new Date().toISOString()
     };
   }
+
 
   // Auto-provision default Company Admin user in users table
   if (tenantData.contactEmail) {
