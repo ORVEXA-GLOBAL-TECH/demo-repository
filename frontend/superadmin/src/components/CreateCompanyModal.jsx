@@ -169,14 +169,31 @@ const PLAN_PRESETS = [
 ];
 
 const COLOR_PRESETS = [
-  '#0284c7', // Sky Blue
-  '#059669', // Emerald
-  '#7c3aed', // Royal Violet
-  '#4f46e5', // Deep Indigo
-  '#d97706', // Amber Gold
-  '#e11d48', // Crimson Red
-  '#0f172a', // Slate Black
-  '#0891b2'  // Cyan
+  '#0284c7', // Royal Sky Blue
+  '#1d4ed8', // Imperial Sapphire
+  '#1e40af', // Regal Cobalt
+  '#0f2b5c', // Royal Navy
+  '#091e3a', // Sovereign Midnight
+  '#4338ca', // Majestic Indigo
+  '#4f46e5', // Deep Royal Blue
+  '#6d28d9', // Sovereign Violet
+  '#7c3aed', // Imperial Purple
+  '#581c87', // Royal Plum
+  '#881337', // Royal Burgundy
+  '#9f1239', // Imperial Maroon
+  '#be123c', // Sovereign Crimson
+  '#e11d48', // Monarch Ruby
+  '#dc2626', // Royal Scarlet
+  '#c2410c', // Sovereign Copper
+  '#d97706', // Imperial Amber
+  '#b45309', // Royal Bronze
+  '#ca8a04', // Sovereign Gold
+  '#047857', // Imperial Emerald
+  '#059669', // Sovereign Jade
+  '#065f46', // Royal Forest
+  '#0f766e', // Imperial Teal
+  '#0891b2', // Royal Peacock
+  '#0f172a'  // Sovereign Obsidian
 ];
 
 export const buildInitialModules = () => {
@@ -220,7 +237,7 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [validationError, setValidationError] = useState('');
-  const [visitedSteps, setVisitedSteps] = useState({ identity: true });
+  const [evaluatedSteps, setEvaluatedSteps] = useState({});
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
   // Form State
@@ -376,16 +393,22 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
   };
 
   const handleNext = () => {
-    if (activeTab === 'identity' && !formData.name.trim()) {
-      setValidationError('Please enter a Company Name before continuing.');
-      setVisitedSteps(prev => ({ ...prev, [activeTab]: true }));
+    // Mark current step as evaluated when user clicks Next Step
+    setEvaluatedSteps(prev => ({ ...prev, [activeTab]: true }));
+
+    if (activeTab === 'identity' && (!formData.name.trim() || !formData.code.trim())) {
+      setValidationError('Please enter a valid Company Name and Tenant Slug before continuing.');
       return;
     }
+    if (activeTab === 'admin' && (!formData.contactEmail.trim() || !formData.contactEmail.includes('@') || !formData.adminName.trim())) {
+      setValidationError('Please enter a valid Company Admin Name and Email Address.');
+      return;
+    }
+
     setValidationError('');
     if (currentStepIndex < WIZARD_STEPS.length - 1) {
       const nextStepId = WIZARD_STEPS[currentStepIndex + 1].id;
       setActiveTab(nextStepId);
-      setVisitedSteps(prev => ({ ...prev, [activeTab]: true, [nextStepId]: true }));
     }
   };
 
@@ -394,7 +417,6 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
     if (currentStepIndex > 0) {
       const prevStepId = WIZARD_STEPS[currentStepIndex - 1].id;
       setActiveTab(prevStepId);
-      setVisitedSteps(prev => ({ ...prev, [prevStepId]: true }));
     }
   };
 
@@ -402,6 +424,11 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
     if (e) e.preventDefault();
     setValidationError('');
     setAttemptedSubmit(true);
+
+    // Evaluate all steps on submit attempt
+    const allEvaluated = {};
+    WIZARD_STEPS.forEach(s => { allEvaluated[s.id] = true; });
+    setEvaluatedSteps(allEvaluated);
 
     if (!formData.name.trim()) {
       setActiveTab('identity');
@@ -548,6 +575,7 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
               const isActive = activeTab === step.id;
               const stepStatus = getStepStatus(step.id);
               const isValid = stepStatus === 'VALID';
+              const isEvaluated = Boolean(evaluatedSteps[step.id] || attemptedSubmit);
 
               return (
                 <button
@@ -555,8 +583,8 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                   type="button"
                   onClick={() => {
                     setValidationError('');
+                    setEvaluatedSteps(prev => ({ ...prev, [activeTab]: true }));
                     setActiveTab(step.id);
-                    setVisitedSteps(prev => ({ ...prev, [step.id]: true }));
                   }}
                   style={{
                     display: 'flex',
@@ -565,11 +593,19 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                     padding: '10px 12px',
                     borderRadius: '10px',
                     border: isActive
-                      ? isValid ? '1px solid #10b981' : '1px solid #ef4444'
-                      : '1px solid transparent',
+                      ? isEvaluated
+                        ? (isValid ? '1px solid #10b981' : '1px solid #ef4444')
+                        : '1px solid #0284c7'
+                      : isEvaluated
+                        ? (isValid ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)')
+                        : '1px solid transparent',
                     background: isActive
-                      ? isValid ? 'rgba(16, 185, 129, 0.14)' : 'rgba(239, 68, 68, 0.14)'
-                      : 'transparent',
+                      ? isEvaluated
+                        ? (isValid ? 'rgba(16, 185, 129, 0.16)' : 'rgba(239, 68, 68, 0.16)')
+                        : 'rgba(2, 132, 199, 0.14)'
+                      : isEvaluated
+                        ? (isValid ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)')
+                        : 'transparent',
                     color: isActive ? '#ffffff' : '#94a3b8',
                     cursor: 'pointer',
                     textAlign: 'left',
@@ -577,18 +613,28 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                     position: 'relative'
                   }}
                   onMouseEnter={(e) => {
-                    if (!isActive) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                    if (!isActive) {
+                      e.currentTarget.style.background = isEvaluated
+                        ? (isValid ? 'rgba(16, 185, 129, 0.14)' : 'rgba(239, 68, 68, 0.14)')
+                        : 'rgba(255, 255, 255, 0.05)';
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    if (!isActive) e.currentTarget.style.background = 'transparent';
+                    if (!isActive) {
+                      e.currentTarget.style.background = isEvaluated
+                        ? (isValid ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)')
+                        : 'transparent';
+                    }
                   }}
                 >
-                  {/* Step Status Circle: Green Check if Complete, Red Cross if Incomplete */}
+                  {/* Step Status Indicator Circle: Step number initially, Green Check if valid after next step, Red Cross if invalid */}
                   <div style={{
                     width: '28px',
                     height: '28px',
                     borderRadius: '50%',
-                    background: isValid ? '#10b981' : '#ef4444',
+                    background: isEvaluated
+                      ? (isValid ? '#10b981' : '#ef4444')
+                      : (isActive ? '#0284c7' : 'rgba(255, 255, 255, 0.12)'),
                     color: '#ffffff',
                     display: 'flex',
                     alignItems: 'center',
@@ -596,14 +642,14 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                     fontSize: '0.74rem',
                     fontWeight: 800,
                     flexShrink: 0,
-                    boxShadow: isValid
-                      ? '0 0 10px rgba(16, 185, 129, 0.45)'
-                      : '0 0 10px rgba(239, 68, 68, 0.45)'
+                    boxShadow: isEvaluated
+                      ? (isValid ? '0 0 10px rgba(16, 185, 129, 0.45)' : '0 0 10px rgba(239, 68, 68, 0.45)')
+                      : (isActive ? '0 0 8px rgba(2, 132, 199, 0.35)' : 'none')
                   }}>
-                    {isValid ? (
-                      <Check size={14} strokeWidth={3} />
+                    {isEvaluated ? (
+                      isValid ? <Check size={14} strokeWidth={3} /> : <X size={14} strokeWidth={3} />
                     ) : (
-                      <X size={14} strokeWidth={3} />
+                      step.stepNum
                     )}
                   </div>
 
@@ -612,7 +658,9 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                     <div style={{
                       fontSize: '0.84rem',
                       fontWeight: isActive ? 700 : 500,
-                      color: isActive ? '#f8fafc' : isValid ? '#cbd5e1' : '#fca5a5',
+                      color: isEvaluated
+                        ? (isValid ? '#86efac' : '#fca5a5')
+                        : (isActive ? '#f8fafc' : '#cbd5e1'),
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis'
@@ -621,7 +669,9 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                     </div>
                     <div style={{
                       fontSize: '0.7rem',
-                      color: isActive ? (isValid ? '#6ee7b7' : '#fca5a5') : '#64748b',
+                      color: isEvaluated
+                        ? (isValid ? '#6ee7b7' : '#f87171')
+                        : (isActive ? '#93c5fd' : '#64748b'),
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis'
@@ -631,69 +681,15 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                   </div>
 
                   {isActive && (
-                    <ChevronRight size={16} color={isValid ? '#10b981' : '#ef4444'} style={{ flexShrink: 0 }} />
+                    <ChevronRight
+                      size={16}
+                      color={isEvaluated ? (isValid ? '#10b981' : '#ef4444') : '#38bdf8'}
+                      style={{ flexShrink: 0 }}
+                    />
                   )}
                 </button>
               );
             })}
-          </div>
-
-          {/* Real-time Tenant Preview Card */}
-          <div style={{
-            margin: '12px',
-            padding: '12px 14px',
-            borderRadius: '10px',
-            background: 'rgba(255, 255, 255, 0.04)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '8px',
-                background: formData.brandPrimaryColor || '#0284c7',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 800,
-                fontSize: '14px',
-                flexShrink: 0,
-                overflow: 'hidden',
-                border: '1px solid rgba(255,255,255,0.15)'
-              }}>
-                {formData.logoUrl ? (
-                  <img
-                    src={formData.logoUrl}
-                    alt="Logo"
-                    style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#fff' }}
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                  />
-                ) : (
-                  formData.name ? formData.name.charAt(0).toUpperCase() : 'T'
-                )}
-              </div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {formData.name || 'New Organization'}
-                </div>
-                <div style={{ fontSize: '0.7rem', color: '#38bdf8', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {formData.code ? `${formData.code}.alleviare.com` : 'slug.alleviare.com'}
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', paddingTop: '4px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <span style={{ fontSize: '0.68rem', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
-                {formData.plan} (${formData.monthlyRate}/mo)
-              </span>
-              <span style={{ fontSize: '0.68rem', background: 'rgba(255, 255, 255, 0.08)', color: '#cbd5e1', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
-                {formData.maxUsers} Users &bull; {formData.maxStorageGb}GB
-              </span>
-            </div>
           </div>
         </div>
 
@@ -910,41 +906,60 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                   />
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    Brand Primary Color Theme
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+                    <span>Brand Primary Color Theme (25 Royal Palettes)</span>
+                    <span style={{ fontSize: '0.74rem', fontFamily: 'monospace', color: '#0284c7', fontWeight: 700, background: '#f0f9ff', padding: '2px 8px', borderRadius: '4px', border: '1px solid #bae6fd' }}>
+                      Selected: {formData.brandPrimaryColor}
+                    </span>
                   </label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    flexWrap: 'wrap',
+                    padding: '12px 14px',
+                    background: '#f8fafc',
+                    borderRadius: '10px',
+                    border: '1px solid #e2e8f0'
+                  }}>
                     {COLOR_PRESETS.map((color) => (
                       <button
                         key={color}
                         type="button"
                         onClick={() => handleChange('brandPrimaryColor', color)}
                         style={{
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '6px',
+                          width: '30px',
+                          height: '30px',
+                          borderRadius: '8px',
                           background: color,
-                          border: formData.brandPrimaryColor === color ? '3px solid #0f172a' : '1px solid #cbd5e1',
+                          border: formData.brandPrimaryColor === color ? '3px solid #0f172a' : '1px solid rgba(0,0,0,0.15)',
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          color: '#fff'
+                          color: '#fff',
+                          boxShadow: formData.brandPrimaryColor === color ? '0 0 10px rgba(0,0,0,0.35)' : '0 1px 3px rgba(0,0,0,0.08)',
+                          transform: formData.brandPrimaryColor === color ? 'scale(1.12)' : 'scale(1)',
+                          transition: 'all 0.15s ease'
                         }}
+                        title={color}
                       >
-                        {formData.brandPrimaryColor === color && <Check size={14} />}
+                        {formData.brandPrimaryColor === color && <Check size={16} strokeWidth={3} />}
                       </button>
                     ))}
-                    <input
-                      type="color"
-                      value={formData.brandPrimaryColor}
-                      onChange={(e) => handleChange('brandPrimaryColor', e.target.value)}
-                      style={{ width: '32px', height: '32px', padding: 0, border: 'none', borderRadius: '6px', cursor: 'pointer' }}
-                    />
-                    <span style={{ fontSize: '0.8rem', fontFamily: 'monospace', color: '#475569' }}>
-                      {formData.brandPrimaryColor}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '6px', borderLeft: '1px solid #cbd5e1', paddingLeft: '10px' }}>
+                      <input
+                        type="color"
+                        value={formData.brandPrimaryColor}
+                        onChange={(e) => handleChange('brandPrimaryColor', e.target.value)}
+                        style={{ width: '32px', height: '32px', padding: 0, border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                        title="Custom Color Picker"
+                      />
+                      <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600 }}>
+                        Custom
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
