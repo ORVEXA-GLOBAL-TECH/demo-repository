@@ -1,5 +1,6 @@
 -- ==============================================================================
 -- COMPREHENSIVE BILLING, INVOICING, PAYMENTS & PLANS SCHEMA FOR SUPABASE / POSTGRESQL
+-- Clean DDL without hardcoded mock records
 -- ==============================================================================
 
 -- 1. Ensure Required Extensions
@@ -115,7 +116,7 @@ CREATE TABLE IF NOT EXISTS public.platform_audit_logs (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
--- 8. Enable RLS and Add Permissive Policies
+-- 8. Enable RLS
 ALTER TABLE public.saas_subscription_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.platform_billing_invoices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.platform_billing_payments ENABLE ROW LEVEL SECURITY;
@@ -123,6 +124,7 @@ ALTER TABLE public.platform_billing_refunds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.saas_subscription_addons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.platform_audit_logs ENABLE ROW LEVEL SECURITY;
 
+-- 9. Add Permissive RLS Policies (Clean DROP and CREATE)
 DROP POLICY IF EXISTS "Allow all access on saas_subscription_plans" ON public.saas_subscription_plans;
 CREATE POLICY "Allow all access on saas_subscription_plans" ON public.saas_subscription_plans FOR ALL TO public, anon, authenticated, service_role USING (true) WITH CHECK (true);
 
@@ -135,26 +137,16 @@ CREATE POLICY "Allow all access on platform_billing_payments" ON public.platform
 DROP POLICY IF EXISTS "Allow all access on platform_billing_refunds" ON public.platform_billing_refunds;
 CREATE POLICY "Allow all access on platform_billing_refunds" ON public.platform_billing_refunds FOR ALL TO public, anon, authenticated, service_role USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Allow all access on saas_subscription_addons" ON public.saas_subscription_addons FOR ALL TO public, anon, authenticated, service_role USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all access on saas_subscription_addons" ON public.saas_subscription_addons;
 CREATE POLICY "Allow all access on saas_subscription_addons" ON public.saas_subscription_addons FOR ALL TO public, anon, authenticated, service_role USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow all access on platform_audit_logs" ON public.platform_audit_logs;
 CREATE POLICY "Allow all access on platform_audit_logs" ON public.platform_audit_logs FOR ALL TO public, anon, authenticated, service_role USING (true) WITH CHECK (true);
 
--- 9. Grant Permissions
+-- 10. Grant Permissions
 GRANT ALL ON TABLE public.saas_subscription_plans TO postgres, service_role, anon, authenticated;
 GRANT ALL ON TABLE public.platform_billing_invoices TO postgres, service_role, anon, authenticated;
 GRANT ALL ON TABLE public.platform_billing_payments TO postgres, service_role, anon, authenticated;
 GRANT ALL ON TABLE public.platform_billing_refunds TO postgres, service_role, anon, authenticated;
 GRANT ALL ON TABLE public.saas_subscription_addons TO postgres, service_role, anon, authenticated;
 GRANT ALL ON TABLE public.platform_audit_logs TO postgres, service_role, anon, authenticated;
-
--- 10. Seed Default Master Reference Plans
-INSERT INTO public.saas_subscription_plans (code, name, description, tier, price_monthly, price_yearly, trial_days, grace_period_days, max_users, max_storage_gb, features, is_active, is_custom)
-VALUES
-('FREE_TRIAL', 'Free Trial / Evaluation', 'Full feature access evaluation for 14 to 30 days.', 'FREE_TRIAL', 0, 0, 14, 7, 50, 10, '["Full DCR Reporting", "GPS Live Punch", "Chemist Orders", "Doctor 360° Catalog"]'::jsonb, true, false),
-('STARTER', 'Starter Tier', 'Standard SFA deployment for small regional pharma distributors.', 'STARTER', 100, 1000, 14, 7, 100, 25, '["Core Field Reporting", "Chemist Orders (POB)", "Product Catalog", "Standard Analytics", "Email Support"]'::jsonb, true, false),
-('GROWTH', 'Growth Tier', 'Mid-market pharma manufacturers scaling regional sales teams.', 'GROWTH', 450, 4500, 14, 7, 250, 50, '["Smart Expense Claims", "Tour Plans (MTP)", "Real-time Telemetry", "Priority Support"]'::jsonb, true, false),
-('PROFESSIONAL', 'Professional Tier', 'Enterprise-grade sales force automation with advanced analytics.', 'PROFESSIONAL', 1000, 10000, 14, 7, 500, 100, '["AI Prescription OCR", "Custom Beat Routing", "ERP Sync Ready", "Audit Retention"]'::jsonb, true, false),
-('ENTERPRISE', 'Enterprise Sovereign', 'Dedicated sovereign isolation and custom compliance frameworks.', 'ENTERPRISE', 2500, 25000, 30, 14, 2500, 500, '["Sovereign Isolation", "21 CFR Part 11", "Custom ERP Connectors", "Dedicated Account GM", "24/7 SLA"]'::jsonb, true, false)
-ON CONFLICT (code) DO NOTHING;
