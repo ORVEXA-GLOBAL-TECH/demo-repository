@@ -225,7 +225,7 @@ export const buildInitialModules = () => {
 
 const WIZARD_STEPS = [
   { id: 'identity', stepNum: 1, title: 'Identity & Brand', desc: 'Company name, slug & logo', icon: Building2 },
-  { id: 'regional', stepNum: 2, title: 'Regional & Compliance', desc: 'Jurisdiction, currency & GxP', icon: Globe2 },
+  { id: 'regional', stepNum: 2, title: 'Regional & Jurisdiction', desc: 'Jurisdiction, currency & tax', icon: Globe2 },
   { id: 'commercial', stepNum: 3, title: 'Plan & Commercials', desc: 'Pricing tier & billing terms', icon: CreditCard },
   { id: 'quotas', stepNum: 4, title: 'Capacity Quotas', desc: 'User seats, storage & API rate', icon: Zap },
   { id: 'admin', stepNum: 5, title: 'Company Admin', desc: 'Root administrator account', icon: ShieldCheck },
@@ -1109,21 +1109,6 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
 
                 <div>
                   <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    Standard Date Format
-                  </label>
-                  <select
-                    value={formData.dateFormat}
-                    onChange={(e) => handleChange('dateFormat', e.target.value)}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', background: '#fff', outline: 'none' }}
-                  >
-                    <option value="DD/MM/YYYY">DD/MM/YYYY (e.g. 24/09/2026)</option>
-                    <option value="MM/DD/YYYY">MM/DD/YYYY (e.g. 09/24/2026)</option>
-                    <option value="YYYY-MM-DD">YYYY-MM-DD (ISO 8601)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
                     Fiscal Year Starting Month
                   </label>
                   <select
@@ -1136,69 +1121,6 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                     <option value="JULY">July (Mid-Year FY)</option>
                     <option value="OCTOBER">October (Q4 FY)</option>
                   </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    Data Residency Cloud Region
-                  </label>
-                  <select
-                    value={formData.dataResidencyRegion}
-                    onChange={(e) => handleChange('dataResidencyRegion', e.target.value)}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', background: '#fff', outline: 'none' }}
-                  >
-                    <option value="ap-south-1">AWS Mumbai (ap-south-1) - Sovereign India</option>
-                    <option value="ap-southeast-1">AWS Singapore (ap-southeast-1) - ASEAN Hub</option>
-                    <option value="eu-central-1">AWS Frankfurt (eu-central-1) - GDPR Strict</option>
-                    <option value="us-east-1">AWS N. Virginia (us-east-1) - Global Primary</option>
-                  </select>
-                </div>
-
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
-                    Regulatory Compliance &amp; Audit Frameworks
-                  </label>
-                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                    {[
-                      { id: '21_CFR_PART_11', label: 'FDA 21 CFR Part 11 (Audit Trail & E-Sign)' },
-                      { id: 'GXP', label: 'GxP Validated Guidelines' },
-                      { id: 'HIPAA', label: 'HIPAA Health Privacy' },
-                      { id: 'GDPR', label: 'GDPR EU Data Sovereign' },
-                      { id: 'ISO_27001', label: 'ISO 27001 Certified' }
-                    ].map(framework => {
-                      const isChecked = formData.complianceFrameworks.includes(framework.id);
-                      return (
-                        <label
-                          key={framework.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            background: isChecked ? '#eff6ff' : '#f8fafc',
-                            border: `1px solid ${isChecked ? '#3b82f6' : '#cbd5e1'}`,
-                            padding: '8px 12px',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            fontSize: '0.8rem',
-                            fontWeight: 600,
-                            color: isChecked ? '#1d4ed8' : '#475569'
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {
-                              const updated = isChecked
-                                ? formData.complianceFrameworks.filter(id => id !== framework.id)
-                                : [...formData.complianceFrameworks, framework.id];
-                              handleChange('complianceFrameworks', updated);
-                            }}
-                          />
-                          <span>{framework.label}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
                 </div>
               </div>
             )}
