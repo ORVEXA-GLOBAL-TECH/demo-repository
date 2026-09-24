@@ -13,7 +13,7 @@ import { colors } from './src/theme/colors';
 
 const Tab = createBottomTabNavigator();
 
-function TabBarIcon({ emoji, label, focused }) {
+function TabBarIcon({ emoji }) {
   return (
     <View style={{ alignItems: 'center', justifyContent: 'center', paddingTop: 4 }}>
       <Text style={{ fontSize: 18 }}>{emoji}</Text>
@@ -50,7 +50,7 @@ export default function App() {
           options={{
             title: 'Alleviare SFA',
             tabBarLabel: 'Home',
-            tabBarIcon: ({ focused }) => <TabBarIcon emoji="🏠" focused={focused} />
+            tabBarIcon: () => <TabBarIcon emoji="🏠" />
           }}
         />
         <Tab.Screen
@@ -59,7 +59,7 @@ export default function App() {
           options={{
             title: 'Field Visit (DCR)',
             tabBarLabel: 'DCR Call',
-            tabBarIcon: ({ focused }) => <TabBarIcon emoji="📝" focused={focused} />
+            tabBarIcon: () => <TabBarIcon emoji="📝" />
           }}
         />
         <Tab.Screen
@@ -68,7 +68,7 @@ export default function App() {
           options={{
             title: 'POB Order Booking',
             tabBarLabel: 'POB Order',
-            tabBarIcon: ({ focused }) => <TabBarIcon emoji="🛒" focused={focused} />
+            tabBarIcon: () => <TabBarIcon emoji="🛒" />
           }}
         />
         <Tab.Screen
@@ -77,7 +77,7 @@ export default function App() {
           options={{
             title: 'TA / DA Expense Claim',
             tabBarLabel: 'Expense',
-            tabBarIcon: ({ focused }) => <TabBarIcon emoji="💳" focused={focused} />
+            tabBarIcon: () => <TabBarIcon emoji="💳" />
           }}
         />
         <Tab.Screen
@@ -86,7 +86,7 @@ export default function App() {
           options={{
             title: 'MR Profile & Targets',
             tabBarLabel: 'Profile',
-            tabBarIcon: ({ focused }) => <TabBarIcon emoji="👤" focused={focused} />
+            tabBarIcon: () => <TabBarIcon emoji="👤" />
           }}
         />
       </Tab.Navigator>

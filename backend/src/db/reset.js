@@ -20,10 +20,15 @@ async function resetDatabase() {
     await query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
     console.log('✅ Schema cleaned.');
 
-    const schemaPath = path.join(__dirname, 'schema.sql');
-    const sql = fs.readFileSync(schemaPath, 'utf8');
-    console.log('🚀 Re-applying DDL Schema...');
-    await query(sql);
+    const sqlFiles = ['create_users_table.sql', 'create_tenants_table.sql', 'create_fx_rates_table.sql'];
+    for (const file of sqlFiles) {
+      const filePath = path.join(__dirname, file);
+      if (fs.existsSync(filePath)) {
+        console.log(`🚀 Re-applying DDL Schema: ${file}`);
+        const sql = fs.readFileSync(filePath, 'utf8');
+        await query(sql);
+      }
+    }
 
     console.log('🎉 Database reset completed successfully!');
     process.exit(0);

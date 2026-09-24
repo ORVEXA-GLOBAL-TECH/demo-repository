@@ -19,17 +19,20 @@ async function runMigrations() {
   console.log(`✅ Connected to PostgreSQL Database: "${health.database}" (${health.pgVersion})`);
   console.log(`⏱️ Latency: ${health.latencyMs}ms`);
 
-  const schemaPath = path.join(__dirname, 'schema.sql');
-  console.log(`📖 Reading SQL Schema from: ${schemaPath}`);
-  const sql = fs.readFileSync(schemaPath, 'utf8');
-
-  console.log('🚀 Executing DDL Schema Migrations...');
+  const sqlFiles = ['create_users_table.sql', 'create_tenants_table.sql', 'create_fx_rates_table.sql'];
   const start = Date.now();
 
   try {
-    await query(sql);
+    for (const file of sqlFiles) {
+      const filePath = path.join(__dirname, file);
+      if (fs.existsSync(filePath)) {
+        console.log(`📖 Executing DDL Schema Migration from: ${file}`);
+        const sql = fs.readFileSync(filePath, 'utf8');
+        await query(sql);
+      }
+    }
     const duration = Date.now() - start;
-    console.log(`🎉 [SUCCESS] Schema migration applied successfully in ${duration}ms!`);
+    console.log(`🎉 [SUCCESS] Schema migrations applied successfully in ${duration}ms!`);
 
     // Verify created tables
     const tableRes = await query(`
