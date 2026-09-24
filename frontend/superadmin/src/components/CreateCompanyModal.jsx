@@ -654,13 +654,11 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
 
           {/* Stepper Navigation Items */}
           <div style={{ padding: '14px 12px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {WIZARD_STEPS.map((step, idx) => {
+            {WIZARD_STEPS.map((step) => {
               const Icon = step.icon;
               const isActive = activeTab === step.id;
               const stepStatus = getStepStatus(step.id);
               const isValid = stepStatus === 'VALID';
-              const isVisited = visitedSteps[step.id] || attemptedSubmit;
-              const isInvalid = !isValid && isVisited;
 
               return (
                 <button
@@ -678,10 +676,10 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                     padding: '10px 12px',
                     borderRadius: '10px',
                     border: isActive
-                      ? isInvalid ? '1px solid #ef4444' : '1px solid rgba(56, 189, 248, 0.35)'
-                      : isInvalid ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid transparent',
+                      ? isValid ? '1px solid #10b981' : '1px solid #ef4444'
+                      : '1px solid transparent',
                     background: isActive
-                      ? isInvalid ? 'rgba(239, 68, 68, 0.15)' : 'rgba(56, 189, 248, 0.12)'
+                      ? isValid ? 'rgba(16, 185, 129, 0.14)' : 'rgba(239, 68, 68, 0.14)'
                       : 'transparent',
                     color: isActive ? '#ffffff' : '#94a3b8',
                     cursor: 'pointer',
@@ -696,18 +694,12 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                     if (!isActive) e.currentTarget.style.background = 'transparent';
                   }}
                 >
-                  {/* Step Number Circle / Green Check / Red Cross */}
+                  {/* Step Status Circle: Green Check if Complete, Red Cross if Incomplete */}
                   <div style={{
                     width: '28px',
                     height: '28px',
                     borderRadius: '50%',
-                    background: isValid
-                      ? '#10b981'
-                      : isInvalid
-                        ? '#ef4444'
-                        : isActive
-                          ? '#0284c7'
-                          : 'rgba(255, 255, 255, 0.08)',
+                    background: isValid ? '#10b981' : '#ef4444',
                     color: '#ffffff',
                     display: 'flex',
                     alignItems: 'center',
@@ -715,59 +707,32 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                     fontSize: '0.74rem',
                     fontWeight: 800,
                     flexShrink: 0,
-                    boxShadow: isValid ? '0 0 10px rgba(16, 185, 129, 0.4)' : isInvalid ? '0 0 10px rgba(239, 68, 68, 0.4)' : 'none'
+                    boxShadow: isValid
+                      ? '0 0 10px rgba(16, 185, 129, 0.45)'
+                      : '0 0 10px rgba(239, 68, 68, 0.45)'
                   }}>
                     {isValid ? (
                       <Check size={14} strokeWidth={3} />
-                    ) : isInvalid ? (
-                      <X size={14} strokeWidth={3} />
                     ) : (
-                      step.stepNum
+                      <X size={14} strokeWidth={3} />
                     )}
                   </div>
 
                   {/* Step Title & Subtitle */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
-                      <span style={{
-                        fontSize: '0.84rem',
-                        fontWeight: isActive ? 700 : 500,
-                        color: isActive ? '#f8fafc' : isValid ? '#cbd5e1' : isInvalid ? '#fca5a5' : '#94a3b8',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}>
-                        {step.title}
-                      </span>
-                      {isValid ? (
-                        <span style={{
-                          fontSize: '0.62rem',
-                          fontWeight: 800,
-                          color: '#34d399',
-                          background: 'rgba(16, 185, 129, 0.18)',
-                          padding: '1px 5px',
-                          borderRadius: '4px',
-                          flexShrink: 0
-                        }}>
-                          ✓ OK
-                        </span>
-                      ) : isInvalid ? (
-                        <span style={{
-                          fontSize: '0.62rem',
-                          fontWeight: 800,
-                          color: '#f87171',
-                          background: 'rgba(239, 68, 68, 0.18)',
-                          padding: '1px 5px',
-                          borderRadius: '4px',
-                          flexShrink: 0
-                        }}>
-                          ✕ Red
-                        </span>
-                      ) : null}
+                    <div style={{
+                      fontSize: '0.84rem',
+                      fontWeight: isActive ? 700 : 500,
+                      color: isActive ? '#f8fafc' : isValid ? '#cbd5e1' : '#fca5a5',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      {step.title}
                     </div>
                     <div style={{
                       fontSize: '0.7rem',
-                      color: isActive ? '#38bdf8' : isInvalid ? '#f87171' : '#64748b',
+                      color: isActive ? (isValid ? '#6ee7b7' : '#fca5a5') : '#64748b',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis'
@@ -777,7 +742,7 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                   </div>
 
                   {isActive && (
-                    <ChevronRight size={16} color={isInvalid ? '#f87171' : '#38bdf8'} style={{ flexShrink: 0 }} />
+                    <ChevronRight size={16} color={isValid ? '#10b981' : '#ef4444'} style={{ flexShrink: 0 }} />
                   )}
                 </button>
               );
