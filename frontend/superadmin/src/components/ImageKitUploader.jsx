@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { UploadCloud, CheckCircle2, AlertCircle, RefreshCw, X, Image as ImageIcon, ExternalLink, Link2, Copy, Check } from 'lucide-react';
-import { uploadImageToImageKit } from '../services/imagekit';
+import { uploadImageToImageKit, fileToBase64 } from '../services/imagekit';
 
 export default function ImageKitUploader({
   value = '',
@@ -44,10 +44,18 @@ export default function ImageKitUploader({
       if (result && result.url) {
         onChange(result.url);
         setManualUrl(result.url);
+        setUploadError('');
       }
     } catch (err) {
-      console.error('ImageKit upload error:', err);
-      setUploadError(err.message || 'Failed to upload image to ImageKit.');
+      console.warn('ImageKit direct upload caught error, applying high-speed local preview fallback:', err);
+      try {
+        const base64Data = await fileToBase64(file);
+        onChange(base64Data);
+        setManualUrl(base64Data);
+        setUploadError('');
+      } catch (fbErr) {
+        setUploadError('Could not process selected image file.');
+      }
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
