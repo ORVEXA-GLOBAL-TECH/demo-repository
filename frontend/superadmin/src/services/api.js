@@ -181,28 +181,45 @@ export const loginUser = async (email, role = 'SUPER_ADMIN', platform = 'web', p
 // TENANTS / PHARMA COMPANIES CRUD
 // ----------------------------------------------------------------------------
 export const getTenants = async () => {
+  let serverTenants = [];
   try {
     const res = await fetchWithAuth('/tenants');
-    if (res && res.success && Array.isArray(res.data)) return res.data;
+    if (res && res.success && Array.isArray(res.data)) {
+      serverTenants = res.data;
+    }
   } catch (err) {
     console.warn('API error fetching tenants, querying Supabase directly...');
   }
 
-  try {
-    const { data, error } = await supabase
-      .from('tenants_companies')
-      .select('*')
-      .order('created_at', { ascending: false });
+  if (serverTenants.length === 0) {
+    try {
+      const { data, error } = await supabase
+        .from('tenants_companies')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (!error && Array.isArray(data)) {
-      return data;
+      if (!error && Array.isArray(data) && data.length > 0) {
+        serverTenants = data;
+      }
+    } catch (e) {
+      console.warn('Direct Supabase getTenants error:', e);
     }
-  } catch (e) {
-    console.warn('Direct Supabase getTenants error:', e);
   }
 
   const local = JSON.parse(localStorage.getItem('alleviare_local_tenants') || '[]');
-  return local;
+
+  const seen = new Set();
+  const merged = [];
+
+  [...serverTenants, ...local].forEach(item => {
+    const key = (item.code || item.id || item.name || '').toLowerCase();
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      merged.push(item);
+    }
+  });
+
+  return merged;
 };
 
 export const createTenant = async (tenantData) => {
