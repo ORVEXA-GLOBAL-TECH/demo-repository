@@ -237,8 +237,8 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [validationError, setValidationError] = useState('');
-  const [evaluatedSteps, setEvaluatedSteps] = useState({});
-  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+  const [completedSteps, setCompletedSteps] = useState({});
+  const [failedSteps, setFailedSteps] = useState({});
 
   // Form State
   const [formData, setFormData] = useState({
@@ -373,36 +373,28 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
     setShowPassword(true);
   };
 
-  const getStepStatus = (stepId) => {
-    switch (stepId) {
-      case 'identity':
-        return (formData.name && formData.name.trim() && formData.code && formData.code.trim()) ? 'VALID' : 'INVALID';
-      case 'regional':
-        return (formData.countryCode && formData.timezone && formData.currencyCode) ? 'VALID' : 'INVALID';
-      case 'commercial':
-        return Boolean(formData.plan) ? 'VALID' : 'INVALID';
-      case 'quotas':
-        return (Number(formData.maxUsers) > 0 && Number(formData.maxStorageGb) > 0) ? 'VALID' : 'INVALID';
-      case 'admin':
-        return (formData.contactEmail && formData.contactEmail.trim() && formData.contactEmail.includes('@') && formData.adminName && formData.adminName.trim()) ? 'VALID' : 'INVALID';
-      case 'security':
-        return (Number(formData.sessionTimeoutMinutes) > 0) ? 'VALID' : 'INVALID';
-      default:
-        return 'VALID';
-    }
-  };
-
   const handleNext = () => {
-    // Mark current step as evaluated when user clicks Next Step
-    setEvaluatedSteps(prev => ({ ...prev, [activeTab]: true }));
-
-    if (activeTab === 'identity' && (!formData.name.trim() || !formData.code.trim())) {
-      setValidationError('Please enter a valid Company Name and Tenant Slug before continuing.');
-      return;
-    }
-    if (activeTab === 'admin' && (!formData.contactEmail.trim() || !formData.contactEmail.includes('@') || !formData.adminName.trim())) {
-      setValidationError('Please enter a valid Company Admin Name and Email Address.');
-      return;
+    if (activeTab === 'identity') {
+      if (!formData.name.trim() || !formData.code.trim()) {
+        setFailedSteps(prev => ({ ...prev, identity: true }));
+        setCompletedSteps(prev => ({ ...prev, identity: false }));
+        setValidationError('Please enter a valid Company Name and Tenant Slug before continuing.');
+        return;
+      }
+      setCompletedSteps(prev => ({ ...prev, identity: true }));
+      setFailedSteps(prev => ({ ...prev, identity: false }));
+    } else if (activeTab === 'admin') {
+      if (!formData.contactEmail.trim() || !formData.contactEmail.includes('@') || !formData.adminName.trim()) {
+        setFailedSteps(prev => ({ ...prev, admin: true }));
+        setCompletedSteps(prev => ({ ...prev, admin: false }));
+        setValidationError('Please enter Admin Name and a valid Contact Email.');
+        return;
+      }
+      setCompletedSteps(prev => ({ ...prev, admin: true }));
+      setFailedSteps(prev => ({ ...prev, admin: false }));
+    } else {
+      setCompletedSteps(prev => ({ ...prev, [activeTab]: true }));
+      setFailedSteps(prev => ({ ...prev, [activeTab]: false }));
     }
 
     setValidationError('');
@@ -423,22 +415,40 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     setValidationError('');
-    setAttemptedSubmit(true);
 
-    // Evaluate all steps on submit attempt
-    const allEvaluated = {};
-    WIZARD_STEPS.forEach(s => { allEvaluated[s.id] = true; });
-    setEvaluatedSteps(allEvaluated);
+    let hasError = false;
+    const newFailed = {};
+    const newCompleted = { ...completedSteps };
 
-    if (!formData.name.trim()) {
-      setActiveTab('identity');
-      setValidationError('Please enter a Company Name.');
-      return;
+    if (!formData.name.trim() || !formData.code.trim()) {
+      newFailed.identity = true;
+      newCompleted.identity = false;
+      hasError = true;
+    } else {
+      newCompleted.identity = true;
+      newFailed.identity = false;
     }
 
-    if (!formData.contactEmail.trim() || !formData.contactEmail.includes('@')) {
-      setActiveTab('admin');
-      setValidationError('Please enter a valid Admin Contact Email.');
+    if (!formData.contactEmail.trim() || !formData.contactEmail.includes('@') || !formData.adminName.trim()) {
+      newFailed.admin = true;
+      newCompleted.admin = false;
+      hasError = true;
+    } else {
+      newCompleted.admin = true;
+      newFailed.admin = false;
+    }
+
+    setFailedSteps(prev => ({ ...prev, ...newFailed }));
+    setCompletedSteps(prev => ({ ...prev, ...newCompleted }));
+
+    if (hasError) {
+      if (newFailed.identity) {
+        setActiveTab('identity');
+        setValidationError('Please enter a Company Name and Tenant Slug.');
+      } else if (newFailed.admin) {
+        setActiveTab('admin');
+        setValidationError('Please enter Admin Name and a valid Admin Contact Email.');
+      }
       return;
     }
 
@@ -573,9 +583,8 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
             {WIZARD_STEPS.map((step) => {
               const Icon = step.icon;
               const isActive = activeTab === step.id;
-              const stepStatus = getStepStatus(step.id);
-              const isValid = stepStatus === 'VALID';
-              const isEvaluated = Boolean(evaluatedSteps[step.id] || attemptedSubmit);
+              const isCompleted = completedSteps[step.id] === true;
+              const isFailed = failedSteps[step.id] === true;
 
               return (
                 <button
@@ -583,7 +592,6 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                   type="button"
                   onClick={() => {
                     setValidationError('');
-                    setEvaluatedSteps(prev => ({ ...prev, [activeTab]: true }));
                     setActiveTab(step.id);
                   }}
                   style={{
@@ -593,19 +601,27 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                     padding: '10px 12px',
                     borderRadius: '10px',
                     border: isActive
-                      ? isEvaluated
-                        ? (isValid ? '1px solid #10b981' : '1px solid #ef4444')
-                        : '1px solid #0284c7'
-                      : isEvaluated
-                        ? (isValid ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)')
-                        : '1px solid transparent',
+                      ? isCompleted
+                        ? '1px solid #10b981'
+                        : isFailed
+                          ? '1px solid #ef4444'
+                          : '1px solid #0284c7'
+                      : isCompleted
+                        ? '1px solid rgba(16, 185, 129, 0.4)'
+                        : isFailed
+                          ? '1px solid rgba(239, 68, 68, 0.4)'
+                          : '1px solid transparent',
                     background: isActive
-                      ? isEvaluated
-                        ? (isValid ? 'rgba(16, 185, 129, 0.16)' : 'rgba(239, 68, 68, 0.16)')
-                        : 'rgba(2, 132, 199, 0.14)'
-                      : isEvaluated
-                        ? (isValid ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)')
-                        : 'transparent',
+                      ? isCompleted
+                        ? 'rgba(16, 185, 129, 0.16)'
+                        : isFailed
+                          ? 'rgba(239, 68, 68, 0.16)'
+                          : 'rgba(2, 132, 199, 0.14)'
+                      : isCompleted
+                        ? 'rgba(16, 185, 129, 0.08)'
+                        : isFailed
+                          ? 'rgba(239, 68, 68, 0.08)'
+                          : 'transparent',
                     color: isActive ? '#ffffff' : '#94a3b8',
                     cursor: 'pointer',
                     textAlign: 'left',
@@ -614,27 +630,35 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                   }}
                   onMouseEnter={(e) => {
                     if (!isActive) {
-                      e.currentTarget.style.background = isEvaluated
-                        ? (isValid ? 'rgba(16, 185, 129, 0.14)' : 'rgba(239, 68, 68, 0.14)')
-                        : 'rgba(255, 255, 255, 0.05)';
+                      e.currentTarget.style.background = isCompleted
+                        ? 'rgba(16, 185, 129, 0.14)'
+                        : isFailed
+                          ? 'rgba(239, 68, 68, 0.14)'
+                          : 'rgba(255, 255, 255, 0.05)';
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (!isActive) {
-                      e.currentTarget.style.background = isEvaluated
-                        ? (isValid ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)')
-                        : 'transparent';
+                      e.currentTarget.style.background = isCompleted
+                        ? 'rgba(16, 185, 129, 0.08)'
+                        : isFailed
+                          ? 'rgba(239, 68, 68, 0.08)'
+                          : 'transparent';
                     }
                   }}
                 >
-                  {/* Step Status Indicator Circle: Step number initially, Green Check if valid after next step, Red Cross if invalid */}
+                  {/* Step Status Indicator Circle: Step number 1-6 initially, Green check ONLY if completed, Red cross if failed */}
                   <div style={{
                     width: '28px',
                     height: '28px',
                     borderRadius: '50%',
-                    background: isEvaluated
-                      ? (isValid ? '#10b981' : '#ef4444')
-                      : (isActive ? '#0284c7' : 'rgba(255, 255, 255, 0.12)'),
+                    background: isCompleted
+                      ? '#10b981'
+                      : isFailed
+                        ? '#ef4444'
+                        : isActive
+                          ? '#0284c7'
+                          : 'rgba(255, 255, 255, 0.12)',
                     color: '#ffffff',
                     display: 'flex',
                     alignItems: 'center',
@@ -642,12 +666,18 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                     fontSize: '0.74rem',
                     fontWeight: 800,
                     flexShrink: 0,
-                    boxShadow: isEvaluated
-                      ? (isValid ? '0 0 10px rgba(16, 185, 129, 0.45)' : '0 0 10px rgba(239, 68, 68, 0.45)')
-                      : (isActive ? '0 0 8px rgba(2, 132, 199, 0.35)' : 'none')
+                    boxShadow: isCompleted
+                      ? '0 0 10px rgba(16, 185, 129, 0.45)'
+                      : isFailed
+                        ? '0 0 10px rgba(239, 68, 68, 0.45)'
+                        : isActive
+                          ? '0 0 8px rgba(2, 132, 199, 0.35)'
+                          : 'none'
                   }}>
-                    {isEvaluated ? (
-                      isValid ? <Check size={14} strokeWidth={3} /> : <X size={14} strokeWidth={3} />
+                    {isCompleted ? (
+                      <Check size={14} strokeWidth={3} />
+                    ) : isFailed ? (
+                      <X size={14} strokeWidth={3} />
                     ) : (
                       step.stepNum
                     )}
@@ -658,9 +688,13 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                     <div style={{
                       fontSize: '0.84rem',
                       fontWeight: isActive ? 700 : 500,
-                      color: isEvaluated
-                        ? (isValid ? '#86efac' : '#fca5a5')
-                        : (isActive ? '#f8fafc' : '#cbd5e1'),
+                      color: isCompleted
+                        ? '#86efac'
+                        : isFailed
+                          ? '#fca5a5'
+                          : isActive
+                            ? '#f8fafc'
+                            : '#cbd5e1',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis'
@@ -669,9 +703,13 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                     </div>
                     <div style={{
                       fontSize: '0.7rem',
-                      color: isEvaluated
-                        ? (isValid ? '#6ee7b7' : '#f87171')
-                        : (isActive ? '#93c5fd' : '#64748b'),
+                      color: isCompleted
+                        ? '#6ee7b7'
+                        : isFailed
+                          ? '#f87171'
+                          : isActive
+                            ? '#93c5fd'
+                            : '#64748b',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis'
@@ -683,7 +721,7 @@ export default function CreateCompanyModal({ isOpen, onClose, onCreated }) {
                   {isActive && (
                     <ChevronRight
                       size={16}
-                      color={isEvaluated ? (isValid ? '#10b981' : '#ef4444') : '#38bdf8'}
+                      color={isCompleted ? '#10b981' : isFailed ? '#ef4444' : '#38bdf8'}
                       style={{ flexShrink: 0 }}
                     />
                   )}
