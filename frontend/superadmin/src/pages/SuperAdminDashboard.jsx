@@ -1602,12 +1602,7 @@ export default function SuperAdminDashboard({
         adminName: newCompanyForm.adminName
       };
 
-      await createTenant(payload);
-      showToast(`Tenant "${newCompanyForm.name}" successfully provisioned with ${newCompanyForm.plan} plan!`, 'success');
-      logAudit('TENANT_PROVISIONED', `Created pharma company ${newCompanyForm.name} on ${newCompanyForm.plan} ($${calculatedRate}/mo)`, newCompanyForm.name);
-
-      setIsCreateCompanyOpen(false);
-      loadAllData();
+      await handleCreateCompanyWithPayload(payload);
       setNewCompanyForm({
         name: '',
         legalName: '',
@@ -1633,9 +1628,101 @@ export default function SuperAdminDashboard({
   const handleCreateCompanyWithPayload = async (payload) => {
     try {
       const res = await createTenant(payload);
+      const createdObj = res?.data || res || payload;
+
+      const matchedCountry = sovereignRegistry.find(c => c.code === (createdObj.country_code || createdObj.countryCode || payload.countryCode)) || DEFAULT_SOVEREIGN_REGISTRY[0];
+      const isTrial = (createdObj.plan || payload.plan) === 'FREE_TRIAL' || (createdObj.plan || payload.plan) === 'TRIAL';
+      const planRate = getTierMonthlyRate(createdObj.plan || payload.plan, createdObj.custom_rate || createdObj.monthly_rate || payload.monthlyRate);
+
+      const newMappedCompany = {
+        id: createdObj.id || 'tc-' + Date.now(),
+        code: createdObj.code || payload.code || (payload.name || '').toLowerCase().replace(/[^a-z0-9]/g, '-'),
+        name: createdObj.name || payload.name,
+        legalName: createdObj.legal_name || createdObj.legalName || payload.legalName || payload.name,
+        logoUrl: createdObj.logo_url || createdObj.logoUrl || payload.logoUrl || '',
+        brandPrimaryColor: createdObj.brand_primary_color || createdObj.brandPrimaryColor || payload.brandPrimaryColor || '#0284c7',
+        country: matchedCountry.name,
+        countryCode: matchedCountry.code,
+        flag: matchedCountry.flag || '🌐',
+        currency: createdObj.currency_code || createdObj.currencyCode || payload.currencyCode || 'USD',
+        timezone: createdObj.default_timezone || createdObj.timezone || payload.timezone || 'UTC',
+        plan: (createdObj.plan || payload.plan || 'STARTER').toUpperCase(),
+        status: (createdObj.status || payload.status || (isTrial ? 'TRIAL' : 'ACTIVE')).toUpperCase(),
+        usersCount: Number(createdObj.max_users || payload.maxUsers || 1),
+        user_count: Number(createdObj.max_users || payload.maxUsers || 1),
+        adminCount: 1,
+        admin_count: 1,
+        mrsCount: 0,
+        mr_count: 0,
+        adminEmail: createdObj.contact_email || payload.contactEmail || payload.adminEmail || '',
+        adminName: createdObj.contact_name || payload.contactName || payload.adminName || 'Company Administrator',
+        storageUsedGB: 1,
+        storageLimitGB: Number(createdObj.max_storage_gb || payload.maxStorageGb || 25),
+        userLimit: Number(createdObj.max_users || payload.maxUsers || 100),
+        mrLimit: Number(createdObj.max_users || payload.maxUsers || 100),
+        mrr: isTrial ? '$0 (Free Trial)' : `$${(createdObj.monthly_rate || planRate).toLocaleString()}`,
+        customMRR: isTrial ? 0 : (createdObj.monthly_rate || planRate),
+        isCustomPricing: createdObj.is_custom_pricing || payload.isCustomPricing || false,
+        customRate: createdObj.custom_rate || payload.customRate || 0,
+        trialStartAt: createdObj.trial_start_at || payload.trialStartAt,
+        trialEndAt: createdObj.trial_end_at || payload.trialEndAt,
+        subscriptionStartAt: createdObj.subscription_start_at || payload.subscriptionStartAt,
+        subscriptionEndAt: createdObj.subscription_end_at || payload.subscriptionEndAt,
+        gracePeriodDays: createdObj.grace_period_days || payload.gracePeriodDays || 14,
+        autoSuspendAfterGrace: true,
+        lastRenewedAt: new Date().toISOString(),
+        renewalCount: 0,
+        renewalDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        modules: createdObj.settings?.modules || payload.settings?.modules || {
+          mrReporting: true,
+          dcr: true,
+          attendance: true,
+          doctorManagement: true,
+          chemistManagement: true,
+          expense: true,
+          gpsTracking: true,
+          targetManagement: true,
+          orderManagement: true,
+          sampleManagement: false,
+          analytics: true,
+          aiStudio: (createdObj.plan || payload.plan) === 'ENTERPRISE'
+        }
+      };
+
+      // Optimistically update companies state so dashboard and companies tabs update immediately
+      setCompanies(prev => [newMappedCompany, ...prev.filter(c => c.id !== newMappedCompany.id && c.code !== newMappedCompany.code)]);
+
+      // Also add default Admin to platformUsers and admins
+      const adminEmail = payload.contactEmail || payload.adminEmail;
+      if (adminEmail) {
+        const newAdminUser = {
+          id: 'u-' + Date.now(),
+          name: payload.adminName || payload.contactName || 'Company Admin',
+          firstName: (payload.adminName || '').split(' ')[0] || 'Company',
+          lastName: (payload.adminName || '').split(' ').slice(1).join(' ') || 'Admin',
+          email: adminEmail,
+          mobile: payload.contactPhone || '--',
+          phone: payload.contactPhone || '',
+          company: payload.name,
+          tenantId: newMappedCompany.id,
+          role: 'COMPANY_ADMIN',
+          status: 'ACTIVE',
+          isLocked: false,
+          lockReason: '',
+          permissions: { manage_users: true, manage_products: true, manage_orders: true, manage_doctors: true, manage_dcr: true, view_analytics: true, export_data: true, manage_settings: true },
+          territory: 'Corporate HQ',
+          countryCode: matchedCountry.code,
+          lastLogin: 'Never logged in'
+        };
+        setPlatformUsers(prev => [newAdminUser, ...prev.filter(u => u.email !== newAdminUser.email)]);
+        setAdmins(prev => [newAdminUser, ...prev.filter(u => u.email !== newAdminUser.email)]);
+      }
+
       showToast(`Company "${payload.name}" successfully provisioned with ${payload.plan} tier!`, 'success');
-      logAudit('TENANT_PROVISIONED', `Created pharma company ${payload.name} on ${payload.plan} ($${payload.monthlyRate}/mo) with ${payload.maxUsers} max users`, payload.name);
+      logAudit('TENANT_PROVISIONED', `Created pharma company ${payload.name} on ${payload.plan} ($${payload.monthlyRate || planRate}/mo) with ${payload.maxUsers || 100} max users`, payload.name);
       setIsCreateCompanyOpen(false);
+
+      // Full synchronization
       await loadAllData();
       return res;
     } catch (err) {

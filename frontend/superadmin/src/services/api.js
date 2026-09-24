@@ -223,12 +223,20 @@ export const getTenants = async () => {
 };
 
 export const createTenant = async (tenantData) => {
+  let createdTenant = null;
   try {
     const res = await fetchWithAuth('/tenants', {
       method: 'POST',
       body: JSON.stringify(tenantData)
     });
-    if (res && res.success) return res.data;
+    if (res && res.success && res.data) {
+      createdTenant = res.data;
+      try {
+        const existing = JSON.parse(localStorage.getItem('alleviare_local_tenants') || '[]');
+        localStorage.setItem('alleviare_local_tenants', JSON.stringify([createdTenant, ...existing.filter(t => t.id !== createdTenant.id && t.code !== createdTenant.code)]));
+      } catch (e) {}
+      return createdTenant;
+    }
   } catch (err) {
     console.warn('API error creating tenant, using direct Supabase fallback...', err.message);
   }
