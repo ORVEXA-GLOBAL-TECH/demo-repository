@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, CheckCircle2, AlertCircle, RefreshCw, X, Image as ImageIcon, ExternalLink, Link2 } from 'lucide-react';
+import { UploadCloud, CheckCircle2, AlertCircle, RefreshCw, X, Image as ImageIcon, ExternalLink, Link2, Copy, Check } from 'lucide-react';
 import { uploadImageToImageKit } from '../services/imagekit';
 
 export default function ImageKitUploader({
@@ -14,18 +14,21 @@ export default function ImageKitUploader({
   const [uploadError, setUploadError] = useState('');
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [manualUrl, setManualUrl] = useState(value);
+  const [copied, setCopied] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleFileSelected = async (file) => {
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      setUploadError('Please select a valid image file (PNG, JPG, SVG, WebP).');
+    // Check if file is any type of image (mime type starts with image/ or valid extension)
+    const isImageFormat = file.type.startsWith('image/') || /\.(png|jpe?g|svg|webp|gif|ico|avif|bmp|tiff|jfif)$/i.test(file.name);
+    if (!isImageFormat) {
+      setUploadError('Please select a valid image file (PNG, JPG, JPEG, SVG, WebP, GIF, ICO, AVIF, BMP, TIFF).');
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setUploadError('Image file size must be less than 10MB.');
+    if (file.size > 15 * 1024 * 1024) {
+      setUploadError('Image file size must be less than 15MB.');
       return;
     }
 
@@ -76,6 +79,13 @@ export default function ImageKitUploader({
       onChange(manualUrl.trim());
       setShowUrlInput(false);
     }
+  };
+
+  const handleCopyLink = () => {
+    if (!value) return;
+    navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const isImageKitUrl = value && value.includes('ik.imagekit.io');
@@ -144,10 +154,10 @@ export default function ImageKitUploader({
       {/* Uploaded Image Preview Mode */}
       {value ? (
         <div style={{
-          border: '1px solid #e2e8f0',
+          border: '1px solid #10b981',
           borderRadius: '10px',
           padding: '12px 14px',
-          background: '#f8fafc',
+          background: '#f0fdf4',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -159,7 +169,7 @@ export default function ImageKitUploader({
               height: '52px',
               borderRadius: '8px',
               background: '#ffffff',
-              border: '1px solid #cbd5e1',
+              border: '1px solid #a7f3d0',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -183,16 +193,16 @@ export default function ImageKitUploader({
                 <span style={{
                   fontSize: '0.68rem',
                   fontWeight: 800,
-                  color: isImageKitUrl ? '#0369a1' : '#475569',
-                  background: isImageKitUrl ? '#e0f2fe' : '#f1f5f9',
-                  padding: '2px 6px',
+                  color: isImageKitUrl ? '#065f46' : '#1e293b',
+                  background: isImageKitUrl ? '#d1fae5' : '#e2e8f0',
+                  padding: '2px 8px',
                   borderRadius: '4px',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '3px'
+                  gap: '4px'
                 }}>
-                  {isImageKitUrl && <CheckCircle2 size={10} color="#0284c7" />}
-                  {isImageKitUrl ? 'IMAGEKIT CDN HOSTED' : 'EXTERNAL URL'}
+                  <CheckCircle2 size={12} color="#10b981" />
+                  {isImageKitUrl ? 'IMAGEKIT CDN LINK GENERATED' : 'IMAGE URL READY'}
                 </span>
               </div>
               <a
@@ -210,7 +220,7 @@ export default function ImageKitUploader({
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
-                  maxWidth: '280px'
+                  maxWidth: '260px'
                 }}
               >
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</span>
@@ -220,6 +230,28 @@ export default function ImageKitUploader({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              style={{
+                padding: '6px 10px',
+                borderRadius: '6px',
+                background: copied ? '#10b981' : '#ffffff',
+                color: copied ? '#ffffff' : '#334155',
+                border: '1px solid #cbd5e1',
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'all 0.15s ease'
+              }}
+              title="Copy Generated Link"
+            >
+              {copied ? <Check size={12} /> : <Copy size={12} />}
+              {copied ? 'Copied' : 'Copy Link'}
+            </button>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -244,7 +276,7 @@ export default function ImageKitUploader({
                 padding: '6px 8px',
                 borderRadius: '6px',
                 background: '#ffffff',
-                border: '1px solid #cbd5e1',
+                border: '1px solid #fca5a5',
                 fontSize: '0.74rem',
                 color: '#ef4444',
                 cursor: 'pointer',
@@ -292,7 +324,7 @@ export default function ImageKitUploader({
               <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#0284c7' }}>
                 Uploading to ImageKit CDN...
               </div>
-              <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Optimizing format and generating high-speed URLs</span>
+              <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Generating high-speed image CDN link</span>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
@@ -310,10 +342,10 @@ export default function ImageKitUploader({
                 <UploadCloud size={22} />
               </div>
               <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1e293b' }}>
-                Click to upload logo or drag &amp; drop
+                Click to upload company logo or drag &amp; drop
               </div>
               <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                PNG, JPG, SVG, WebP up to 10MB &bull; Stored on ImageKit
+                PNG, JPG, JPEG, SVG, WebP, GIF, ICO, AVIF, BMP, TIFF up to 15MB &bull; ImageKit Link Generated
               </span>
             </div>
           )}
@@ -325,7 +357,7 @@ export default function ImageKitUploader({
         type="file"
         ref={fileInputRef}
         onChange={(e) => e.target.files && handleFileSelected(e.target.files[0])}
-        accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
+        accept="image/*,.png,.jpg,.jpeg,.svg,.webp,.gif,.ico,.avif,.bmp,.tiff,.jfif"
         style={{ display: 'none' }}
       />
 
