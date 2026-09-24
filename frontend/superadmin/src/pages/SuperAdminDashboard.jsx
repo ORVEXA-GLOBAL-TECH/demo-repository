@@ -5768,7 +5768,7 @@ export default function SuperAdminDashboard({
               {/* Executive Telemetry KPI Metric Cards */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
                 gap: '14px',
                 marginBottom: '18px'
               }}>
@@ -5862,37 +5862,6 @@ export default function SuperAdminDashboard({
                     <div style={{ fontSize: '0.72rem', color: '#6366f1', fontWeight: '600' }}>Active Users Across Tenants</div>
                   </div>
                 </div>
-
-                <div style={{
-                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.02))',
-                  border: '1px solid rgba(16, 185, 129, 0.2)',
-                  borderRadius: '12px',
-                  padding: '16px 18px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '14px'
-                }}>
-                  <div style={{
-                    width: '44px',
-                    height: '44px',
-                    borderRadius: '10px',
-                    background: 'linear-gradient(135deg, #10b981, #059669)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#ffffff',
-                    boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)'
-                  }}>
-                    <UserCheck2 size={22} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b' }}>Field MRs &amp; Reps</div>
-                    <div style={{ fontSize: '1.45rem', fontWeight: '900', color: '#065f46', lineHeight: '1.2' }}>
-                      {companies.reduce((sum, c) => sum + (Number(c.mrsCount) || Number(c.mr_count) || 0), 0)}
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '600' }}>Deployed Medical Field Reps</div>
-                  </div>
-                </div>
               </div>
 
               <div className="pane-action-bar">
@@ -5926,7 +5895,6 @@ export default function SuperAdminDashboard({
                         <th>Sovereign Region</th>
                         <th>Subscription Plan</th>
                         <th>Total Admins</th>
-                        <th>Field Reps (MRs)</th>
                         <th>Total Users &amp; Seat Capacity</th>
                         <th>Company Status</th>
                         <th style={{ textAlign: 'right' }}>Actions</th>
@@ -5944,7 +5912,6 @@ export default function SuperAdminDashboard({
                         .map((c) => {
                           const totalAdmins = Number(c.adminCount) || Number(c.admin_count) || 1;
                           const totalUsers = Number(c.usersCount) || Number(c.user_count) || 1;
-                          const totalMrs = Number(c.mrsCount) || Number(c.mr_count) || 0;
                           const seatLimit = Number(c.userLimit) || 250;
                           const seatPercent = Math.min(100, Math.round((totalUsers / seatLimit) * 100));
 
@@ -6021,22 +5988,6 @@ export default function SuperAdminDashboard({
                                     </div>
                                   )}
                                 </div>
-                              </td>
-                              <td>
-                                <span style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  fontWeight: '800',
-                                  color: '#065f46',
-                                  background: 'linear-gradient(135deg, #d1fae5, #a7f3d0)',
-                                  border: '1px solid #6ee7b7',
-                                  padding: '4px 10px',
-                                  borderRadius: '8px',
-                                  fontSize: '0.82rem'
-                                }}>
-                                  <UserCheck2 size={15} color="#10b981" /> {totalMrs} Field Rep{totalMrs !== 1 ? 's' : ''}
-                                </span>
                               </td>
                               <td>
                                 <div style={{ minWidth: '150px' }}>
