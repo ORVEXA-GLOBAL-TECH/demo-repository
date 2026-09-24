@@ -19,7 +19,12 @@ async function runMigrations() {
   console.log(`✅ Connected to PostgreSQL Database: "${health.database}" (${health.pgVersion})`);
   console.log(`⏱️ Latency: ${health.latencyMs}ms`);
 
-  const sqlFiles = ['create_users_table.sql', 'create_tenants_table.sql', 'create_fx_rates_table.sql'];
+  const sqlFiles = [
+    'create_users_table.sql', 
+    'create_tenants_table.sql', 
+    'create_fx_rates_table.sql',
+    'create_telemetry_and_logs_tables.sql'
+  ];
   const start = Date.now();
 
   try {
