@@ -4416,3 +4416,32 @@ export const saveFxRateApi = async (from_currency, to_currency, rate) => {
   }
   return { success: false };
 };
+
+// ----------------------------------------------------------------------------
+// IMPERSONATION APIs
+// ----------------------------------------------------------------------------
+export const impersonateTenantApi = async (companyId, reason, adminUserId = null) => {
+  try {
+    const res = await fetchWithAuth(`/tenants/${companyId}/impersonate`, {
+      method: 'POST',
+      body: JSON.stringify({ reason, adminUserId })
+    });
+    return res;
+  } catch (err) {
+    console.warn('Impersonation API Error:', err);
+    throw err;
+  }
+};
+
+export const endImpersonationApi = async (companyId, sessionId = null) => {
+  try {
+    const res = await fetchWithAuth(`/tenants/${companyId}/impersonate/end`, {
+      method: 'POST',
+      body: JSON.stringify({ sessionId })
+    });
+    return res;
+  } catch (err) {
+    console.warn('End Impersonation API Error:', err);
+    throw err;
+  }
+};
