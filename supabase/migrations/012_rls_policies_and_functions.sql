@@ -1,5 +1,5 @@
 -- ============================================================================
--- MIGRATION 012: Supabase Row Level Security (RLS) Policies & Helper Functions
+-- MIGRATION 012: Supabase Row Level Security (RLS) & Hierarchical Data Scoping
 -- ============================================================================
 
 -- Enable RLS on core application tables
@@ -17,7 +17,11 @@ ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.expense_claims ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
--- Helper Function to resolve current user's company ID safely
+-- ----------------------------------------------------------------------------
+-- SECURITY DEFINER HELPER FUNCTIONS FOR AUTH CONTEXT & SCOPING
+-- ----------------------------------------------------------------------------
+
+-- Helper 1: Resolve authenticated user's company ID
 CREATE OR REPLACE FUNCTION public.get_auth_company_id()
 RETURNS UUID AS $$
 BEGIN
@@ -30,76 +34,142 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
--- Helper Function to check if user is SUPER_ADMIN
+-- Helper 2: Resolve authenticated user's employee ID
+CREATE OR REPLACE FUNCTION public.get_auth_employee_id()
+RETURNS UUID AS $$
+BEGIN
+  RETURN (
+    SELECT id 
+    FROM public.employees 
+    WHERE email = current_setting('request.jwt.claims', true)::json->>'email'
+    LIMIT 1
+  );
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
+-- Helper 3: Resolve authenticated user's role code
+CREATE OR REPLACE FUNCTION public.get_auth_role()
+RETURNS VARCHAR AS $$
+BEGIN
+  RETURN COALESCE(
+    current_setting('request.jwt.claims', true)::json->>'role',
+    'MR'
+  );
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
+-- Helper 4: Check if current user is SUPER_ADMIN
 CREATE OR REPLACE FUNCTION public.is_super_admin()
 RETURNS BOOLEAN AS $$
 BEGIN
   RETURN COALESCE(
-    (current_setting('request.jwt.claims', true)::json->>'role') = 'SUPER_ADMIN',
+    public.get_auth_role() = 'SUPER_ADMIN',
     FALSE
   );
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
 -- ----------------------------------------------------------------------------
--- RLS POLICIES FOR COMPANIES
+-- HIERARCHICAL DATA SCOPING RLS POLICIES FOR VISITS
 -- ----------------------------------------------------------------------------
-CREATE POLICY "Super Admins can view all companies"
-  ON public.companies FOR SELECT
-  USING (public.is_super_admin() OR id = public.get_auth_company_id());
+DROP POLICY IF EXISTS "Tenant Isolation: Visits Select" ON public.visits;
 
-CREATE POLICY "Super Admins can manage companies"
-  ON public.companies FOR ALL
-  USING (public.is_super_admin());
-
--- ----------------------------------------------------------------------------
--- RLS POLICIES FOR EMPLOYEES
--- ----------------------------------------------------------------------------
-CREATE POLICY "Tenant Isolation: Employees Select"
-  ON public.employees FOR SELECT
-  USING (public.is_super_admin() OR company_id = public.get_auth_company_id());
-
-CREATE POLICY "Tenant Isolation: Employees Modify"
-  ON public.employees FOR ALL
-  USING (public.is_super_admin() OR company_id = public.get_auth_company_id());
-
--- ----------------------------------------------------------------------------
--- RLS POLICIES FOR DOCTORS & CHEMISTS & HOSPITALS
--- ----------------------------------------------------------------------------
-CREATE POLICY "Tenant Isolation: Doctors Select"
-  ON public.doctors FOR SELECT
-  USING (public.is_super_admin() OR company_id = public.get_auth_company_id());
-
-CREATE POLICY "Tenant Isolation: Doctors Insert/Update"
-  ON public.doctors FOR ALL
-  USING (public.is_super_admin() OR company_id = public.get_auth_company_id());
-
-CREATE POLICY "Tenant Isolation: Chemists Select"
-  ON public.chemists FOR SELECT
-  USING (public.is_super_admin() OR company_id = public.get_auth_company_id());
-
-CREATE POLICY "Tenant Isolation: Hospitals Select"
-  ON public.hospitals FOR SELECT
-  USING (public.is_super_admin() OR company_id = public.get_auth_company_id());
-
--- ----------------------------------------------------------------------------
--- RLS POLICIES FOR VISITS & DCR
--- ----------------------------------------------------------------------------
-CREATE POLICY "Tenant Isolation: Visits Select"
+CREATE POLICY "Hierarchical Scoping: Visits Select"
   ON public.visits FOR SELECT
-  USING (public.is_super_admin() OR company_id = public.get_auth_company_id());
+  USING (
+    -- 1. SUPER_ADMIN sees all tenants
+    public.is_super_admin()
+    OR (
+      -- Must belong to the same tenant company
+      company_id = public.get_auth_company_id()
+      AND (
+        -- 2. ADMIN / DIRECTOR / ACCOUNTANT see company-wide records
+        public.get_auth_role() IN ('ADMIN', 'DIRECTOR', 'ACCOUNTANT')
+        -- 3. MANAGER / SALES_MANAGER / MR_SUPERVISOR see assigned team/hierarchy
+        OR (
+          public.get_auth_role() IN ('MANAGER', 'SALES_MANAGER', 'MR_SUPERVISOR', 'RSM', 'ASM')
+          AND employee_id IN (
+            SELECT id FROM public.employees 
+            WHERE manager_id = public.get_auth_employee_id() OR id = public.get_auth_employee_id()
+          )
+        )
+        -- 4. MR sees own records only
+        OR (employee_id = public.get_auth_employee_id())
+      )
+    )
+  );
 
-CREATE POLICY "Tenant Isolation: DCR Reports Select"
+-- ----------------------------------------------------------------------------
+-- HIERARCHICAL DATA SCOPING RLS POLICIES FOR DCR REPORTS
+-- ----------------------------------------------------------------------------
+DROP POLICY IF EXISTS "Tenant Isolation: DCR Reports Select" ON public.dcr_reports;
+
+CREATE POLICY "Hierarchical Scoping: DCR Reports Select"
   ON public.dcr_reports FOR SELECT
-  USING (public.is_super_admin() OR company_id = public.get_auth_company_id());
+  USING (
+    public.is_super_admin()
+    OR (
+      company_id = public.get_auth_company_id()
+      AND (
+        public.get_auth_role() IN ('ADMIN', 'DIRECTOR', 'ACCOUNTANT')
+        OR (
+          public.get_auth_role() IN ('MANAGER', 'SALES_MANAGER', 'MR_SUPERVISOR', 'RSM', 'ASM')
+          AND employee_id IN (
+            SELECT id FROM public.employees 
+            WHERE manager_id = public.get_auth_employee_id() OR id = public.get_auth_employee_id()
+          )
+        )
+        OR (employee_id = public.get_auth_employee_id())
+      )
+    )
+  );
 
 -- ----------------------------------------------------------------------------
--- RLS POLICIES FOR ORDERS & EXPENSES
+-- HIERARCHICAL DATA SCOPING RLS POLICIES FOR EXPENSE CLAIMS
 -- ----------------------------------------------------------------------------
-CREATE POLICY "Tenant Isolation: Orders Select"
-  ON public.orders FOR SELECT
-  USING (public.is_super_admin() OR company_id = public.get_auth_company_id());
+DROP POLICY IF EXISTS "Tenant Isolation: Expense Claims Select" ON public.expense_claims;
 
-CREATE POLICY "Tenant Isolation: Expense Claims Select"
+CREATE POLICY "Hierarchical Scoping: Expense Claims Select"
   ON public.expense_claims FOR SELECT
-  USING (public.is_super_admin() OR company_id = public.get_auth_company_id());
+  USING (
+    public.is_super_admin()
+    OR (
+      company_id = public.get_auth_company_id()
+      AND (
+        public.get_auth_role() IN ('ADMIN', 'DIRECTOR', 'ACCOUNTANT')
+        OR (
+          public.get_auth_role() IN ('MANAGER', 'SALES_MANAGER', 'MR_SUPERVISOR', 'RSM', 'ASM')
+          AND employee_id IN (
+            SELECT id FROM public.employees 
+            WHERE manager_id = public.get_auth_employee_id() OR id = public.get_auth_employee_id()
+          )
+        )
+        OR (employee_id = public.get_auth_employee_id())
+      )
+    )
+  );
+
+-- ----------------------------------------------------------------------------
+-- HIERARCHICAL DATA SCOPING RLS POLICIES FOR ORDERS
+-- ----------------------------------------------------------------------------
+DROP POLICY IF EXISTS "Tenant Isolation: Orders Select" ON public.orders;
+
+CREATE POLICY "Hierarchical Scoping: Orders Select"
+  ON public.orders FOR SELECT
+  USING (
+    public.is_super_admin()
+    OR (
+      company_id = public.get_auth_company_id()
+      AND (
+        public.get_auth_role() IN ('ADMIN', 'DIRECTOR', 'SALES_MANAGER', 'ACCOUNTANT')
+        OR (
+          public.get_auth_role() IN ('MANAGER', 'MR_SUPERVISOR', 'RSM', 'ASM')
+          AND employee_id IN (
+            SELECT id FROM public.employees 
+            WHERE manager_id = public.get_auth_employee_id() OR id = public.get_auth_employee_id()
+          )
+        )
+        OR (employee_id = public.get_auth_employee_id())
+      )
+    )
+  );

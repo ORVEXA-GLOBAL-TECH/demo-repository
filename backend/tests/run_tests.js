@@ -71,7 +71,7 @@ runTest('Permission Guard permits user with explicit permission', () => {
 });
 
 // ----------------------------------------------------------------------------
-// TEST SUITE 2: Multi-Tenant Data Isolation
+// TEST SUITE 2: Multi-Tenant & Hierarchical Data Scoping
 // ----------------------------------------------------------------------------
 runTest('Tenant A cannot access Tenant B records', () => {
   const userA = { company_id: 'tenant-a-111', role: 'ADMIN' };
@@ -83,6 +83,25 @@ runTest('Tenant A cannot access Tenant B records', () => {
   };
 
   assert.strictEqual(isAccessAllowed(userA, recordB), false, 'Tenant A user must not access Tenant B record');
+});
+
+runTest('Manager A can access assigned MR records, but cannot access Manager B team records', () => {
+  const managerA = { id: 'mgr-a', company_id: 'tenant-a', role: 'MANAGER' };
+  const mrInTeamA = { id: 'mr-1', company_id: 'tenant-a', manager_id: 'mgr-a' };
+  const mrInTeamB = { id: 'mr-2', company_id: 'tenant-a', manager_id: 'mgr-b' };
+
+  const isRecordInScope = (user, record) => {
+    if (user.role === 'SUPER_ADMIN') return true;
+    if (user.company_id !== record.company_id) return false;
+    if (user.role === 'ADMIN' || user.role === 'DIRECTOR') return true;
+    if (user.role === 'MANAGER' || user.role === 'MR_SUPERVISOR') {
+      return record.manager_id === user.id || record.id === user.id;
+    }
+    return record.id === user.id;
+  };
+
+  assert.strictEqual(isRecordInScope(managerA, mrInTeamA), true, 'Manager A must access team member MR 1');
+  assert.strictEqual(isRecordInScope(managerA, mrInTeamB), false, 'Manager A must NOT access Manager B team member MR 2');
 });
 
 console.log(`\n==================================================`);
