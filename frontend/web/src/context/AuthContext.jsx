@@ -69,6 +69,43 @@ export const DEFAULT_USERS = {
   }
 };
 
+export const ROLE_PERMISSIONS_MAP = {
+  SUPER_ADMIN: ['*'],
+  ADMIN: [
+    'dashboard.view', 'company.view', 'company.update', 'employee.view', 'employee.create', 'employee.update', 'employee.delete',
+    'doctor.view', 'doctor.create', 'doctor.update', 'doctor.delete', 'chemist.view', 'chemist.create', 'chemist.update',
+    'hospital.view', 'product.view', 'product.create', 'product.update', 'visit.view', 'visit.approve', 'dcr.view', 'dcr.approve',
+    'attendance.view', 'leave.view', 'leave.approve', 'target.view', 'target.create', 'sales.view', 'order.view', 'order.create',
+    'order.approve', 'expense.view', 'expense.approve', 'reports.view', 'reports.export', 'audit.view', 'settings.view'
+  ],
+  DIRECTOR: [
+    'dashboard.view', 'employee.view', 'doctor.view', 'chemist.view', 'hospital.view', 'product.view', 'visit.view',
+    'dcr.view', 'attendance.view', 'leave.view', 'target.view', 'sales.view', 'order.view', 'order.approve', 'expense.view',
+    'expense.approve', 'reports.view', 'reports.export'
+  ],
+  ACCOUNTANT: [
+    'dashboard.view', 'expense.view', 'expense.approve', 'reports.view', 'reports.export'
+  ],
+  MANAGER: [
+    'dashboard.view', 'employee.view', 'doctor.view', 'chemist.view', 'hospital.view', 'product.view', 'visit.view',
+    'visit.approve', 'dcr.view', 'dcr.approve', 'attendance.view', 'leave.view', 'leave.approve', 'target.view', 'target.create',
+    'sales.view', 'order.view', 'order.approve', 'expense.view', 'expense.approve', 'reports.view'
+  ],
+  SALES_MANAGER: [
+    'dashboard.view', 'product.view', 'product.create', 'target.view', 'target.create', 'sales.view', 'order.view',
+    'order.create', 'order.approve', 'reports.view', 'reports.export'
+  ],
+  MR_SUPERVISOR: [
+    'dashboard.view', 'employee.view', 'doctor.view', 'chemist.view', 'visit.view', 'visit.approve', 'dcr.view',
+    'dcr.approve', 'attendance.view', 'leave.view', 'leave.approve', 'target.view', 'expense.view', 'expense.approve'
+  ],
+  MR: [
+    'dashboard.view', 'doctor.view', 'chemist.view', 'hospital.view', 'product.view', 'visit.view', 'visit.create',
+    'dcr.view', 'dcr.create', 'dcr.submit', 'attendance.view', 'attendance.create', 'leave.view', 'leave.create',
+    'target.view', 'order.view', 'order.create', 'expense.view', 'expense.create'
+  ]
+};
+
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -92,6 +129,12 @@ export function AuthProvider({ children }) {
     return localStorage.getItem('alleviare_token') || null;
   });
 
+  const hasPermission = (permissionCode) => {
+    if (role === 'SUPER_ADMIN') return true;
+    const userPermissions = currentUser?.permissions || ROLE_PERMISSIONS_MAP[role] || [];
+    return userPermissions.includes(permissionCode) || userPermissions.includes('*');
+  };
+
   const login = async ({ email, role: requestedRole }) => {
     // Determine target persona
     let target = null;
@@ -113,24 +156,32 @@ export function AuthProvider({ children }) {
     try {
       const res = await loginUser(target.email, target.role, 'web');
       if (res && res.user) {
-        setCurrentUser(res.user);
+        const userWithPerms = {
+          ...res.user,
+          permissions: res.user.permissions || ROLE_PERMISSIONS_MAP[res.user.role] || []
+        };
+        setCurrentUser(userWithPerms);
         setRole(res.user.role);
         setToken(res.token || 'demo-token');
-        localStorage.setItem('alleviare_user', JSON.stringify(res.user));
+        localStorage.setItem('alleviare_user', JSON.stringify(userWithPerms));
         localStorage.setItem('alleviare_token', res.token || 'demo-token');
-        return res.user;
+        return userWithPerms;
       }
     } catch (e) {
       console.warn('Backend login fallback to local credentials:', e.message);
     }
 
     // Fallback local sign-in
-    setCurrentUser(target);
+    const targetWithPerms = {
+      ...target,
+      permissions: ROLE_PERMISSIONS_MAP[target.role] || []
+    };
+    setCurrentUser(targetWithPerms);
     setRole(target.role);
     setToken('mock-jwt-token-' + Date.now());
-    localStorage.setItem('alleviare_user', JSON.stringify(target));
+    localStorage.setItem('alleviare_user', JSON.stringify(targetWithPerms));
     localStorage.setItem('alleviare_token', 'mock-jwt-token-' + Date.now());
-    return target;
+    return targetWithPerms;
   };
 
   const logout = () => {
@@ -149,24 +200,33 @@ export function AuthProvider({ children }) {
       return;
     }
 
+    const targetWithPerms = {
+      ...target,
+      permissions: ROLE_PERMISSIONS_MAP[newRole] || []
+    };
+
     try {
       const res = await loginUser(target.email, newRole, 'web');
       if (res && res.user) {
-        setCurrentUser(res.user);
+        const userWithPerms = {
+          ...res.user,
+          permissions: res.user.permissions || ROLE_PERMISSIONS_MAP[res.user.role] || []
+        };
+        setCurrentUser(userWithPerms);
         setRole(res.user.role);
         setToken(res.token);
-        localStorage.setItem('alleviare_user', JSON.stringify(res.user));
+        localStorage.setItem('alleviare_user', JSON.stringify(userWithPerms));
         localStorage.setItem('alleviare_token', res.token);
       } else {
-        setCurrentUser(target);
+        setCurrentUser(targetWithPerms);
         setRole(newRole);
-        localStorage.setItem('alleviare_user', JSON.stringify(target));
+        localStorage.setItem('alleviare_user', JSON.stringify(targetWithPerms));
       }
     } catch (e) {
       console.warn('Backend login fallback to local state:', e.message);
-      setCurrentUser(target);
+      setCurrentUser(targetWithPerms);
       setRole(newRole);
-      localStorage.setItem('alleviare_user', JSON.stringify(target));
+      localStorage.setItem('alleviare_user', JSON.stringify(targetWithPerms));
     }
   };
 
@@ -176,10 +236,12 @@ export function AuthProvider({ children }) {
         currentUser,
         role,
         token,
+        hasPermission,
         login,
         logout,
         switchRole,
-        defaultUsers: DEFAULT_USERS
+        defaultUsers: DEFAULT_USERS,
+        rolePermissionsMap: ROLE_PERMISSIONS_MAP
       }}
     >
       {children}
