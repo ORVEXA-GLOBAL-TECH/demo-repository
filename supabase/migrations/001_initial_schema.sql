@@ -75,7 +75,23 @@ CREATE TABLE IF NOT EXISTS public.employees (
   UNIQUE(company_id, employee_code)
 );
 
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID UNIQUE, -- References auth.users(id)
+  company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
+  email VARCHAR(255) NOT NULL,
+  first_name VARCHAR(100),
+  last_name VARCHAR(100),
+  avatar_url TEXT,
+  phone VARCHAR(50),
+  status VARCHAR(20) DEFAULT 'ACTIVE',
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_companies_status ON public.companies(status);
 CREATE INDEX IF NOT EXISTS idx_employees_company_id ON public.employees(company_id);
 CREATE INDEX IF NOT EXISTS idx_employees_manager_id ON public.employees(manager_id);
 CREATE INDEX IF NOT EXISTS idx_employees_email ON public.employees(email);
+CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON public.profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_company_id ON public.profiles(company_id);

@@ -75,6 +75,24 @@ CREATE TABLE IF NOT EXISTS public.visit_products (
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS public.visit_feedback (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  visit_id UUID NOT NULL REFERENCES public.visits(id) ON DELETE CASCADE,
+  feedback_category VARCHAR(50) DEFAULT 'GENERAL',
+  rating INT DEFAULT 5,
+  feedback_notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.dcr_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  dcr_report_id UUID NOT NULL REFERENCES public.dcr_reports(id) ON DELETE CASCADE,
+  visit_id UUID REFERENCES public.visits(id) ON DELETE SET NULL,
+  activity_type VARCHAR(50) DEFAULT 'CALL',
+  summary TEXT,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_visits_company ON public.visits(company_id);
 CREATE INDEX IF NOT EXISTS idx_visits_employee ON public.visits(employee_id);
 CREATE INDEX IF NOT EXISTS idx_visits_date ON public.visits(visit_date);

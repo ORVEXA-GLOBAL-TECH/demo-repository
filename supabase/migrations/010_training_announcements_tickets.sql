@@ -40,5 +40,28 @@ CREATE TABLE IF NOT EXISTS public.support_tickets (
   UNIQUE(ticket_number)
 );
 
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  body TEXT NOT NULL,
+  type VARCHAR(50) DEFAULT 'SYSTEM', -- DCR_REMINDER, LEAVE_APPROVAL, EXPENSE_APPROVAL, SYSTEM
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL,
+  receiver_id UUID NOT NULL,
+  content TEXT NOT NULL,
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_tickets_user ON public.support_tickets(user_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_company ON public.support_tickets(company_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON public.notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_messages_receiver ON public.messages(receiver_id);

@@ -57,7 +57,31 @@ CREATE TABLE IF NOT EXISTS public.holidays (
   UNIQUE(company_id, holiday_date)
 );
 
+CREATE TABLE IF NOT EXISTS public.checkins (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  attendance_id UUID NOT NULL REFERENCES public.attendance(id) ON DELETE CASCADE,
+  employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
+  checkin_time TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  latitude NUMERIC(10,8),
+  longitude NUMERIC(11,8),
+  location_name TEXT,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.checkouts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  attendance_id UUID NOT NULL REFERENCES public.attendance(id) ON DELETE CASCADE,
+  employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
+  checkout_time TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  latitude NUMERIC(10,8),
+  longitude NUMERIC(11,8),
+  location_name TEXT,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_attendance_company ON public.attendance(company_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_employee ON public.attendance(employee_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_date ON public.attendance(date);
 CREATE INDEX IF NOT EXISTS idx_leave_requests_employee ON public.leave_requests(employee_id);
+CREATE INDEX IF NOT EXISTS idx_checkins_employee ON public.checkins(employee_id);
+CREATE INDEX IF NOT EXISTS idx_checkouts_employee ON public.checkouts(employee_id);
