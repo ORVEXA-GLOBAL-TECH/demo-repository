@@ -176,7 +176,7 @@ export default function OrdersPage() {
                       <FileText size={13} /> Invoice
                     </button>
 
-                    {(role === 'ADMIN' || role === 'RSM' || role === 'ASM') && ord.status === 'PENDING_APPROVAL' && (
+                    {(role === 'ADMIN' || role === 'SALES_MANAGER' || role === 'MANAGER' || role === 'RSM' || role === 'ASM') && ord.status === 'PENDING_APPROVAL' && (
                       <>
                         <button
                           className="btn btn-sm btn-success"
@@ -193,7 +193,7 @@ export default function OrdersPage() {
                       </>
                     )}
 
-                    {(role === 'ADMIN' || role === 'RSM') && ord.status === 'APPROVED' && (
+                    {(role === 'ADMIN' || role === 'SALES_MANAGER' || role === 'RSM') && ord.status === 'APPROVED' && (
                       <button
                         className="btn btn-sm btn-primary"
                         onClick={() => handleStatusUpdate(ord.id, 'INVOICED')}
