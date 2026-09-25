@@ -96,6 +96,29 @@ app.get('/api/health/db', async (req, res) => {
   }
 });
 
+// Redis Cache Health endpoint
+app.get('/api/health/redis', async (req, res) => {
+  try {
+    const { getRedisClient } = await import('./config/redis.js');
+    const client = getRedisClient();
+    const pingRes = await client.ping();
+    res.json({
+      success: true,
+      redis: {
+        status: pingRes === 'PONG' ? 'CONNECTED' : 'DEGRADED',
+        ping: pingRes
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Failed to connect to Redis / Azure Cache for Redis'
+    });
+  }
+});
+
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);

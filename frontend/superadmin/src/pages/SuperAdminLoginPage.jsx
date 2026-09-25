@@ -156,6 +156,18 @@ export default function SuperAdminLoginPage() {
               Click here
             </button>
           </div>
+
+          <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '0.8rem', color: '#64748b' }}>
+            Looking for Staff &amp; Field Operations?{' '}
+            <a
+              href="https://happy-hill-0e8076300.1.azurestaticapps.net/"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: '#2563eb', fontWeight: '700', textDecoration: 'underline', marginLeft: '4px' }}
+            >
+              Go to Staff SFA Portal ↗
+            </a>
+          </div>
         </div>
       </div>
     </div>

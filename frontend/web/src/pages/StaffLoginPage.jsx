@@ -482,6 +482,18 @@ export default function StaffLoginPage() {
               )}
             </button>
           </form>
+
+          <div style={{ marginTop: '18px', textAlign: 'center', fontSize: '0.78rem', color: '#64748b' }}>
+            Looking for SaaS Global Governance?{' '}
+            <a
+              href="https://happy-sea-0ee625c00.3.azurestaticapps.net/"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: '#d97706', fontWeight: '700', textDecoration: 'underline', marginLeft: '4px' }}
+            >
+              Open Super Admin Portal ↗
+            </a>
+          </div>
         </div>
       </div>
     </div>
