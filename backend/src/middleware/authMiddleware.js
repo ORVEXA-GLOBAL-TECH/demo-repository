@@ -122,7 +122,38 @@ export const requireRoles = (...allowedRoles) => {
   };
 };
 
+/**
+ * Granular Permission Guard
+ * @param {...string} requiredPermissions - e.g. 'visit.view', 'dcr.submit', 'expense.approve'
+ */
+export const requirePermissions = (...requiredPermissions) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Authentication required.' });
+    }
+
+    const userRole = (req.user.role || '').toUpperCase();
+    if (req.user.isSuperAdmin || userRole === 'SUPER_ADMIN') {
+      return next();
+    }
+
+    const userPermissions = req.user.permissions || [];
+    const hasPermission = requiredPermissions.some(p => userPermissions.includes(p) || userPermissions.includes('*'));
+
+    if (!hasPermission && userPermissions.length > 0) {
+      return res.status(403).json({
+        success: false,
+        code: 'PERMISSION_DENIED',
+        message: `Permission denied. Required permission: [${requiredPermissions.join(', ')}]`
+      });
+    }
+
+    next();
+  };
+};
+
 export default {
   verifyAuth,
-  requireRoles
+  requireRoles,
+  requirePermissions
 };

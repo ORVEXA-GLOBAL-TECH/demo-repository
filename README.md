@@ -1,65 +1,57 @@
 # Alleviare SFA & Orvexa Multi-Tenant Platform Monorepo
 
-This repository contains two standalone static web applications (consoles) alongside the backend microservices and mobile application:
+Enterprise Field Sales Force Automation (SFA) & Global SaaS Multi-Tenant Governance Platform built for Pharmaceutical Field Force Management.
 
-## 🌐 Applications Overview
+## 🌐 System Architecture & Deployments
 
-| Application | Path | Dev Port | Description |
+| Application | Location | Azure Endpoint / Dev Port | Description |
 |---|---|---|---|
-| **Staff SFA Portal** | `frontend/web` | `3000` / `5173` | Corporate Staff & Field Operations (Admin, Director, Managers, Supervisors, Accountants) |
-| **Super Admin Console** | `frontend/superadmin` | `5174` | Executive Board & Global Multi-Tenant SaaS Governance (Orvexa Global HQ) |
-| **Backend API** | `backend` | `5000` | Express REST API & Socket.IO Real-time WebSocket Server |
-| **Mobile App** | `frontend/mobile` | Expo | Field Medical Representative (MR) Application |
+| **Super Admin Console** | `frontend/superadmin` | `https://happy-sea-0ee625c00.3.azurestaticapps.net/` (Port `5174`) | Executive Board & Global SaaS Governance (SUPER_ADMIN) |
+| **Staff & Field Portal** | `frontend/web` | `https://happy-hill-0e8076300.1.azurestaticapps.net/` (Port `3000`) | Multi-Role Enterprise Portal (ADMIN, DIRECTOR, ACCOUNTANT, MANAGER, SALES_MANAGER, MR_SUPERVISOR, MR) |
+| **Mobile App** | `frontend/mobile` | Expo / React Native | Medical Representative (MR) Field Mobile Application |
+| **Backend API Core** | `backend` | Node.js Express REST API + WebSockets (`5000`) | Enterprise Core Services, JWT Auth, RBAC & Single-Session Enforcement |
+| **Database** | `supabase/migrations` | PostgreSQL / Supabase | Normalized schema with Row-Level Security (RLS) policies |
 
 ---
 
-## 🚀 Quick Start Commands
+## 🚀 Quick Start Guide
 
-### Run Consoles Locally
+### 1. Run Backend API
+```bash
+npm run dev:backend
+```
 
-- **Run Backend API Server**:
-  ```bash
-  npm run dev:backend
-  ```
+### 2. Run Super Admin Console
+```bash
+npm run dev:superadmin
+# Accessible at http://localhost:5174
+```
 
-- **Run Staff / SFA Operations Console**:
-  ```bash
-  npm run dev:web
-  # or
-  npm run dev:staff
-  ```
-  Access at `http://localhost:3000`
+### 3. Run Staff Portal
+```bash
+npm run dev:web
+# Accessible at http://localhost:3000
+```
 
-- **Run Super Admin SaaS Console**:
-  ```bash
-  npm run dev:superadmin
-  ```
-  Access at `http://localhost:5174`
+### 4. Run Backend & Security Tests
+```bash
+node backend/tests/run_tests.js
+```
 
-- **Run Both Consoles (or All)**:
-  Run each command in separate terminal tabs for development.
-
----
-
-## 🏗️ Production Builds
-
-- **Build Staff Portal**:
-  ```bash
-  npm run build:web
-  ```
-- **Build Super Admin Console**:
-  ```bash
-  npm run build:superadmin
-  ```
-- **Build All Frontends**:
-  ```bash
-  npm run build:all
-  ```
+### 5. Build Production Bundles
+```bash
+npm run build:all
+```
 
 ---
 
-## ☁️ Azure Static Web Apps Deployment
+## 🔐 Role Hierarchy & Access Matrix
 
-Separate GitHub Actions CI/CD workflows are provided for both static apps:
-- Staff Portal: [`.github/workflows/azure-static-web-apps-happy-hill-0e8076300.yml`](.github/workflows/azure-static-web-apps-happy-hill-0e8076300.yml) (app_location: `frontend/web`)
-- Super Admin Console: [`.github/workflows/azure-static-web-apps-superadmin.yml`](.github/workflows/azure-static-web-apps-superadmin.yml) (app_location: `frontend/superadmin`)
+- **SUPER_ADMIN**: Platform Governance across all tenants.
+- **ADMIN**: Full operational control within a single company.
+- **DIRECTOR**: Strategic sales analytics and executive approvals.
+- **ACCOUNTANT**: TA/DA expense claim verification, limits, and reimbursements.
+- **MANAGER**: Team monitoring, attendance, DCR approvals for assigned hierarchy.
+- **SALES_MANAGER**: Target tracking, POB order management, and sales velocity analytics.
+- **MR_SUPERVISOR**: Direct MR field monitoring, visit audits, and beat routing.
+- **MR**: Field visits, Daily Call Reporting (DCR), POB orders, and expense claims.

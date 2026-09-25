@@ -19,25 +19,42 @@ async function runMigrations() {
   console.log(`✅ Connected to PostgreSQL Database: "${health.database}" (${health.pgVersion})`);
   console.log(`⏱️ Latency: ${health.latencyMs}ms`);
 
-  const sqlFiles = [
-    'create_users_table.sql', 
-    'create_tenants_table.sql', 
-    'create_fx_rates_table.sql',
-    'create_telemetry_and_logs_tables.sql'
-  ];
   const start = Date.now();
+  const supabaseMigrationsDir = path.resolve(__dirname, '../../../supabase/migrations');
 
   try {
-    for (const file of sqlFiles) {
+    // 1. Run core backend/src/db sql files
+    const legacySqlFiles = [
+      'create_users_table.sql', 
+      'create_tenants_table.sql', 
+      'create_fx_rates_table.sql',
+      'create_telemetry_and_logs_tables.sql'
+    ];
+
+    for (const file of legacySqlFiles) {
       const filePath = path.join(__dirname, file);
       if (fs.existsSync(filePath)) {
-        console.log(`📖 Executing DDL Schema Migration from: ${file}`);
+        console.log(`📖 Executing Core Migration from: ${file}`);
         const sql = fs.readFileSync(filePath, 'utf8');
         await query(sql);
       }
     }
+
+    // 2. Run versioned Supabase migrations in order
+    if (fs.existsSync(supabaseMigrationsDir)) {
+      const files = fs.readdirSync(supabaseMigrationsDir)
+        .filter(f => f.endsWith('.sql'))
+        .sort();
+
+      for (const file of files) {
+        console.log(`📖 Executing Supabase Versioned Migration: ${file}`);
+        const sql = fs.readFileSync(path.join(supabaseMigrationsDir, file), 'utf8');
+        await query(sql);
+      }
+    }
+
     const duration = Date.now() - start;
-    console.log(`🎉 [SUCCESS] Schema migrations applied successfully in ${duration}ms!`);
+    console.log(`🎉 [SUCCESS] All database migrations applied successfully in ${duration}ms!`);
 
     // Verify created tables
     const tableRes = await query(`
