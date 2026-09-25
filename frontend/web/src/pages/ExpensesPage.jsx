@@ -163,7 +163,7 @@ export default function ExpensesPage() {
                   )}
                 </td>
                 <td>
-                  {(role === 'ADMIN' || role === 'RSM' || role === 'ASM') && exp.status === 'SUBMITTED' ? (
+                  {(role === 'ADMIN' || role === 'ACCOUNTANT' || role === 'MANAGER' || role === 'RSM' || role === 'ASM') && exp.status === 'SUBMITTED' ? (
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <button
                         className="btn btn-sm btn-success"
