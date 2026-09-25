@@ -25,42 +25,39 @@ import {
 export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
   const primaryNavGroups = [
     {
-      label: 'Core Governance',
+      label: 'Tenant Governance',
       items: [
-        { id: 'dashboard', label: 'Platform Dashboard', icon: Activity },
-        { id: 'companies', label: 'Company / Tenants', icon: Building2 },
-        { id: 'jurisdictions', label: 'Countries, Timezones & FX', icon: Globe2 },
-        { id: 'platform-users', label: 'Company Admins & Users', icon: Users },
-        { id: 'user-sessions', label: 'Active User Sessions', icon: Monitor },
-        { id: 'subscriptions', label: 'Billing & Subscriptions', icon: CreditCard }
+        { id: 'dashboard', label: 'Dashboard', icon: Activity },
+        { id: 'companies', label: 'Companies', icon: Building2 },
+        { id: 'company-admins', label: 'Company Admins', icon: Users },
+        { id: 'subscriptions', label: 'Subscriptions', icon: CreditCard },
+        { id: 'billing', label: 'Billing', icon: CreditCard },
+        { id: 'plans', label: 'Plans', icon: Layers },
+        { id: 'features', label: 'Features', icon: Layers }
       ]
     },
     {
-      label: 'Configuration & Control',
+      label: 'Platform Operations',
       items: [
-        { id: 'features', label: 'Features & Rollouts', icon: Layers },
-        { id: 'settings', label: 'Global Settings', icon: Settings },
-        { id: 'roles', label: 'Role Templates', icon: ShieldCheck },
-        { id: 'integrations', label: 'API & Integrations', icon: Radio },
-        { id: 'app-management', label: 'Mobile App Version Control', icon: Smartphone }
-      ]
-    },
-    {
-      label: 'Intelligence & Operations',
-      items: [
+        { id: 'platform-users', label: 'Platform Users', icon: Users },
         { id: 'analytics', label: 'Platform Analytics', icon: BarChart3 },
-        { id: 'security', label: 'Security & Audit Logs', icon: Lock },
-        { id: 'system-health', label: 'System Health & Telemetry', icon: Server },
-        { id: 'data-management', label: 'Data Management & Backups', icon: Database },
-        { id: 'support', label: 'Support Tickets & Content CMS', icon: LifeBuoy },
-        { id: 'communications', label: 'Notification & Announcements', icon: Megaphone }
+        { id: 'security', label: 'Security', icon: Lock },
+        { id: 'audit-logs', label: 'Audit Logs', icon: ShieldCheck },
+        { id: 'integrations', label: 'Integrations', icon: Radio },
+        { id: 'api-management', label: 'API Management', icon: FileCode2 },
+        { id: 'app-versions', label: 'App Versions', icon: Smartphone },
+        { id: 'system-health', label: 'System Health', icon: Server }
       ]
     },
     {
-      label: 'Master Admin',
+      label: 'Support & Administration',
       items: [
-        { id: 'emergency', label: 'Emergency Kill-Switch', icon: AlertOctagon, isDanger: true },
-        { id: 'my-account', label: 'My Account & Security', icon: UserCircle }
+        { id: 'support', label: 'Support', icon: LifeBuoy },
+        { id: 'notifications', label: 'Notifications', icon: Megaphone },
+        { id: 'global-masters', label: 'Global Masters', icon: Globe2 },
+        { id: 'data-governance', label: 'Data Governance', icon: Database },
+        { id: 'feature-flags', label: 'Feature Flags', icon: AlertOctagon },
+        { id: 'settings', label: 'Platform Settings', icon: Settings }
       ]
     }
   ];
@@ -79,7 +76,7 @@ export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
 
       <nav className="sidebar-nav">
         {primaryNavGroups.map((group, gIdx) => (
-          <div key={gIdx} style={{ marginBottom: '6px' }}>
+          <div key={gIdx} style={{ marginBottom: '8px' }}>
             <div className="nav-section-label">
               <span>{group.label}</span>
             </div>
@@ -90,29 +87,16 @@ export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
                 <button
                   key={item.id}
                   type="button"
-                  className={`nav-link ${isActive ? 'active' : ''} ${item.isDanger ? 'danger-link' : ''}`}
+                  className={`nav-link ${isActive ? 'active' : ''}`}
                   onClick={() => setActiveTab(item.id)}
-                  style={item.isDanger ? { color: isActive ? '#ef4444' : '#f87171' } : {}}
                 >
-                  <Icon size={17} color={isActive ? (item.isDanger ? '#ef4444' : '#fbbf24') : (item.isDanger ? '#f87171' : '#94a3b8')} />
+                  <Icon size={16} color={isActive ? '#fbbf24' : '#94a3b8'} />
                   <span>{item.label}</span>
                 </button>
               );
             })}
           </div>
         ))}
-
-        <div className="nav-section-label" style={{ marginTop: '10px' }}>API &amp; System Docs</div>
-        <a
-          href="http://localhost:5000/api/docs"
-          target="_blank"
-          rel="noreferrer"
-          className="nav-link"
-          style={{ color: '#fbbf24' }}
-        >
-          <FileCode2 size={17} />
-          <span>Swagger API Docs ↗</span>
-        </a>
       </nav>
     </aside>
   );

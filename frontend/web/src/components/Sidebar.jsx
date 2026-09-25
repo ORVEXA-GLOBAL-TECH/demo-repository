@@ -25,43 +25,113 @@ export default function Sidebar({ activeTab, setActiveTab }) {
   const { activeTenant } = useTenantTheme();
   const [logoError, setLogoError] = useState(false);
 
-  // Company Admin & Operational Staff Navigation
-  const coreNav = [
-    { id: 'dashboard', label: 'Executive Dashboard', icon: LayoutDashboard },
-    { id: 'dcr', label: 'DCR & Detailing 360°', icon: ClipboardList },
-    { id: 'orders', label: 'POB Orders & Stockists', icon: ShoppingCart },
-    { id: 'expenses', label: 'TA / DA Smart Expenses', icon: Receipt }
+  // Main App Navigation Tree
+  const navSections = [
+    {
+      group: 'Core',
+      items: [
+        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }
+      ]
+    },
+    {
+      group: 'Organization',
+      items: [
+        { id: 'hierarchy', label: 'Hierarchy', icon: Building2 },
+        { id: 'zones', label: 'Zones', icon: Globe2 },
+        { id: 'regions', label: 'Regions', icon: Globe2 },
+        { id: 'areas', label: 'Areas', icon: Globe2 },
+        { id: 'territories', label: 'Territories', icon: Globe2 },
+        { id: 'headquarters', label: 'Headquarters', icon: Building2 }
+      ]
+    },
+    {
+      group: 'People',
+      items: [
+        { id: 'employees', label: 'Employees', icon: ShieldCheck },
+        { id: 'managers', label: 'Managers', icon: ShieldCheck },
+        { id: 'mr-supervisors', label: 'MR Supervisors', icon: ShieldCheck },
+        { id: 'mrs', label: 'MRs', icon: ShieldCheck }
+      ]
+    },
+    {
+      group: 'Customers',
+      items: [
+        { id: 'doctors', label: 'Doctors', icon: BookOpen },
+        { id: 'chemists', label: 'Chemists', icon: BookOpen },
+        { id: 'hospitals', label: 'Hospitals', icon: BookOpen }
+      ]
+    },
+    {
+      group: 'Products',
+      items: [
+        { id: 'products', label: 'Products', icon: BookOpen },
+        { id: 'divisions', label: 'Divisions', icon: BookOpen },
+        { id: 'categories', label: 'Categories', icon: BookOpen },
+        { id: 'competitors', label: 'Competitors', icon: BookOpen }
+      ]
+    },
+    {
+      group: 'Field Operations',
+      items: [
+        { id: 'tour-plan', label: 'Tour Plans', icon: CalendarCheck },
+        { id: 'visits', label: 'Visits', icon: ClipboardList },
+        { id: 'dcr', label: 'DCR', icon: ClipboardList },
+        { id: 'tracking', label: 'GPS / Tracking', icon: Radio }
+      ]
+    },
+    {
+      group: 'Attendance',
+      items: [
+        { id: 'attendance', label: 'Attendance', icon: Clock },
+        { id: 'leave', label: 'Leave', icon: Clock },
+        { id: 'holidays', label: 'Holidays', icon: Clock }
+      ]
+    },
+    {
+      group: 'Sales',
+      items: [
+        { id: 'targets', label: 'Targets', icon: TrendingUp },
+        { id: 'achievement', label: 'Achievement', icon: TrendingUp },
+        { id: 'orders', label: 'Orders', icon: ShoppingCart },
+        { id: 'sales', label: 'Sales', icon: ShoppingCart }
+      ]
+    },
+    {
+      group: 'Expenses',
+      items: [
+        { id: 'claims', label: 'Claims', icon: Receipt },
+        { id: 'expense-approvals', label: 'Approvals', icon: CheckCircle2 },
+        { id: 'policies', label: 'Policies', icon: Receipt }
+      ]
+    },
+    {
+      group: 'Samples',
+      items: [
+        { id: 'inventory', label: 'Inventory', icon: BookOpen },
+        { id: 'allocation', label: 'Allocation', icon: BookOpen },
+        { id: 'distribution', label: 'Distribution', icon: BookOpen }
+      ]
+    },
+    {
+      group: 'Reports',
+      items: [
+        { id: 'standard-reports', label: 'Standard Reports', icon: TrendingUp },
+        { id: 'custom-reports', label: 'Custom Reports', icon: TrendingUp },
+        { id: 'analytics', label: 'Analytics', icon: Sparkles }
+      ]
+    },
+    {
+      group: 'Management',
+      items: [
+        { id: 'approvals', label: 'Approvals', icon: CheckCircle2 },
+        { id: 'notifications', label: 'Notifications', icon: ExternalLink },
+        { id: 'training', label: 'Training', icon: BookOpen },
+        { id: 'masters', label: 'Masters', icon: BookOpen },
+        { id: 'settings', label: 'Settings', icon: ShieldCheck },
+        { id: 'audit-logs', label: 'Audit Logs', icon: ShieldCheck }
+      ]
+    }
   ];
-
-  const opsNav = [
-    { id: 'catalog', label: 'Master Registries 360°', icon: BookOpen },
-    { id: 'tour-plan', label: 'Tour Plans & Beats (MTP)', icon: CalendarCheck },
-    { id: 'tracking', label: 'Live GPS & Geofence', icon: Radio },
-    { id: 'attendance', label: 'Attendance & Leaves', icon: Clock },
-    { id: 'analytics', label: 'Quota & Sales Analytics', icon: TrendingUp },
-    { id: 'ai-tools', label: 'AI Studio & Route TSP', icon: Sparkles }
-  ];
-
-  const brandColor = activeTenant?.brand_primary_color || activeTenant?.brandPrimaryColor || '#2563eb';
-  const logoUrl = activeTenant?.logo_url || activeTenant?.logoUrl;
-  const companyName = activeTenant?.name || 'Alleviare SFA';
-  const companyCode = (activeTenant?.code || 'HQ').toUpperCase();
-  const planTier = activeTenant?.plan || 'ENTERPRISE';
-
-  // Country Flag Emoji helper
-  const getCountryFlag = (code) => {
-    if (!code) return '🌐';
-    const c = code.toUpperCase();
-    if (c === 'IN') return '🇮🇳';
-    if (c === 'US') return '🇺🇸';
-    if (c === 'GB' || c === 'UK') return '🇬🇧';
-    if (c === 'CH') return '🇨🇭';
-    if (c === 'DE') return '🇩🇪';
-    if (c === 'AE') return '🇦🇪';
-    if (c === 'SG') return '🇸🇬';
-    if (c === 'ZA') return '🇿🇦';
-    return '🌐';
-  };
 
   return (
     <aside className="sidebar">
@@ -141,83 +211,30 @@ export default function Sidebar({ activeTab, setActiveTab }) {
         </div>
       </div>
 
-      {/* Tenant Sovereign Badge Strip */}
-      <div
-        style={{
-          padding: '8px 14px',
-          background: 'rgba(255, 255, 255, 0.03)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          fontSize: '0.7rem',
-          color: '#94a3b8'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <span style={{ fontSize: '0.95rem' }}>{getCountryFlag(activeTenant?.country_code)}</span>
-          <span style={{ color: '#e2e8f0', fontWeight: '700' }}>{activeTenant?.country_code || 'IN'}</span>
-          <span>•</span>
-          <span style={{ color: '#cbd5e1' }}>{activeTenant?.currency_symbol || '₹'} ({activeTenant?.currency_code || 'INR'})</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#10b981', fontWeight: '700', fontSize: '0.66rem' }}>
-          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block', boxShadow: '0 0 6px #10b981' }} />
-          <span>Active</span>
-        </div>
-      </div>
-
       <nav className="sidebar-nav">
-        <div className="nav-section-label">Core Field Operations</div>
-        {coreNav.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              className={`nav-link ${isActive ? 'active' : ''}`}
-              style={isActive ? {
-                background: `linear-gradient(90deg, ${brandColor}, ${brandColor}dd)`,
-                boxShadow: `0 4px 14px ${brandColor}40`
-              } : {}}
-              onClick={() => setActiveTab(item.id)}
-            >
-              <Icon size={18} />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-
-        <div className="nav-section-label" style={{ marginTop: '6px' }}>Enterprise Intelligence</div>
-        {opsNav.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              className={`nav-link ${isActive ? 'active' : ''}`}
-              style={isActive ? {
-                background: `linear-gradient(90deg, ${brandColor}, ${brandColor}dd)`,
-                boxShadow: `0 4px 14px ${brandColor}40`
-              } : {}}
-              onClick={() => setActiveTab(item.id)}
-            >
-              <Icon size={18} />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-
-        <div className="nav-section-label" style={{ marginTop: '8px' }}>API &amp; Platform Docs</div>
-        <a
-          href="http://localhost:5000/api/docs"
-          target="_blank"
-          rel="noreferrer"
-          className="nav-link"
-          style={{ color: '#38bdf8' }}
-        >
-          <FileCode2 size={18} />
-          <span>Swagger API Docs ↗</span>
-        </a>
+        {navSections.map((sec, sIdx) => (
+          <div key={sIdx} style={{ marginBottom: '6px' }}>
+            <div className="nav-section-label">{sec.group}</div>
+            {sec.items.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  className={`nav-link ${isActive ? 'active' : ''}`}
+                  style={isActive ? {
+                    background: `linear-gradient(90deg, ${brandColor}, ${brandColor}dd)`,
+                    boxShadow: `0 4px 14px ${brandColor}40`
+                  } : {}}
+                  onClick={() => setActiveTab(item.id)}
+                >
+                  <Icon size={16} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* Footer Branding Bar */}
