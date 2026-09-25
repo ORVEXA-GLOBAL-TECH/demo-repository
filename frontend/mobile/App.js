@@ -4,6 +4,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
 import { Text, View, StyleSheet } from 'react-native';
 
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
 import HomeScreen from './src/screens/HomeScreen';
 import DcrScreen from './src/screens/DcrScreen';
 import OrderScreen from './src/screens/OrderScreen';
@@ -23,9 +25,10 @@ function TabBarIcon({ emoji }) {
 
 export default function App() {
   return (
-    <View style={{ flex: 1 }}>
-      <NavigationContainer>
-        <StatusBar style="dark" />
+    <SafeAreaProvider>
+      <View style={{ flex: 1 }}>
+        <NavigationContainer>
+          <StatusBar style="dark" />
         <Tab.Navigator
           screenOptions={{
             tabBarActiveTintColor: colors.primary,
@@ -93,5 +96,6 @@ export default function App() {
         </Tab.Navigator>
       </NavigationContainer>
     </View>
+    </SafeAreaProvider>
   );
 }
