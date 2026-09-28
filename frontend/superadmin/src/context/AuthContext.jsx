@@ -32,6 +32,7 @@ export function AuthProvider({ children }) {
   });
 
   const isLoggingOutRef = useRef(false);
+  const loginTimestampRef = useRef(null);
 
   const logout = (reason = 'MANUAL') => {
     if (isLoggingOutRef.current) return;
@@ -85,6 +86,7 @@ export function AuthProvider({ children }) {
     setRole(res.user.role);
     setToken(res.token || '');
     setSessionId(newSessionId);
+    loginTimestampRef.current = Date.now();
 
     localStorage.setItem('orvexa_superadmin_user', JSON.stringify(res.user));
     localStorage.setItem('orvexa_superadmin_token', res.token || '');
@@ -178,7 +180,14 @@ export function AuthProvider({ children }) {
     }
 
     // B. Periodic & Real-time Database Session Heartbeat (Cross-Device & Cross-Browser)
+    const GRACE_PERIOD_MS = 8000; // 8-second grace period after login before enforcing session checks
+
     const verifyDatabaseSessionStatus = async () => {
+      // Skip verification during grace period right after login to avoid race condition
+      if (loginTimestampRef.current && Date.now() - loginTimestampRef.current < GRACE_PERIOD_MS) {
+        return;
+      }
+
       let mySessionId = localStorage.getItem('orvexa_session_id');
 
       try {
@@ -196,8 +205,11 @@ export function AuthProvider({ children }) {
 
         // If no active session exists at all (e.g. was revoked or closed by admin)
         if (!latestActiveSession) {
-          alert('⚠️ Security Notice: Your active session has ended. Please log in again.');
-          logout('CONCURRENT_LOGIN');
+          // Only logout if we are past the grace period and had a session before
+          if (mySessionId) {
+            alert('⚠️ Security Notice: Your active session has ended. Please log in again.');
+            logout('CONCURRENT_LOGIN');
+          }
           return;
         }
 

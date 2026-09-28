@@ -59,8 +59,9 @@ export const users = [
   {
     id: 'usr-005',
     name: 'Suresh Raina',
-    email: 'salessupervisor@alleviare.com',
-    role: 'SALES_SUPERVISOR',
+    email: 'mrsupervisor@alleviare.com',
+    secondaryEmail: 'salessupervisor@alleviare.com',
+    role: 'MR_SUPERVISOR',
     designation: 'Area Sales Supervisor (Delhi NCR)',
     territory: 'South Delhi & Noida',
     phone: '+91 9876543214',
@@ -87,7 +88,7 @@ export const users = [
     territory: 'South Delhi (Saket & Hauz Khas)',
     phone: '+91 9876543216',
     avatar: 'AV',
-    allowedPlatforms: ['app'] // App Only
+    allowedPlatforms: ['web', 'app'] // Both Web and Mobile App
   }
 ];
 

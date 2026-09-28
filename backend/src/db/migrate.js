@@ -27,6 +27,7 @@ async function runMigrations() {
     const legacySqlFiles = [
       'create_users_table.sql', 
       'create_tenants_table.sql', 
+      'create_sovereign_countries_table.sql',
       'create_fx_rates_table.sql',
       'create_telemetry_and_logs_tables.sql'
     ];

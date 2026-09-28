@@ -11,23 +11,28 @@ import {
   Search,
   Sparkles,
   RefreshCw,
-  Layers
+  UserCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTenantTheme } from '../context/TenantThemeContext';
 
 export default function Navbar({ title, unreadCount = 0, onToggleNotifications }) {
-  const { currentUser, role, logout } = useAuth();
+  const { currentUser, role, logout, switchRole, defaultUsers } = useAuth();
   const { activeTenant, setActiveTenant, tenants, refreshTenants, isLoading } = useTenantTheme();
   const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false);
+  const [isPersonaDropdownOpen, setIsPersonaDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef(null);
+  const personaRef = useRef(null);
 
-  // Close dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     function handleClickOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsCompanyDropdownOpen(false);
+      }
+      if (personaRef.current && !personaRef.current.contains(e.target)) {
+        setIsPersonaDropdownOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -39,10 +44,12 @@ export default function Navbar({ title, unreadCount = 0, onToggleNotifications }
       case 'SUPER_ADMIN': return 'badge-approved';
       case 'ADMIN': return 'badge-approved';
       case 'DIRECTOR': return 'badge-approved';
+      case 'ACCOUNTANT': return 'badge-approved';
       case 'MANAGER': return 'badge-pending';
       case 'SALES_MANAGER': return 'badge-pending';
+      case 'MR_SUPERVISOR': return 'badge-invoiced';
       case 'SALES_SUPERVISOR': return 'badge-invoiced';
-      case 'ACCOUNTANT': return 'badge-approved';
+      case 'MR': return 'badge-submitted';
       default: return 'badge-submitted';
     }
   };
@@ -267,6 +274,91 @@ export default function Navbar({ title, unreadCount = 0, onToggleNotifications }
             <><Monitor size={12} /> + <Smartphone size={12} /> Web & App</>
           )}
         </span>
+
+        {/* Role Persona Quick Switcher */}
+        <div style={{ position: 'relative' }} ref={personaRef}>
+          <button
+            type="button"
+            onClick={() => setIsPersonaDropdownOpen(!isPersonaDropdownOpen)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              backgroundColor: '#f8fafc',
+              border: `1.5px solid ${isPersonaDropdownOpen ? brandColor : '#cbd5e1'}`,
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '0.80rem',
+              fontWeight: '700',
+              color: '#0f172a',
+              boxShadow: isPersonaDropdownOpen ? `0 0 0 3px ${brandColor}22` : 'none',
+              transition: 'all 0.15s'
+            }}
+            title="Switch Active Persona / Role"
+          >
+            <Shield size={14} color={brandColor} />
+            <span>Persona: <strong>{role?.replace('_', ' ')}</strong></span>
+            <ChevronDown size={14} color="#64748b" style={{ transform: isPersonaDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+          </button>
+
+          {isPersonaDropdownOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 'calc(100% + 6px)',
+                right: 0,
+                width: '320px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: '12px',
+                boxShadow: '0 12px 30px rgba(0,0,0,0.18)',
+                padding: '12px',
+                zIndex: 150,
+                animation: 'cardFadeIn 0.2s ease-out'
+              }}
+            >
+              <div style={{ fontSize: '0.74rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid #f1f5f9' }}>
+                7 Company Role Personas
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '320px', overflowY: 'auto' }}>
+                {Object.entries(defaultUsers || {}).filter(([k]) => k !== 'SUPER_ADMIN' && k !== 'SALES_SUPERVISOR').map(([roleKey, u]) => {
+                  const isCur = role === roleKey;
+                  return (
+                    <button
+                      key={roleKey}
+                      type="button"
+                      onClick={() => {
+                        switchRole(roleKey);
+                        setIsPersonaDropdownOpen(false);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        border: isCur ? `1.5px solid ${brandColor}` : '1px solid transparent',
+                        backgroundColor: isCur ? `${brandColor}12` : '#f8fafc',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'background 0.1s'
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '0.80rem', fontWeight: '800', color: '#0f172a' }}>{u.name}</div>
+                        <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
+                          {u.designation} • <span style={{ fontWeight: '700', color: brandColor }}>{roleKey.replace('_', ' ')}</span>
+                        </div>
+                      </div>
+                      {isCur && <Check size={16} color={brandColor} style={{ flexShrink: 0, marginLeft: '6px' }} />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
 
         <span className={`status-badge ${getRoleBadgeClass()}`}>
           <Shield size={13} /> {role}

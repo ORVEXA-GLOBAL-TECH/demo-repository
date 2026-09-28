@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { OrvexaLogoFull } from '../components/OrvexaLogo';
 
 export default function SuperAdminLoginPage() {
   const { login } = useAuth();
@@ -82,8 +83,8 @@ export default function SuperAdminLoginPage() {
       <div className="salesskip-right-panel">
         <div className="right-panel-inner">
           {/* Brand Header */}
-          <div className="brand-title-row">
-            <h2 className="brand-logo-text">Console</h2>
+          <div className="brand-title-row" style={{ marginBottom: '24px' }}>
+            <OrvexaLogoFull isLight={true} />
           </div>
 
           {/* Welcome Back Header */}

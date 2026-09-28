@@ -19,10 +19,12 @@ import {
   FileCode2,
   AlertOctagon,
   Database,
-  Monitor
+  Monitor,
+  Blocks
 } from 'lucide-react';
+import { OrvexaLogoIcon } from './OrvexaLogo';
 
-export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
+export default function SuperAdminSidebar({ activeTab, setActiveTab, isSidebarCollapsed = false }) {
   const primaryNavGroups = [
     {
       label: 'Tenant Governance',
@@ -43,8 +45,7 @@ export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
         { id: 'analytics', label: 'Platform Analytics', icon: BarChart3 },
         { id: 'security', label: 'Security', icon: Lock },
         { id: 'audit-logs', label: 'Audit Logs', icon: ShieldCheck },
-        { id: 'integrations', label: 'Integrations', icon: Radio },
-        { id: 'api-management', label: 'API Management', icon: FileCode2 },
+        { id: 'integrations', label: 'Integrations & APIs', icon: Blocks },
         { id: 'app-versions', label: 'App Versions', icon: Smartphone },
         { id: 'system-health', label: 'System Health', icon: Server }
       ]
@@ -63,14 +64,31 @@ export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
   ];
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-header">
-        <div className="brand-badge" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
-          👑
+    <aside className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
+      <div
+        className="sidebar-header"
+        onClick={() => setActiveTab('dashboard')}
+        style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
+        title="Orvexa Global - Click to return to Command Centre Dashboard"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setActiveTab('dashboard'); }}
+      >
+        <div className="brand-badge" style={{ background: 'transparent', padding: 0 }}>
+          <OrvexaLogoIcon size={34} />
         </div>
-        <div>
-          <h1 className="brand-title">Orvexa Global</h1>
-          <p className="brand-subtitle">Super Admin Console</p>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <h1 className="brand-title" style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', letterSpacing: '-0.02em', color: '#ffffff' }}>
+              Orvexa
+            </h1>
+            <span style={{ fontSize: '1.05rem', fontWeight: '700', color: '#f59e0b', letterSpacing: '-0.02em' }}>
+              Global
+            </span>
+          </div>
+          <p className="brand-subtitle" style={{ margin: '2px 0 0', fontSize: '0.66rem', color: '#fbbf24', letterSpacing: '0.05em', fontWeight: '700' }}>
+            Super Admin Console
+          </p>
         </div>
       </div>
 
@@ -82,7 +100,7 @@ export default function SuperAdminSidebar({ activeTab, setActiveTab }) {
             </div>
             {group.items.map((item) => {
               const Icon = item.icon;
-              const isActive = activeTab === item.id;
+              const isActive = activeTab === item.id || (item.id === 'integrations' && activeTab === 'api-management');
               return (
                 <button
                   key={item.id}

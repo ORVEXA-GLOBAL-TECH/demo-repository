@@ -73,6 +73,7 @@ $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 -- HIERARCHICAL DATA SCOPING RLS POLICIES FOR VISITS
 -- ----------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Tenant Isolation: Visits Select" ON public.visits;
+DROP POLICY IF EXISTS "Hierarchical Scoping: Visits Select" ON public.visits;
 
 CREATE POLICY "Hierarchical Scoping: Visits Select"
   ON public.visits FOR SELECT
@@ -103,6 +104,7 @@ CREATE POLICY "Hierarchical Scoping: Visits Select"
 -- HIERARCHICAL DATA SCOPING RLS POLICIES FOR DCR REPORTS
 -- ----------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Tenant Isolation: DCR Reports Select" ON public.dcr_reports;
+DROP POLICY IF EXISTS "Hierarchical Scoping: DCR Reports Select" ON public.dcr_reports;
 
 CREATE POLICY "Hierarchical Scoping: DCR Reports Select"
   ON public.dcr_reports FOR SELECT
@@ -128,6 +130,7 @@ CREATE POLICY "Hierarchical Scoping: DCR Reports Select"
 -- HIERARCHICAL DATA SCOPING RLS POLICIES FOR EXPENSE CLAIMS
 -- ----------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Tenant Isolation: Expense Claims Select" ON public.expense_claims;
+DROP POLICY IF EXISTS "Hierarchical Scoping: Expense Claims Select" ON public.expense_claims;
 
 CREATE POLICY "Hierarchical Scoping: Expense Claims Select"
   ON public.expense_claims FOR SELECT
@@ -153,6 +156,7 @@ CREATE POLICY "Hierarchical Scoping: Expense Claims Select"
 -- HIERARCHICAL DATA SCOPING RLS POLICIES FOR ORDERS
 -- ----------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Tenant Isolation: Orders Select" ON public.orders;
+DROP POLICY IF EXISTS "Hierarchical Scoping: Orders Select" ON public.orders;
 
 CREATE POLICY "Hierarchical Scoping: Orders Select"
   ON public.orders FOR SELECT

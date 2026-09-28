@@ -170,6 +170,9 @@ export const checkDbHealth = async () => {
   }
 };
 
+// Named export for pool so routes can import it directly
+export { pool };
+
 export default {
   query,
   getClient,

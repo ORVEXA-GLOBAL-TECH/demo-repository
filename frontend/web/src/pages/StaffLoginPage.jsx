@@ -62,7 +62,7 @@ export default function StaffLoginPage() {
       email: `admin@${activeTenant?.code || 'alleviare'}.com`,
       icon: Shield,
       color: brandColor,
-      platform: 'Web Only'
+      platform: 'Web & App'
     },
     {
       role: 'DIRECTOR',
@@ -71,6 +71,15 @@ export default function StaffLoginPage() {
       email: `director@${activeTenant?.code || 'alleviare'}.com`,
       icon: Building,
       color: '#7c3aed',
+      platform: 'Web & App'
+    },
+    {
+      role: 'ACCOUNTANT',
+      name: 'Rameshwar Gupta',
+      title: 'Chief Accountant',
+      email: `accountant@${activeTenant?.code || 'alleviare'}.com`,
+      icon: Calculator,
+      color: '#059669',
       platform: 'Web & App'
     },
     {
@@ -92,21 +101,12 @@ export default function StaffLoginPage() {
       platform: 'Web & App'
     },
     {
-      role: 'SALES_SUPERVISOR',
+      role: 'MR_SUPERVISOR',
       name: 'Suresh Raina',
       title: 'Area Sales Supervisor',
-      email: `salessupervisor@${activeTenant?.code || 'alleviare'}.com`,
+      email: `mrsupervisor@${activeTenant?.code || 'alleviare'}.com`,
       icon: UserCheck,
       color: '#0284c7',
-      platform: 'Web & App'
-    },
-    {
-      role: 'ACCOUNTANT',
-      name: 'Rameshwar Gupta',
-      title: 'Chief Accountant',
-      email: `accountant@${activeTenant?.code || 'alleviare'}.com`,
-      icon: Calculator,
-      color: '#059669',
       platform: 'Web & App'
     },
     {
@@ -116,8 +116,8 @@ export default function StaffLoginPage() {
       email: `mr@${activeTenant?.code || 'alleviare'}.com`,
       icon: Smartphone,
       color: '#ef4444',
-      platform: 'App Only',
-      isAppOnly: true
+      platform: 'Mobile-First Web & App',
+      isAppOnly: false
     }
   ];
 
@@ -125,21 +125,11 @@ export default function StaffLoginPage() {
     setSelectedRole(p.role);
     setEmail(p.email);
     setErrorMessage('');
-
-    if (p.isAppOnly) {
-      setMobileNotice(true);
-    } else {
-      setMobileNotice(false);
-    }
+    setMobileNotice(false);
   };
 
   const handleLogin = async (e) => {
     if (e) e.preventDefault();
-
-    if (selectedRole === 'MR') {
-      setMobileNotice(true);
-      return;
-    }
 
     setIsLoading(true);
     setErrorMessage('');
@@ -376,30 +366,6 @@ export default function StaffLoginPage() {
             </div>
           </div>
 
-          {mobileNotice && (
-            <div className="mobile-app-notice-card">
-              <div className="notice-icon">
-                <Smartphone size={24} color="#dc2626" />
-              </div>
-              <div className="notice-content">
-                <strong>Medical Representative Web Access Restricted</strong>
-                <p>
-                  Field Medical Representatives (MRs) report visits, log GPS punches, and take chemist orders via the
-                  <strong> {companyName} Field Mobile App</strong> on iOS and Android. Web portal access is reserved for managers, directors, and operational staff.
-                </p>
-                <div className="notice-actions">
-                  <button
-                    type="button"
-                    className="notice-btn"
-                    onClick={() => handleSelectPersona(staffPersonas[0])}
-                  >
-                    Switch to Corporate Admin (Dr. Rajesh Sharma)
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {errorMessage && (
             <div className="auth-error-banner staff-error">
               <AlertCircle size={18} />
@@ -470,7 +436,7 @@ export default function StaffLoginPage() {
                 background: `linear-gradient(135deg, ${brandColor}, ${brandColor}ee)`,
                 boxShadow: `0 4px 14px ${brandColor}40`
               }}
-              disabled={isLoading || selectedRole === 'MR'}
+              disabled={isLoading}
             >
               {isLoading ? (
                 <span>Signing in to SFA Workspace...</span>
