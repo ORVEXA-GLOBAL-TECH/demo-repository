@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "Alleviare Field",
+    "slug": "alleviare-field",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": { "package": "com.alleviare.field" },
+    "ios": { "bundleIdentifier": "com.alleviare.field" },
+    "plugins": ["expo-secure-store"]
+  }
+}

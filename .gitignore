@@ -49,3 +49,9 @@ Thumbs.db
 
 # Vite / React
 *.local
+
+# new platform
+.tools/
+services/api/target/
+apps/*/node_modules/
+apps/web/.next/

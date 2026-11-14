@@ -20,26 +20,16 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTenantTheme } from '../context/TenantThemeContext';
 
-export default function Sidebar({ activeTab, setActiveTab }) {
-  const { currentUser, role } = useAuth();
-  const { activeTenant } = useTenantTheme();
-  const [logoError, setLogoError] = useState(false);
-
-  const brandColor = activeTenant?.brand_primary_color || activeTenant?.brandPrimaryColor || '#2563eb';
-  const logoUrl = activeTenant?.logo_url || activeTenant?.logoUrl;
-  const companyName = activeTenant?.name || 'Alleviare Health Sciences';
-  const companyCode = (activeTenant?.code || 'HQ').toUpperCase();
-  const planTier = activeTenant?.plan || 'ENTERPRISE';
-
-  // Role-Specific Navigation Architecture per Enterprise Master Specification
-  const getNavSections = () => {
+// Role-Specific Navigation Architecture per Enterprise Master Specification
+export const getNavSections = (role) => {
     switch (role) {
       case 'DIRECTOR':
         return [
           {
             group: 'Strategic Oversight',
             items: [
-              { id: 'dashboard', label: 'Executive Intelligence', icon: LayoutDashboard }
+              { id: 'dashboard', label: 'Executive Intelligence', icon: LayoutDashboard },
+              { id: 'zones', label: 'Zonal Performance', icon: Globe2 }
             ]
           },
           {
@@ -397,7 +387,18 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     }
   };
 
-  const navSections = getNavSections();
+export default function Sidebar({ activeTab, setActiveTab }) {
+  const { currentUser, role } = useAuth();
+  const { activeTenant } = useTenantTheme();
+  const [logoError, setLogoError] = useState(false);
+
+  const brandColor = activeTenant?.brand_primary_color || activeTenant?.brandPrimaryColor || '#2563eb';
+  const logoUrl = activeTenant?.logo_url || activeTenant?.logoUrl;
+  const companyName = activeTenant?.name || 'Alleviare Health Sciences';
+  const companyCode = (activeTenant?.code || 'HQ').toUpperCase();
+  const planTier = activeTenant?.plan || 'ENTERPRISE';
+
+  const navSections = getNavSections(role);
 
   return (
     <aside className="sidebar">

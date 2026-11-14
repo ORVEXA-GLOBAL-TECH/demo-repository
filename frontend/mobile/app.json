@@ -26,6 +26,22 @@
     },
     "web": {
       "bundler": "metro"
-    }
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "24279457-bcf9-4d25-b3f0-c7af23a70de9"
+      }
+    },
+    "owner": "akshyat2003"
   }
 }

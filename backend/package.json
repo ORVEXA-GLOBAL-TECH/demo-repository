@@ -11,7 +11,8 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "db:migrate": "node src/db/migrate.js",
-    "db:reset": "node src/db/reset.js"
+    "db:reset": "node src/db/reset.js",
+    "db:seed-domain": "node src/db/seed_domain.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

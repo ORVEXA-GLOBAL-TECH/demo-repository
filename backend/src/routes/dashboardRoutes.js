@@ -1,11 +1,39 @@
 import { Router } from 'express';
-import { dcrReports, orders, expenses, doctors, chemists, attendanceRecords, territoryQuotas, users } from '../data/mockStore.js';
+import * as mock from '../data/mockStore.js';
+import { dbReady, resolveContext } from '../data/repo.js';
+import { requireLogin, effectiveRole } from '../middleware/rbac.js';
+import * as field from '../data/fieldRepo.js';
+import * as catalog from '../data/catalogRepo.js';
 
 const router = Router();
+const { territoryQuotas } = mock;
+
+// Live records from PostgreSQL when reachable; the in-memory seed otherwise.
+async function loadCollections(req) {
+  try {
+    if (await dbReady()) {
+      const ctx = await resolveContext(req);
+      if (ctx) {
+        const [dcrReports, orders, expenses, doctors, chemists, attendanceRecords] = await Promise.all([
+          field.listDcr(ctx, {}), field.listOrders(ctx, {}), field.listExpenses(ctx, {}),
+          catalog.listDoctors(ctx, {}), catalog.listChemists(ctx, {}), field.listAttendance(ctx)
+        ]);
+        return { dcrReports, orders, expenses, doctors, chemists, attendanceRecords };
+      }
+    }
+  } catch (err) {
+    console.warn(`⚠️ [dashboard] DB read failed (${err.message}); using mock data.`);
+  }
+  const { dcrReports, orders, expenses, doctors, chemists, attendanceRecords } = mock;
+  return { dcrReports, orders, expenses, doctors, chemists, attendanceRecords };
+}
 
 // GET /api/dashboard/summary - Role-Scoped Dynamic Enterprise Dashboard Data
-router.get('/summary', (req, res) => {
-  const role = (req.query.role || req.user?.role || 'ADMIN').toUpperCase();
+router.get('/summary', requireLogin, async (req, res) => {
+  const { dcrReports, orders, expenses, doctors, chemists, attendanceRecords } = await loadCollections(req);
+  // The signed-in user's role decides the view (SUPER_ADMIN sees the company-admin view; ?role is only honoured for it).
+  const tokenRole = effectiveRole(req.user);
+  const role = (tokenRole === 'SUPER_ADMIN' && req.query.role ? req.query.role : (tokenRole === 'SUPER_ADMIN' ? 'ADMIN' : tokenRole) || 'ADMIN').toUpperCase();
 
   // Compute common baseline metrics
   const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.netAmount) || 0), 0);

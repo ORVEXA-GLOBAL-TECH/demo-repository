@@ -135,10 +135,7 @@ export default function StaffLoginPage() {
     setErrorMessage('');
 
     try {
-      await login({
-        email,
-        role: selectedRole
-      });
+      await login({ email, password });
     } catch (err) {
       setErrorMessage(err.message || 'Staff login failed. Please check your credentials.');
     } finally {
@@ -324,7 +321,7 @@ export default function StaffLoginPage() {
           <div className="text-center-heading">
             <h2 className="staff-heading">Staff &amp; Operations Sign In</h2>
             <p className="staff-subheading">
-              Select your role profile or enter your employee enterprise credentials
+              Sign in with your employee credentials. Your role decides which workspace opens.
             </p>
           </div>
 
@@ -332,7 +329,7 @@ export default function StaffLoginPage() {
           <div className="persona-selector-section">
             <div className="section-mini-title">
               <span>Choose Staff Persona / Quick Login</span>
-              <span className="pill-tag" style={{ backgroundColor: `${brandColor}15`, color: brandColor, borderColor: `${brandColor}30` }}>Instant Switch</span>
+              <span className="pill-tag" style={{ backgroundColor: `${brandColor}15`, color: brandColor, borderColor: `${brandColor}30` }}>Fills the form</span>
             </div>
             <div className="persona-grid">
               {staffPersonas.map((p) => {

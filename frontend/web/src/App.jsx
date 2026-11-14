@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TenantThemeProvider, useTenantTheme } from './context/TenantThemeContext';
-import Sidebar from './components/Sidebar';
+import Sidebar, { getNavSections } from './components/Sidebar';
 import Navbar from './components/Navbar';
 import NotificationDrawer from './components/NotificationDrawer';
 
@@ -143,7 +143,21 @@ function MainStaffApp() {
     }
   };
 
+  // Pages a role may open = the entries of its own sidebar (plus the always-available dashboard / inbox).
+  const allowedTabs = new Set(['dashboard', 'notifications', ...getNavSections(role).flatMap((g) => g.items.map((i) => i.id))]);
+
   const renderContent = () => {
+    if (!allowedTabs.has(activeTab)) {
+      return (
+        <div className="card-section" style={{ maxWidth: 520, margin: '60px auto', textAlign: 'center', padding: 32 }}>
+          <h2 style={{ marginBottom: 8 }}>Access restricted</h2>
+          <p style={{ color: '#64748b', marginBottom: 18 }}>
+            Your role ({role?.replace('_', ' ')}) does not have access to this page.
+          </p>
+          <button className="primary-action-btn" style={{ padding: '9px 18px', border: 0, borderRadius: 8, cursor: 'pointer', fontWeight: 700 }} onClick={() => setActiveTab('dashboard')}>Back to my dashboard</button>
+        </div>
+      );
+    }
     switch (activeTab) {
       // 1. Core
       case 'dashboard':

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { loginUser } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -213,51 +213,24 @@ export function AuthProvider({ children }) {
     };
   };
 
-  const login = async ({ email, role: requestedRole }) => {
-    // Determine target persona
-    let target = null;
-    if (email) {
-      target = Object.values(DEFAULT_USERS).find(u => 
-        u.email.toLowerCase() === email.toLowerCase() || 
-        (u.secondaryEmail && u.secondaryEmail.toLowerCase() === email.toLowerCase())
-      );
-    }
-    if (!target && requestedRole) {
-      target = DEFAULT_USERS[requestedRole];
-    }
-    if (!target) {
-      target = DEFAULT_USERS.ADMIN;
-    }
-
-    try {
-      const res = await loginUser(target.email, target.role, 'web');
-      if (res && res.user) {
-        const userWithPerms = {
-          ...res.user,
-          permissions: res.user.permissions || ROLE_PERMISSIONS_MAP[res.user.role] || []
-        };
-        setCurrentUser(userWithPerms);
-        setRole(res.user.role);
-        setToken(res.token || 'auth-token-' + Date.now());
-        localStorage.setItem('alleviare_user', JSON.stringify(userWithPerms));
-        localStorage.setItem('alleviare_token', res.token || 'auth-token-' + Date.now());
-        return userWithPerms;
-      }
-    } catch (e) {
-      console.warn('Backend login fallback to local credentials:', e.message);
-    }
-
-    // Fallback client session
+  const persist = (user, authToken) => {
     const userWithPerms = {
-      ...target,
-      permissions: ROLE_PERMISSIONS_MAP[target.role] || []
+      ...user,
+      permissions: user.permissions?.length ? user.permissions : ROLE_PERMISSIONS_MAP[user.role] || []
     };
     setCurrentUser(userWithPerms);
-    setRole(target.role);
-    setToken('mock-jwt-token-' + Date.now());
+    setRole(user.role);
+    setToken(authToken);
     localStorage.setItem('alleviare_user', JSON.stringify(userWithPerms));
-    localStorage.setItem('alleviare_token', 'mock-jwt-token-' + Date.now());
+    localStorage.setItem('alleviare_token', authToken);
     return userWithPerms;
+  };
+
+  // Credentials are verified by the API; the role always comes from the account, never from the client.
+  const login = async ({ email, password }) => {
+    const res = await loginUser(email.trim(), password, 'web');
+    if (!res?.user || !res?.token) throw new Error('Sign in failed. Please try again.');
+    return persist(res.user, res.token);
   };
 
   const logout = () => {
@@ -268,38 +241,11 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('alleviare_token');
   };
 
-  const switchRole = async (newRole) => {
-    const target = DEFAULT_USERS[newRole] || DEFAULT_USERS.ADMIN;
-
-    const targetWithPerms = {
-      ...target,
-      permissions: ROLE_PERMISSIONS_MAP[newRole] || []
-    };
-
-    try {
-      const res = await loginUser(target.email, newRole, 'web');
-      if (res && res.user) {
-        const userWithPerms = {
-          ...res.user,
-          permissions: res.user.permissions || ROLE_PERMISSIONS_MAP[res.user.role] || []
-        };
-        setCurrentUser(userWithPerms);
-        setRole(res.user.role);
-        setToken(res.token);
-        localStorage.setItem('alleviare_user', JSON.stringify(userWithPerms));
-        localStorage.setItem('alleviare_token', res.token);
-      } else {
-        setCurrentUser(targetWithPerms);
-        setRole(newRole);
-        localStorage.setItem('alleviare_user', JSON.stringify(targetWithPerms));
-      }
-    } catch (e) {
-      console.warn('Backend switchRole fallback to local state:', e.message);
-      setCurrentUser(targetWithPerms);
-      setRole(newRole);
-      localStorage.setItem('alleviare_user', JSON.stringify(targetWithPerms));
-    }
-  };
+  // An expired / revoked token anywhere in the app signs the user out.
+  useEffect(() => {
+    window.addEventListener('alleviare:unauthorized', logout);
+    return () => window.removeEventListener('alleviare:unauthorized', logout);
+  }, []);
 
   return (
     <AuthContext.Provider
@@ -311,8 +257,6 @@ export function AuthProvider({ children }) {
         userScope: getUserScope(),
         login,
         logout,
-        switchRole,
-        defaultUsers: DEFAULT_USERS,
         rolePermissionsMap: ROLE_PERMISSIONS_MAP
       }}
     >

@@ -1,231 +1,152 @@
 import { Router } from 'express';
 import { doctors, chemists, products, stockists } from '../data/mockStore.js';
+import { requireLogin, requirePermission, ownOnly } from '../middleware/rbac.js';
+import { dual, isUuid } from '../data/repo.js';
+import * as repo from '../data/catalogRepo.js';
 
 const router = Router();
 
+const notFound = (what) => ({ status: 404, body: { success: false, message: `${what} not found` } });
+
+/**
+ * Registers list/create/update/delete for one catalog entity.
+ *  - `list`/`save`/`remove` are the DB-backed functions in catalogRepo.js
+ *  - `store` is the in-memory mock array used when PostgreSQL is unavailable.
+ */
+function crud(path, { label, store, list, save, remove, mockList, mockDefaults, msgs, perms }) {
+  router.get(`/${path}`, requireLogin, (req, res) => dual(req, res, {
+    db: async (ctx) => {
+      const data = await list(ctx, req.query);
+      return { body: { success: true, count: data.length, data } };
+    },
+    mock: () => {
+      const data = mockList(req.query);
+      return { body: { success: true, count: data.length, data } };
+    }
+  }));
+
+  router.post(`/${path}`, requirePermission(perms.create), (req, res) => dual(req, res, {
+    db: async (ctx) => ({ status: 201, body: { success: true, message: msgs.created, data: await save(ctx, null, req.body) } }),
+    mock: () => {
+      const prefix = { products: 'prod', doctors: 'doc', chemists: 'chm', stockists: 'stk' }[path];
+      const item = { id: `${prefix}-${Date.now()}`, ...mockDefaults(req.body) };
+      store.unshift(item);
+      return { status: 201, body: { success: true, message: msgs.created, data: item } };
+    }
+  }));
+
+  router.put(`/${path}/:id`, requirePermission(perms.update), (req, res) => dual(req, res, {
+    db: async (ctx) => {
+      const data = isUuid(req.params.id) ? await save(ctx, req.params.id, req.body) : null;
+      return data ? { body: { success: true, message: msgs.updated, data } } : notFound(label);
+    },
+    mock: () => {
+      const idx = store.findIndex(x => x.id === req.params.id);
+      if (idx === -1) return notFound(label);
+      store[idx] = { ...store[idx], ...req.body };
+      return { body: { success: true, message: msgs.updated, data: store[idx] } };
+    }
+  }));
+
+  router.delete(`/${path}/:id`, requirePermission(perms.remove), (req, res) => dual(req, res, {
+    db: async (ctx) => {
+      const data = isUuid(req.params.id) ? await remove(ctx, req.params.id) : null;
+      return data ? { body: { success: true, message: msgs.deleted, data } } : notFound(label);
+    },
+    mock: () => {
+      const idx = store.findIndex(x => x.id === req.params.id);
+      if (idx === -1) return notFound(label);
+      const [deleted] = store.splice(idx, 1);
+      return { body: { success: true, message: msgs.deleted, data: deleted } };
+    }
+  }));
+}
+
+const lc = (v) => String(v ?? '').toLowerCase();
+const rnd = (a, b) => Math.floor(a + Math.random() * (b - a));
+
 // ==================== PRODUCTS ====================
-// GET /api/catalog/products
-router.get('/products', (req, res) => {
-  const { category, search } = req.query;
-  let result = [...products];
-
-  if (category && category !== 'ALL') {
-    result = result.filter(p => p.category.toLowerCase() === category.toLowerCase());
-  }
-
-  if (search) {
-    const q = search.toLowerCase();
-    result = result.filter(p => 
-      p.name.toLowerCase().includes(q) || 
-      p.composition.toLowerCase().includes(q) ||
-      p.indication.toLowerCase().includes(q)
-    );
-  }
-
-  res.json({ success: true, count: result.length, data: result });
-});
-
-// POST /api/catalog/products
-router.post('/products', (req, res) => {
-  const newProduct = {
-    id: `prod-${Date.now()}`,
-    name: req.body.name || 'New Pharmaceutical Product',
-    category: req.body.category || 'General',
-    composition: req.body.composition || '',
-    indication: req.body.indication || '',
-    mrp: Number(req.body.mrp) || 0,
-    ptr: Number(req.body.ptr) || 0,
-    pts: Number(req.body.pts) || 0,
-    gstPct: Number(req.body.gstPct) || 12,
-    packSize: req.body.packSize || '10x10 Tablets',
-    stockAvailable: Number(req.body.stockAvailable) || 100,
-    sampleAvailable: Number(req.body.sampleAvailable) || 20
-  };
-  products.unshift(newProduct);
-  res.status(201).json({ success: true, message: 'Product created successfully', data: newProduct });
-});
-
-// PUT /api/catalog/products/:id
-router.put('/products/:id', (req, res) => {
-  const { id } = req.params;
-  const idx = products.findIndex(p => p.id === id);
-  if (idx === -1) return res.status(404).json({ success: false, message: 'Product not found' });
-  products[idx] = { ...products[idx], ...req.body };
-  res.json({ success: true, message: 'Product updated successfully', data: products[idx] });
-});
-
-// DELETE /api/catalog/products/:id
-router.delete('/products/:id', (req, res) => {
-  const { id } = req.params;
-  const idx = products.findIndex(p => p.id === id);
-  if (idx === -1) return res.status(404).json({ success: false, message: 'Product not found' });
-  const deleted = products.splice(idx, 1)[0];
-  res.json({ success: true, message: 'Product deleted successfully', data: deleted });
+crud('products', {
+  label: 'Product', store: products, perms: { create: 'product.create', update: 'product.update', remove: 'product.update' },
+  list: repo.listProducts, save: repo.saveProduct, remove: repo.deleteProduct,
+  msgs: { created: 'Product created successfully', updated: 'Product updated successfully', deleted: 'Product deleted successfully' },
+  mockList: ({ category, search }) => {
+    let result = [...products];
+    if (category && category !== 'ALL') result = result.filter(p => lc(p.category) === lc(category));
+    if (search) {
+      const q = lc(search);
+      result = result.filter(p => lc(p.name).includes(q) || lc(p.composition).includes(q) || lc(p.indication).includes(q));
+    }
+    return result;
+  },
+  mockDefaults: (b) => ({
+    name: b.name || 'New Pharmaceutical Product', category: b.category || 'General',
+    composition: b.composition || '', indication: b.indication || '',
+    mrp: Number(b.mrp) || 0, ptr: Number(b.ptr) || 0, pts: Number(b.pts) || 0,
+    gstPct: Number(b.gstPct) || 12, packSize: b.packSize || '10x10 Tablets',
+    stockAvailable: Number(b.stockAvailable) || 100, sampleAvailable: Number(b.sampleAvailable) || 20
+  })
 });
 
 // ==================== DOCTORS ====================
-// GET /api/catalog/doctors
-router.get('/doctors', (req, res) => {
-  const { specialty, territory, search } = req.query;
-  let result = [...doctors];
-
-  if (specialty && specialty !== 'ALL') {
-    result = result.filter(d => d.specialty.toLowerCase().includes(specialty.toLowerCase()));
-  }
-
-  if (territory && territory !== 'ALL') {
-    result = result.filter(d => d.territory.toLowerCase().includes(territory.toLowerCase()));
-  }
-
-  if (search) {
-    const q = search.toLowerCase();
-    result = result.filter(d => 
-      d.name.toLowerCase().includes(q) || 
-      d.hospital.toLowerCase().includes(q) ||
-      d.specialty.toLowerCase().includes(q)
-    );
-  }
-
-  res.json({ success: true, count: result.length, data: result });
-});
-
-// POST /api/catalog/doctors
-router.post('/doctors', (req, res) => {
-  const newDoctor = {
-    id: `doc-${Date.now()}`,
-    name: req.body.name || 'Dr. New Doctor',
-    specialty: req.body.specialty || 'General Physician',
-    qualification: req.body.qualification || 'MBBS',
-    hospital: req.body.hospital || 'City Clinic',
-    territory: req.body.territory || 'South Delhi',
-    class: req.body.class || 'A',
-    potential: req.body.potential || 'Medium (50+ Rx/mo)',
-    monthlyTargetVisits: Number(req.body.monthlyTargetVisits) || 2,
-    completedVisitsThisMonth: 0,
-    visitingDays: req.body.visitingDays || ['Mon', 'Thu'],
-    timing: req.body.timing || '10:00 AM - 01:00 PM',
-    phone: req.body.phone || '+91 9800000000',
-    address: req.body.address || 'Medical Enclave, Delhi',
-    geoLat: Number(req.body.geoLat) || 28.5355,
-    geoLng: Number(req.body.geoLng) || 77.2410,
-    keyPrescribingProducts: req.body.keyPrescribingProducts || []
-  };
-  doctors.unshift(newDoctor);
-  res.status(201).json({ success: true, message: 'Doctor added to registry', data: newDoctor });
-});
-
-// PUT /api/catalog/doctors/:id
-router.put('/doctors/:id', (req, res) => {
-  const { id } = req.params;
-  const idx = doctors.findIndex(d => d.id === id);
-  if (idx === -1) return res.status(404).json({ success: false, message: 'Doctor not found' });
-  doctors[idx] = { ...doctors[idx], ...req.body };
-  res.json({ success: true, message: 'Doctor profile updated', data: doctors[idx] });
-});
-
-// DELETE /api/catalog/doctors/:id
-router.delete('/doctors/:id', (req, res) => {
-  const { id } = req.params;
-  const idx = doctors.findIndex(d => d.id === id);
-  if (idx === -1) return res.status(404).json({ success: false, message: 'Doctor not found' });
-  const deleted = doctors.splice(idx, 1)[0];
-  res.json({ success: true, message: 'Doctor removed from registry', data: deleted });
+crud('doctors', {
+  label: 'Doctor', store: doctors, perms: { create: 'doctor.create', update: 'doctor.update', remove: 'doctor.delete' },
+  list: repo.listDoctors, save: repo.saveDoctor, remove: repo.deleteDoctor,
+  msgs: { created: 'Doctor added to registry', updated: 'Doctor profile updated', deleted: 'Doctor removed from registry' },
+  mockList: ({ specialty, territory, search }) => {
+    let result = [...doctors];
+    if (specialty && specialty !== 'ALL') result = result.filter(d => lc(d.specialty).includes(lc(specialty)));
+    if (territory && territory !== 'ALL') result = result.filter(d => lc(d.territory).includes(lc(territory)));
+    if (search) {
+      const q = lc(search);
+      result = result.filter(d => lc(d.name).includes(q) || lc(d.hospital).includes(q) || lc(d.specialty).includes(q));
+    }
+    return result;
+  },
+  mockDefaults: (b) => ({
+    name: b.name || 'Dr. New Doctor', specialty: b.specialty || 'General Physician',
+    qualification: b.qualification || 'MBBS', hospital: b.hospital || 'City Clinic',
+    territory: b.territory || 'South Delhi', class: b.class || 'A',
+    potential: b.potential || 'Medium (50+ Rx/mo)', monthlyTargetVisits: Number(b.monthlyTargetVisits) || 2,
+    completedVisitsThisMonth: 0, visitingDays: b.visitingDays || ['Mon', 'Thu'],
+    timing: b.timing || '10:00 AM - 01:00 PM', phone: b.phone || '+91 9800000000',
+    address: b.address || 'Medical Enclave, Delhi',
+    geoLat: Number(b.geoLat) || 28.5355, geoLng: Number(b.geoLng) || 77.2410,
+    keyPrescribingProducts: b.keyPrescribingProducts || []
+  })
 });
 
 // ==================== CHEMISTS ====================
-// GET /api/catalog/chemists
-router.get('/chemists', (req, res) => {
-  const { search } = req.query;
-  let result = [...chemists];
-
-  if (search) {
-    const q = search.toLowerCase();
-    result = result.filter(c => 
-      c.name.toLowerCase().includes(q) || 
-      c.contactPerson.toLowerCase().includes(q) ||
-      c.territory.toLowerCase().includes(q)
-    );
-  }
-
-  res.json({ success: true, count: result.length, data: result });
-});
-
-// POST /api/catalog/chemists
-router.post('/chemists', (req, res) => {
-  const newChemist = {
-    id: `chm-${Date.now()}`,
-    name: req.body.name || 'New Chemist Store',
-    contactPerson: req.body.contactPerson || 'Proprietor',
-    phone: req.body.phone || '+91 9800000000',
-    drugLicense: req.body.drugLicense || `DL-${Math.floor(100000 + Math.random() * 900000)}`,
-    gstin: req.body.gstin || `07AAAAA${Math.floor(1000 + Math.random() * 9000)}1Z5`,
-    territory: req.body.territory || 'South Delhi',
-    address: req.body.address || 'Market Complex, Delhi',
-    associatedStockist: req.body.associatedStockist || 'Apex Pharma Distributors',
-    outstandingDues: Number(req.body.outstandingDues) || 0,
-    creditLimit: Number(req.body.creditLimit) || 100000
-  };
-  chemists.unshift(newChemist);
-  res.status(201).json({ success: true, message: 'Chemist registered successfully', data: newChemist });
-});
-
-// PUT /api/catalog/chemists/:id
-router.put('/chemists/:id', (req, res) => {
-  const { id } = req.params;
-  const idx = chemists.findIndex(c => c.id === id);
-  if (idx === -1) return res.status(404).json({ success: false, message: 'Chemist not found' });
-  chemists[idx] = { ...chemists[idx], ...req.body };
-  res.json({ success: true, message: 'Chemist updated successfully', data: chemists[idx] });
-});
-
-// DELETE /api/catalog/chemists/:id
-router.delete('/chemists/:id', (req, res) => {
-  const { id } = req.params;
-  const idx = chemists.findIndex(c => c.id === id);
-  if (idx === -1) return res.status(404).json({ success: false, message: 'Chemist not found' });
-  const deleted = chemists.splice(idx, 1)[0];
-  res.json({ success: true, message: 'Chemist deleted successfully', data: deleted });
+crud('chemists', {
+  label: 'Chemist', store: chemists, perms: { create: 'chemist.create', update: 'chemist.update', remove: 'chemist.update' },
+  list: repo.listChemists, save: repo.saveChemist, remove: repo.deleteChemist,
+  msgs: { created: 'Chemist registered successfully', updated: 'Chemist updated successfully', deleted: 'Chemist deleted successfully' },
+  mockList: ({ search }) => {
+    if (!search) return [...chemists];
+    const q = lc(search);
+    return chemists.filter(c => lc(c.name).includes(q) || lc(c.contactPerson).includes(q) || lc(c.territory).includes(q));
+  },
+  mockDefaults: (b) => ({
+    name: b.name || 'New Chemist Store', contactPerson: b.contactPerson || 'Proprietor',
+    phone: b.phone || '+91 9800000000', drugLicense: b.drugLicense || `DL-${rnd(100000, 1000000)}`,
+    gstin: b.gstin || `07AAAAA${rnd(1000, 10000)}1Z5`, territory: b.territory || 'South Delhi',
+    address: b.address || 'Market Complex, Delhi', associatedStockist: b.associatedStockist || 'Apex Pharma Distributors',
+    outstandingDues: Number(b.outstandingDues) || 0, creditLimit: Number(b.creditLimit) || 100000
+  })
 });
 
 // ==================== STOCKISTS ====================
-// GET /api/catalog/stockists
-router.get('/stockists', (req, res) => {
-  res.json({ success: true, count: stockists.length, data: stockists });
-});
-
-// POST /api/catalog/stockists
-router.post('/stockists', (req, res) => {
-  const newStockist = {
-    id: `stk-${Date.now()}`,
-    name: req.body.name || 'New Wholesale Stockist',
-    territory: req.body.territory || 'Delhi Central Hub',
-    contactPerson: req.body.contactPerson || 'Managing Partner',
-    phone: req.body.phone || '+91 9800000000',
-    gstin: req.body.gstin || `07AAAAA${Math.floor(1000 + Math.random() * 9000)}1Z1`,
-    creditLimit: Number(req.body.creditLimit) || 2000000,
-    currentOutstanding: Number(req.body.currentOutstanding) || 0,
-    rating: req.body.rating || 'A+'
-  };
-  stockists.unshift(newStockist);
-  res.status(201).json({ success: true, message: 'Stockist registered successfully', data: newStockist });
-});
-
-// PUT /api/catalog/stockists/:id
-router.put('/stockists/:id', (req, res) => {
-  const { id } = req.params;
-  const idx = stockists.findIndex(s => s.id === id);
-  if (idx === -1) return res.status(404).json({ success: false, message: 'Stockist not found' });
-  stockists[idx] = { ...stockists[idx], ...req.body };
-  res.json({ success: true, message: 'Stockist updated successfully', data: stockists[idx] });
-});
-
-// DELETE /api/catalog/stockists/:id
-router.delete('/stockists/:id', (req, res) => {
-  const { id } = req.params;
-  const idx = stockists.findIndex(s => s.id === id);
-  if (idx === -1) return res.status(404).json({ success: false, message: 'Stockist not found' });
-  const deleted = stockists.splice(idx, 1)[0];
-  res.json({ success: true, message: 'Stockist removed successfully', data: deleted });
+crud('stockists', {
+  label: 'Stockist', store: stockists, perms: { create: 'order.approve', update: 'order.approve', remove: 'order.approve' },
+  list: repo.listStockists, save: repo.saveStockist, remove: repo.deleteStockist,
+  msgs: { created: 'Stockist registered successfully', updated: 'Stockist updated successfully', deleted: 'Stockist removed successfully' },
+  mockList: () => [...stockists],
+  mockDefaults: (b) => ({
+    name: b.name || 'New Wholesale Stockist', territory: b.territory || 'Delhi Central Hub',
+    contactPerson: b.contactPerson || 'Managing Partner', phone: b.phone || '+91 9800000000',
+    gstin: b.gstin || `07AAAAA${rnd(1000, 10000)}1Z1`, creditLimit: Number(b.creditLimit) || 2000000,
+    currentOutstanding: Number(b.currentOutstanding) || 0, rating: b.rating || 'A+'
+  })
 });
 
 export default router;

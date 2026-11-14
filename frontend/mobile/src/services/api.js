@@ -1,6 +1,7 @@
 // Mobile API Client with fallback support for offline field use
 
-const BASE_URL = 'http://localhost:5000/api'; // Or configured server IP
+// Set EXPO_PUBLIC_API_URL at build time (see eas.json); falls back to the Android emulator's host alias.
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:5000/api';
 
 // Fallback seed data if running offline
 const FALLBACK_DOCTORS = [

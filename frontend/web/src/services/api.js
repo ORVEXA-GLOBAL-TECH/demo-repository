@@ -22,21 +22,35 @@ export async function fetchWithAuth(endpoint, options = {}) {
   // 1. Attempt Network Fetch with Timeout
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 4000);
+  const isAuthCall = endpoint.startsWith('/auth/login');
 
+  let res = null;
   try {
-    const res = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-
-    if (res.ok) {
-      return await res.json();
-    }
+    res = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers, signal: controller.signal });
   } catch (netErr) {
+    // Network / CORS / stopped server - fall through to the offline store (never for sign-in)
+  } finally {
     clearTimeout(timeoutId);
-    // Network / 403 / CORS / Stopped App Service error - continue to local store fallback
+  }
+
+  if (res) {
+    if (res.ok) return await res.json();
+
+    // Authentication / authorisation problems must surface: a rejected sign-in or a
+    // forbidden action may never be papered over with demo data.
+    if (isAuthCall || res.status === 401 || res.status === 403) {
+      let body = {};
+      try { body = await res.json(); } catch { /* non-JSON error body */ }
+      const err = new Error(body.message || body.error || `Request failed (${res.status})`);
+      err.status = res.status;
+      err.code = body.code;
+      if (res.status === 401 && !isAuthCall && typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('alleviare:unauthorized'));
+      }
+      throw err;
+    }
+  } else if (isAuthCall) {
+    throw new Error('Cannot reach the server. Check your connection and try again.');
   }
 
   // 2. Intelligent Client-Side Enterprise Store Fallback
@@ -584,7 +598,7 @@ export const markNotificationRead = (id) => fetchWithAuth(`/notifications/${id}/
 export const markAllNotificationsRead = () => fetchWithAuth('/notifications/mark-all-read', { method: 'POST' });
 
 // 19. Auth & Multi-Tenancy
-export const loginUser = (email, role, platform = 'web') => fetchWithAuth('/auth/login', { method: 'POST', body: JSON.stringify({ email, role, platform }) });
+export const loginUser = (email, password, platform = 'web') => fetchWithAuth('/auth/login', { method: 'POST', body: JSON.stringify({ email, password, platform }) });
 export const getUsers = (role) => fetchWithAuth(`/users${role ? `?role=${role}` : ''}`);
 export const getTenants = () => fetchWithAuth('/tenants');
 export const getTenantById = (id) => fetchWithAuth(`/tenants/${id}`);

@@ -124,6 +124,97 @@ const sanitizeUser = (user) => {
 };
 
 // ==============================================================================
+// Directory fallback (no database / account not provisioned in PostgreSQL).
+// Demo accounts still need the right password and may only sign in on the
+// platforms their role is entitled to (e.g. ADMIN is web-only).
+// ==============================================================================
+const DEMO_STAFF_PASSWORD = process.env.DEMO_STAFF_PASSWORD || 'Staff@2026!Secure';
+const DEMO_SUPERADMIN_PASSWORD = process.env.DEMO_SUPERADMIN_PASSWORD || 'SuperAdmin@2026';
+
+const safeEqual = (a, b) => {
+  const x = Buffer.from(String(a));
+  const y = Buffer.from(String(b));
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
+};
+
+const loginSeedUser = (req, res, cleanEmail, password, platform) => {
+  const seedUser = seedUsers.find(u =>
+    u.email.toLowerCase() === cleanEmail ||
+    (u.secondaryEmail && u.secondaryEmail.toLowerCase() === cleanEmail) ||
+    cleanEmail.startsWith(u.role.toLowerCase() + '@')
+  );
+
+  if (!seedUser) {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid credentials. User not found in corporate directory.'
+    });
+  }
+
+  const expected = seedUser.role === 'SUPER_ADMIN' ? DEMO_SUPERADMIN_PASSWORD : DEMO_STAFF_PASSWORD;
+  if (!safeEqual(password, expected)) {
+    return res.status(401).json({ success: false, message: 'Invalid credentials. Incorrect password.' });
+  }
+
+  const allowedPlatforms = seedUser.allowedPlatforms || ['web', 'app'];
+  if (!allowedPlatforms.includes(platform)) {
+    return res.status(403).json({
+      success: false,
+      code: 'PLATFORM_NOT_ALLOWED',
+      message: `${seedUser.role.replace('_', ' ')} accounts cannot sign in on the ${platform === 'app' ? 'mobile app' : 'web portal'}. Please use the ${platform === 'app' ? 'web portal' : 'mobile app'}.`
+    });
+  }
+
+  const sessionId = crypto.randomUUID();
+  const userPermissions = ROLE_PERMISSIONS_MAP[seedUser.role] || [];
+  const safeUser = {
+    id: seedUser.id,
+    name: seedUser.name,
+    firstName: seedUser.name.split(' ')[0],
+    lastName: seedUser.name.split(' ').slice(1).join(' '),
+    email: seedUser.email,
+    phone: seedUser.phone || '+91 9876543210',
+    countryCode: 'IN',
+    role: seedUser.role,
+    isSuperAdmin: seedUser.role === 'SUPER_ADMIN',
+    tenantId: 'alleviare-health',
+    companyName: 'Alleviare Health Sciences',
+    department: seedUser.department || 'Field Operations',
+    designation: seedUser.designation,
+    territory: seedUser.territory,
+    status: 'Active',
+    avatar: seedUser.avatar,
+    permissions: userPermissions,
+    preferences: {},
+    allowedPlatforms,
+    lastLoginAt: new Date().toISOString(),
+    createdAt: new Date().toISOString()
+  };
+
+  const token = jwt.sign(
+    {
+      id: safeUser.id,
+      email: safeUser.email,
+      role: safeUser.role,
+      isSuperAdmin: safeUser.isSuperAdmin,
+      tenantId: safeUser.tenantId,
+      sessionId,
+      name: safeUser.name,
+      permissions: userPermissions,
+      allowedPlatforms
+    },
+    config.jwtSecret,
+    { expiresIn: '7d' }
+  );
+
+  const cookieOpts = getCookieOptions();
+  res.cookie('access_token', token, cookieOpts);
+  res.cookie('session_id', sessionId, cookieOpts);
+
+  return res.json({ success: true, message: 'Authentication successful', token, sessionId, user: safeUser });
+};
+
+// ==============================================================================
 // POST /api/auth/login & /api/auth/superadmin/login
 // Live Database Authentication with Strict Single-Session Enforcement
 // ==============================================================================
@@ -143,72 +234,7 @@ const handleLogin = async (req, res) => {
     const dbHealth = await checkDbHealth();
 
     if (dbHealth.status !== 'CONNECTED') {
-      const seedUser = seedUsers.find(u => 
-        u.email.toLowerCase() === cleanEmail || 
-        (u.secondaryEmail && u.secondaryEmail.toLowerCase() === cleanEmail) ||
-        cleanEmail.startsWith(u.role.toLowerCase() + '@')
-      );
-
-      if (!seedUser) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials. User not found in corporate directory.'
-        });
-      }
-
-      const sessionId = crypto.randomUUID();
-      const userPermissions = ROLE_PERMISSIONS_MAP[seedUser.role] || [];
-      const safeUser = {
-        id: seedUser.id,
-        name: seedUser.name,
-        firstName: seedUser.name.split(' ')[0],
-        lastName: seedUser.name.split(' ').slice(1).join(' '),
-        email: seedUser.email,
-        phone: seedUser.phone || '+91 9876543210',
-        countryCode: 'IN',
-        role: seedUser.role,
-        isSuperAdmin: seedUser.role === 'SUPER_ADMIN',
-        tenantId: 'alleviare-health',
-        companyName: 'Alleviare Health Sciences',
-        department: seedUser.department || 'Field Operations',
-        designation: seedUser.designation,
-        territory: seedUser.territory,
-        status: 'Active',
-        avatarUrl: seedUser.avatar,
-        permissions: userPermissions,
-        preferences: {},
-        allowedPlatforms: seedUser.allowedPlatforms || ['web', 'app'],
-        lastLoginAt: new Date().toISOString(),
-        createdAt: new Date().toISOString()
-      };
-
-      const token = jwt.sign(
-        {
-          id: safeUser.id,
-          email: safeUser.email,
-          role: safeUser.role,
-          isSuperAdmin: safeUser.isSuperAdmin,
-          tenantId: safeUser.tenantId,
-          sessionId,
-          name: safeUser.name,
-          permissions: userPermissions,
-          allowedPlatforms: safeUser.allowedPlatforms
-        },
-        config.jwtSecret,
-        { expiresIn: '7d' }
-      );
-
-      const cookieOpts = getCookieOptions();
-      res.cookie('access_token', token, cookieOpts);
-      res.cookie('session_id', sessionId, cookieOpts);
-
-      return res.json({
-        success: true,
-        message: 'Authentication successful',
-        token,
-        sessionId,
-        user: safeUser
-      });
+      return loginSeedUser(req, res, cleanEmail, password, platform);
     }
 
     // 1. Fetch user from PostgreSQL/Supabase users table
@@ -218,73 +244,7 @@ const handleLogin = async (req, res) => {
     );
 
     if (userRes.rows.length === 0) {
-      // Check seed fallback even if db is connected
-      const seedUser = seedUsers.find(u => 
-        u.email.toLowerCase() === cleanEmail || 
-        (u.secondaryEmail && u.secondaryEmail.toLowerCase() === cleanEmail) ||
-        cleanEmail.startsWith(u.role.toLowerCase() + '@')
-      );
-
-      if (seedUser) {
-        const sessionId = crypto.randomUUID();
-        const userPermissions = ROLE_PERMISSIONS_MAP[seedUser.role] || [];
-        const safeUser = {
-          id: seedUser.id,
-          name: seedUser.name,
-          firstName: seedUser.name.split(' ')[0],
-          lastName: seedUser.name.split(' ').slice(1).join(' '),
-          email: seedUser.email,
-          phone: seedUser.phone || '+91 9876543210',
-          countryCode: 'IN',
-          role: seedUser.role,
-          isSuperAdmin: seedUser.role === 'SUPER_ADMIN',
-          tenantId: 'alleviare-health',
-          companyName: 'Alleviare Health Sciences',
-          department: seedUser.department || 'Field Operations',
-          designation: seedUser.designation,
-          territory: seedUser.territory,
-          status: 'Active',
-          avatarUrl: seedUser.avatar,
-          permissions: userPermissions,
-          preferences: {},
-          allowedPlatforms: seedUser.allowedPlatforms || ['web', 'app'],
-          lastLoginAt: new Date().toISOString(),
-          createdAt: new Date().toISOString()
-        };
-
-        const token = jwt.sign(
-          {
-            id: safeUser.id,
-            email: safeUser.email,
-            role: safeUser.role,
-            isSuperAdmin: safeUser.isSuperAdmin,
-            tenantId: safeUser.tenantId,
-            sessionId,
-            name: safeUser.name,
-            permissions: userPermissions,
-            allowedPlatforms: safeUser.allowedPlatforms
-          },
-          config.jwtSecret,
-          { expiresIn: '7d' }
-        );
-
-        const cookieOpts = getCookieOptions();
-        res.cookie('access_token', token, cookieOpts);
-        res.cookie('session_id', sessionId, cookieOpts);
-
-        return res.json({
-          success: true,
-          message: 'Authentication successful',
-          token,
-          sessionId,
-          user: safeUser
-        });
-      }
-
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials. No user account found with this email.'
-      });
+      return loginSeedUser(req, res, cleanEmail, password, platform);
     }
 
     const dbUser = userRes.rows[0];
@@ -317,6 +277,15 @@ const handleLogin = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials. Incorrect password.'
+      });
+    }
+
+    const entitled = sanitizeUser(dbUser).allowedPlatforms;
+    if (!entitled.includes(platform)) {
+      return res.status(403).json({
+        success: false,
+        code: 'PLATFORM_NOT_ALLOWED',
+        message: `This account cannot sign in on the ${platform === 'app' ? 'mobile app' : 'web portal'}.`
       });
     }
 
