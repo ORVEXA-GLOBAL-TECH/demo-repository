@@ -55,3 +55,6 @@ Thumbs.db
 services/api/target/
 apps/*/node_modules/
 apps/web/.next/
+scripts/node_modules/
+apps/*/.expo/
+apps/superadmin/dist/

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactElement } from 'react';
 import { ApiError, ROLE_TITLE, visibleModules, type ModuleId } from '@alleviare/api-client';
 import { useAuth } from '../lib/auth';
 import { Attendance } from '../components/Attendance';
@@ -59,7 +59,7 @@ function Login() {
   );
 }
 
-const PAGES: Record<ModuleId, () => JSX.Element | null> = {
+const PAGES: Record<ModuleId, () => ReactElement | null> = {
   visits: Visits, orders: Orders, expenses: Expenses, attendance: Attendance, tours: Tours,
   doctors: Doctors, chemists: Chemists, products: Products, employees: Employees, users: Logins,
 };

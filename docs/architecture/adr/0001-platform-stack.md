@@ -10,7 +10,7 @@ Status: Accepted by product owner (2026-11-14)
 | Web | TypeScript, React, Next.js (App Router) |
 | Mobile | TypeScript, React Native (Expo). Replaces the earlier Flutter recommendation at the owner's request |
 | Database | PostgreSQL on Supabase. Existing `supabase/migrations` remain the source of truth |
-| Legacy | `backend/` (Node/Express), `frontend/web`, `frontend/superadmin`, `frontend/mobile` stay untouched until each feature is reproduced and verified in the new stack |
+| Legacy | `backend/` (Node/Express), `frontend/web` and `frontend/mobile` were replaced by the new stack and archived under the git tag `legacy-snapshot`; `frontend/superadmin` moved to `apps/superadmin` until it is rebuilt |
 
 ## Consequences
 

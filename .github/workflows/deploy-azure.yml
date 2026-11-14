@@ -49,7 +49,7 @@ jobs:
         run: |
           az deployment group create \
             --resource-group "$RESOURCE_GROUP" \
-            --template-file infra/main.bicep \
+            --template-file infra/azure/main.bicep \
             --parameters prefix="$PREFIX" imageTag="${{ github.sha }}" \
                          jwtSecret="${{ secrets.JWT_SECRET }}" \
                          databaseUrl="${{ secrets.DATABASE_URL }}" \

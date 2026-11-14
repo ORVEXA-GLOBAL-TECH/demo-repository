@@ -1,6 +1,6 @@
 # Deploying Alleviare Platform to Azure (and installing the mobile app)
 
-**Honest status.** The API, web app and mobile app are built and tested locally (10 API integration tests against a real PostgreSQL; web and mobile type-check and build). The Dockerfiles, `infra/main.bicep` and `.github/workflows/deploy-azure.yml` have **not been run**: there was no Docker daemon or Azure access where they were written. Expect small fixes on the first deployment; the steps below are written so you can find them quickly.
+**Honest status.** The API, web app and mobile app are built and tested locally (10 API integration tests against a real PostgreSQL; web and mobile type-check and build). The Dockerfiles, `infra/azure/main.bicep` and `.github/workflows/deploy-azure.yml` have **not been run**: there was no Docker daemon or Azure access where they were written. Expect small fixes on the first deployment; the steps below are written so you can find them quickly.
 
 ## Architecture
 
@@ -55,7 +55,7 @@ Users never talk to the database. Everyone, on web or phone, signs in against th
 
 ## 2. First deployment
 
-1. Push to `main` (or run the workflow from the Actions tab). It runs the tests, creates the Azure resources from `infra/main.bicep`, builds both images in ACR, rolls them out, and smoke-tests `/actuator/health`.
+1. Push to `main` (or run the workflow from the Actions tab). It runs the tests, creates the Azure resources from `infra/azure/main.bicep`, builds both images in ACR, rolls them out, and smoke-tests `/actuator/health`.
 2. On its first start the API creates your company and administrator from the `BOOTSTRAP_*` values (nothing happens if they already exist).
 3. Find the URLs in the workflow log (`webUrl`, `apiUrl`) or with `az deployment group show -g alleviare-prod -n main --query properties.outputs`.
 4. Set the GitHub variable `WEB_ORIGIN` to the `webUrl` and run the workflow again. This lets browsers call the API (CORS allow-list). Then clear the variable `BOOTSTRAP_ADMIN_EMAIL` so bootstrap stays off.
@@ -95,4 +95,4 @@ az containerapp ingress traffic set -g alleviare-prod -n alleviare-api --revisio
 
 ## Known gaps
 
-No password self-service or MFA/SSO yet (administrators reset passwords in the Logins screen); no audit-log writes; tenant row-level-security policies are not in place (isolation is enforced in the API); the legacy Super Admin console in `frontend/superadmin` has no working backend. Finance, HR, manufacturing, quality, messaging and AI modules are not built. See `docs/EXISTING_SYSTEM_ASSESSMENT.md`.
+No password self-service or MFA/SSO yet (administrators reset passwords in the Logins screen); no audit-log writes; tenant row-level-security policies are not in place (isolation is enforced in the API); the legacy Super Admin console in `apps/superadmin` has no working backend. Finance, HR, manufacturing, quality, messaging and AI modules are not built. See `docs/assessment/existing-system-assessment.md`.

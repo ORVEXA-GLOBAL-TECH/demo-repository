@@ -1,0 +1,13 @@
+{
+  "name": "alleviare-platform",
+  "private": true,
+  "description": "Convenience scripts for the monorepo. Each app keeps its own dependencies (no hoisting).",
+  "scripts": {
+    "install:all": "npm --prefix apps/web install && npm --prefix apps/mobile install",
+    "typecheck": "npm --prefix apps/web run typecheck && npm --prefix apps/mobile run typecheck",
+    "build:web": "npm --prefix apps/web run build",
+    "dev:web": "npm --prefix apps/web run dev",
+    "dev:mobile": "npm --prefix apps/mobile run start",
+    "test:api": "cd services/api && mvn -B -ntp test"
+  }
+}

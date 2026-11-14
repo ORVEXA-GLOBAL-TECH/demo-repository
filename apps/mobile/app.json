@@ -6,7 +6,10 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "android": {
-      "package": "com.alleviare.field"
+      "package": "com.alleviare.field",
+      "adaptiveIcon": {
+        "backgroundColor": "#2563eb"
+      }
     },
     "ios": {
       "bundleIdentifier": "com.alleviare.field"
@@ -19,6 +22,10 @@
         "projectId": "45b1917e-d499-42a9-8db0-9b76f69c7a11"
       }
     },
-    "owner": "focus-trigger"
+    "owner": "focus-trigger",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#2563eb"
+    }
   }
 }
