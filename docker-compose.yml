@@ -1,47 +1,61 @@
-version: '3.8'
-
+# Local stack: PostgreSQL + API + web. All values come from the environment (copy .env.example to .env).
+# Usage:  docker compose up --build
 services:
-  # ==============================================================================
-  # Primary Relational Database: PostgreSQL 16
-  # ==============================================================================
-  postgres:
+  db:
     image: postgres:16-alpine
-    container_name: alleviare_postgres
-    restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword2026
-      POSTGRES_DB: alleviare_sfa
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./backend/src/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d alleviare_sfa"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      retries: 10
 
-  # ==============================================================================
-  # Fast In-Memory Cache & Session Store: Redis 7
-  # ==============================================================================
-  redis:
-    image: redis:7-alpine
-    container_name: alleviare_redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
+  migrate:
+    image: postgres:16-alpine
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - redisdata:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - ./supabase:/supabase:ro
+    command: >
+      sh -c "set -e; psql -v ON_ERROR_STOP=1 -h db -U ${POSTGRES_USER} -d ${POSTGRES_DB} -f /supabase/local/supabase_stubs.sql &&
+             for f in /supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -h db -U ${POSTGRES_USER} -d ${POSTGRES_DB} -f $$f; done"
+
+  api:
+    build: ./services/api
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ALLOWED_ORIGINS: ${WEB_ORIGIN}
+      BOOTSTRAP_ENABLED: ${BOOTSTRAP_ENABLED:-false}
+      BOOTSTRAP_COMPANY_CODE: ${BOOTSTRAP_COMPANY_CODE:-}
+      BOOTSTRAP_COMPANY_NAME: ${BOOTSTRAP_COMPANY_NAME:-}
+      BOOTSTRAP_CURRENCY: ${BOOTSTRAP_CURRENCY:-USD}
+      BOOTSTRAP_TIMEZONE: ${BOOTSTRAP_TIMEZONE:-UTC}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+    ports:
+      - "${API_PORT:-8080}:8080"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL}
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-3001}:3001"
 
 volumes:
   pgdata:
-    driver: local
-  redisdata:
-    driver: local

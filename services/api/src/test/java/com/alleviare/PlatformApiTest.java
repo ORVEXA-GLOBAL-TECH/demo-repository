@@ -41,11 +41,7 @@ class PlatformApiTest {
         if (pg == null) {
             pg = EmbeddedPostgres.builder().start();
             try (Connection c = pg.getPostgresDatabase().getConnection(); Statement s = c.createStatement()) {
-                // Stand-ins for Supabase-provided objects referenced by the migrations.
-                s.execute("CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN;");
-                s.execute("CREATE SCHEMA auth; CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS 'SELECT NULL::uuid';"
-                    + " CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql AS 'SELECT NULL::text';");
-                s.execute(Files.readString(Path.of("../../backend/src/db/create_users_table.sql")));
+                s.execute(Files.readString(Path.of("../../supabase/local/supabase_stubs.sql")));
                 File[] migrations = new File("../../supabase/migrations").listFiles((d, n) -> n.endsWith(".sql"));
                 Arrays.sort(migrations);
                 for (File m : migrations) s.execute(Files.readString(m.toPath()));

@@ -55,6 +55,13 @@ jobs:
                          databaseUrl="${{ secrets.DATABASE_URL }}" \
                          databasePassword="${{ secrets.DATABASE_PASSWORD }}" \
                          webOrigin="${{ vars.WEB_ORIGIN }}" \
+                         webOnlyRoles="${{ vars.WEB_ONLY_ROLES }}" \
+                         bootstrapCompanyCode="${{ vars.BOOTSTRAP_COMPANY_CODE }}" \
+                         bootstrapCompanyName="${{ vars.BOOTSTRAP_COMPANY_NAME }}" \
+                         bootstrapCurrency="${{ vars.BOOTSTRAP_CURRENCY || 'USD' }}" \
+                         bootstrapTimezone="${{ vars.BOOTSTRAP_TIMEZONE || 'UTC' }}" \
+                         bootstrapAdminEmail="${{ vars.BOOTSTRAP_ADMIN_EMAIL }}" \
+                         bootstrapAdminPassword="${{ secrets.BOOTSTRAP_ADMIN_PASSWORD }}" \
             --query "properties.outputs" -o json > outputs.json
           echo "acr=$(jq -r .acrName.value outputs.json)" >> "$GITHUB_OUTPUT"
           echo "api=$(jq -r .apiUrl.value outputs.json)" >> "$GITHUB_OUTPUT"

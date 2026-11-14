@@ -1,77 +1,97 @@
-# Deploying Alleviare Platform to Azure
+# Deploying Alleviare Platform to Azure (and installing the mobile app)
 
-Status of this guide: the application code is built and tested locally. The Docker images, the Bicep template and the GitHub workflow below have **not** been executed (no Docker daemon or Azure access was available), so treat the first deployment as a dry run and expect small fixes.
+**Honest status.** The API, web app and mobile app are built and tested locally (10 API integration tests against a real PostgreSQL; web and mobile type-check and build). The Dockerfiles, `infra/main.bicep` and `.github/workflows/deploy-azure.yml` have **not been run**: there was no Docker daemon or Azure access where they were written. Expect small fixes on the first deployment; the steps below are written so you can find them quickly.
 
-## Target architecture
+## Architecture
 
 ```
-Browser / Mobile app
-        |
-   HTTPS (Azure Container Apps ingress)
-        |
-  +-----+-------------------+
-  | alleviare-web (Next.js) |   alleviare-api (Spring Boot, Java 21)
-  +-------------------------+          |
-                                       | JDBC + TLS
-                              PostgreSQL (Supabase, ADR-0001)
-Azure Container Registry (images) - Key Vault (secrets) - Log Analytics (logs)
+Phones (APK)  /  Browsers
+        |  HTTPS
+Azure Container Apps (managed TLS)
+   alleviare-web (Next.js)      alleviare-api (Spring Boot, Java 21)
+                                      | JDBC + TLS
+                               PostgreSQL on Supabase (ADR-0001)
+Azure Container Registry (images) | Key Vault (secrets) | Log Analytics (logs)
 ```
 
-Database: per ADR-0001 the database stays on **Supabase**. If you later prefer Azure Database for PostgreSQL Flexible Server, run the same migrations after creating the roles `anon`, `authenticated`, `service_role` and a stub `auth.uid()` function (see `.tools/pg/start.mjs` for the exact SQL).
+Users never talk to the database. Everyone, on web or phone, signs in against the API.
 
-## One-time setup
+## 1. One-time setup
 
-1. **Tools:** Azure CLI (`az`), a GitHub repository for this code, and a Supabase project.
-2. **Database:** in Supabase, run the SQL in `backend/src/db/create_users_table.sql`, then `supabase/migrations/*.sql` in order (SQL editor, or `psql`). Copy the *session pooler* or direct connection details:
-   - `DATABASE_URL` as JDBC: `jdbc:postgresql://<host>:5432/postgres?sslmode=require`
-   - `DATABASE_PASSWORD`
-3. **Create users:** there is no sign-up screen yet. Insert login rows into `public.users` (bcrypt hash of a strong password, `role` such as `ADMIN`, `MR`) for each employee email that exists in `public.employees`. Do **not** set `DEV_SEED_ENABLED` in production.
-4. **Resource group:**
+1. **Tools:** Azure CLI (`az`), a GitHub repository containing this code, a Supabase project.
+2. **Database (Supabase):** open the SQL editor and run every file in `supabase/migrations/` in order (`000_users.sql` ... `016_role_permissions.sql`). Do **not** run `supabase/seed/` (demo data) or `supabase/local/` (stand-ins Supabase already has). Collect:
+   - `DATABASE_URL`: `jdbc:postgresql://<host>:5432/postgres?sslmode=require` (use the *session pooler* host from Supabase, Settings, Database)
+   - `DATABASE_PASSWORD`: the database password
+3. **Resource group:**
    ```bash
    az login
    az group create -n alleviare-prod -l centralindia
    ```
-5. **Federated identity for GitHub (no stored passwords):**
+4. **Let GitHub deploy without stored passwords (OIDC):**
    ```bash
-   az ad app create --display-name alleviare-github
-   # create a federated credential for repo:<owner>/<repo>:environment:production, then:
+   az ad app create --display-name alleviare-github        # note the appId
+   az ad sp create --id <appId>
+   az ad app federated-credential create --id <appId> --parameters '{"name":"prod","issuer":"https://token.actions.githubusercontent.com","subject":"repo:ORVEXA-GLOBAL-TECH/demo-repository:environment:production","audiences":["api://AzureADTokenExchange"]}'
    az role assignment create --assignee <appId> --role Contributor --scope /subscriptions/<sub>/resourceGroups/alleviare-prod
    az role assignment create --assignee <appId> --role "User Access Administrator" --scope /subscriptions/<sub>/resourceGroups/alleviare-prod
    ```
-   (The second role is needed because the template assigns AcrPull and Key Vault roles.)
-6. **GitHub settings** (Settings, Secrets and variables, Actions):
-   - Secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `JWT_SECRET` (`openssl rand -base64 48`), `DATABASE_URL`, `DATABASE_PASSWORD`
-   - Variables: `AZURE_RESOURCE_GROUP=alleviare-prod`, `AZURE_PREFIX=alleviare` (3-12 lowercase chars), `WEB_ORIGIN` (leave empty for the first run)
-   - Create an Environment named `production` (add required reviewers if you want an approval gate).
+   (User Access Administrator is needed because the template assigns AcrPull and Key Vault roles.)
+5. **GitHub, Settings, Environments:** create an environment named `production` (add yourself as a required reviewer if you want an approval gate).
+6. **GitHub, Settings, Secrets and variables, Actions:**
 
-## First deployment
+   | Kind | Name | Value |
+   |---|---|---|
+   | Secret | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` | from step 4 / `az account show` |
+   | Secret | `JWT_SECRET` | `openssl rand -base64 48` |
+   | Secret | `DATABASE_URL`, `DATABASE_PASSWORD` | from step 2 |
+   | Secret | `BOOTSTRAP_ADMIN_PASSWORD` | a long password for your first administrator |
+   | Variable | `AZURE_RESOURCE_GROUP` | `alleviare-prod` |
+   | Variable | `AZURE_PREFIX` | e.g. `alleviare` (3-12 lowercase letters) |
+   | Variable | `BOOTSTRAP_COMPANY_CODE`, `BOOTSTRAP_COMPANY_NAME` | e.g. `orvexa`, `Orvexa Pharma` |
+   | Variable | `BOOTSTRAP_CURRENCY`, `BOOTSTRAP_TIMEZONE` | e.g. `INR`, `Asia/Kolkata` (IANA name) |
+   | Variable | `BOOTSTRAP_ADMIN_EMAIL` | your admin email |
+   | Variable | `WEB_ORIGIN` | leave empty for the first run |
+   | Variable | `WEB_ONLY_ROLES` | empty = every role may use the mobile app |
 
-1. Push to `main` (or run the workflow manually). It runs tests, provisions the infrastructure with `infra/main.bicep`, builds both images in ACR, and rolls out the new revisions.
-2. Read the outputs from the run (or `az deployment group show`): `webUrl` and `apiUrl`.
-3. Set the GitHub variable `WEB_ORIGIN` to the `webUrl`, then re-run the workflow. This makes the API accept browser calls from the web app (CORS allow-list).
-4. Open `webUrl` and sign in.
+## 2. First deployment
 
-## Mobile app
+1. Push to `main` (or run the workflow from the Actions tab). It runs the tests, creates the Azure resources from `infra/main.bicep`, builds both images in ACR, rolls them out, and smoke-tests `/actuator/health`.
+2. On its first start the API creates your company and administrator from the `BOOTSTRAP_*` values (nothing happens if they already exist).
+3. Find the URLs in the workflow log (`webUrl`, `apiUrl`) or with `az deployment group show -g alleviare-prod -n main --query properties.outputs`.
+4. Set the GitHub variable `WEB_ORIGIN` to the `webUrl` and run the workflow again. This lets browsers call the API (CORS allow-list). Then clear the variable `BOOTSTRAP_ADMIN_EMAIL` so bootstrap stays off.
+5. Open `webUrl`, sign in as the administrator, open **Logins**, and for each person: add the employee, then create their login and pick a role. Everyone then signs in with their email and password on web or mobile.
 
-1. Edit `apps/mobile/eas.json` and set `EXPO_PUBLIC_API_URL` to the `apiUrl`.
-2. `cd apps/mobile && npx eas-cli login && npx eas-cli build -p android --profile production`
-3. Install the APK from the link EAS prints. (iOS needs an Apple developer account.)
+## 3. Getting the app onto phones
 
-## Before real users
+The phone talks to the **public API URL**, so build the app after step 2.
 
-- Custom domain and managed certificate on both Container Apps; update `WEB_ORIGIN` and the mobile URL.
-- Supabase: enable backups and point-in-time recovery; restrict network access if your plan allows.
-- Rotate `JWT_SECRET` (all users must sign in again).
-- Add alerts in Azure Monitor on API 5xx rate and restart count.
-- Cost (rough, check the Azure pricing page for your region): two small Container Apps always on, Basic ACR, Log Analytics, Key Vault. Supabase is billed separately.
+1. `cd apps/mobile`, `npm install`, `npx eas-cli login` (a free Expo account is enough).
+2. Build an installable APK with the API address baked in:
+   ```bash
+   EXPO_PUBLIC_API_URL=https://<apiUrl-from-step-2> npx eas-cli build -p android --profile production
+   ```
+   EAS prints a download link (and QR code) when it finishes.
+3. Each user opens that link on their Android phone, downloads the APK and installs it (allow "install unknown apps" for the browser once). They sign in with the login the administrator created.
+4. For the Play Store or iPhones you need a Google Play developer account or an Apple developer account respectively; the same build profile is the starting point.
 
-## Rollback
+Updating the app later means building a new APK and sharing the new link. (Over-the-air updates via `expo-updates` are not set up.)
+
+## 4. Before real users
+
+- Custom domains and managed certificates on both Container Apps; then update `WEB_ORIGIN` and rebuild the APK with the new API URL.
+- Supabase: enable daily backups / point-in-time recovery and restrict database network access if your plan allows.
+- Rotate `JWT_SECRET` periodically (everyone must sign in again).
+- Azure Monitor alerts on API 5xx rate and container restarts.
+- Run a small load test against `/api/v1/orders` before onboarding many users.
+- Costs (check the Azure pricing page for your region): two small always-on Container Apps, a Basic container registry, Log Analytics and Key Vault. Supabase is billed separately.
+
+## 5. Rollback
 
 ```bash
 az containerapp revision list -g alleviare-prod -n alleviare-api -o table
 az containerapp ingress traffic set -g alleviare-prod -n alleviare-api --revision-weight <previous-revision>=100
 ```
 
-## Known gaps (not deployment problems)
+## Known gaps
 
-Row-Level Security policies keyed on the tenant, audit-log writes, refresh tokens/MFA/SSO, and all ERP/HR/manufacturing/quality modules are not built yet. See `docs/EXISTING_SYSTEM_ASSESSMENT.md`.
+No password self-service or MFA/SSO yet (administrators reset passwords in the Logins screen); no audit-log writes; tenant row-level-security policies are not in place (isolation is enforced in the API); the legacy Super Admin console in `frontend/superadmin` has no working backend. Finance, HR, manufacturing, quality, messaging and AI modules are not built. See `docs/EXISTING_SYSTEM_ASSESSMENT.md`.

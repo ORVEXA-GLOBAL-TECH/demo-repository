@@ -28,6 +28,29 @@ param databasePassword string
 @description('Public URL of the web app (for CORS), e.g. https://<web-fqdn>. Leave empty on first deploy, then redeploy.')
 param webOrigin string = ''
 
+@description('First-run provisioning: when bootstrapAdminEmail is set, the API creates this company and administrator if they do not exist yet.')
+param bootstrapCompanyCode string = ''
+param bootstrapCompanyName string = ''
+param bootstrapCurrency string = 'USD'
+param bootstrapTimezone string = 'UTC'
+param bootstrapAdminEmail string = ''
+
+@secure()
+param bootstrapAdminPassword string = ''
+
+@description('Roles that may only use the web portal, comma-separated (empty = all roles may use the mobile app)')
+param webOnlyRoles string = ''
+
+var bootstrapOn = !empty(bootstrapAdminEmail)
+var bootstrapEnv = bootstrapOn ? [
+  { name: 'BOOTSTRAP_ENABLED', value: 'true' }
+  { name: 'BOOTSTRAP_COMPANY_CODE', value: bootstrapCompanyCode }
+  { name: 'BOOTSTRAP_COMPANY_NAME', value: bootstrapCompanyName }
+  { name: 'BOOTSTRAP_CURRENCY', value: bootstrapCurrency }
+  { name: 'BOOTSTRAP_TIMEZONE', value: bootstrapTimezone }
+  { name: 'BOOTSTRAP_ADMIN_EMAIL', value: bootstrapAdminEmail }
+  { name: 'BOOTSTRAP_ADMIN_PASSWORD', secretRef: 'bootstrap-admin-password' }
+] : []
 var unique = uniqueString(resourceGroup().id)
 var acrName = toLower('${prefix}acr${unique}')
 
@@ -98,6 +121,12 @@ resource kvDbPassword 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   properties: { value: databasePassword }
 }
 
+resource kvBootstrapPassword 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (bootstrapOn) {
+  parent: kv
+  name: 'bootstrap-admin-password'
+  properties: { value: bootstrapAdminPassword }
+}
+
 resource env 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: '${prefix}-env'
   location: location
@@ -119,17 +148,19 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
     type: 'UserAssigned'
     userAssignedIdentities: { '${identity.id}': {} }
   }
-  dependsOn: [ acrPull, kvAccess, kvJwt, kvDbUrl, kvDbPassword ]
+  dependsOn: [ acrPull, kvAccess, kvJwt, kvDbUrl, kvDbPassword, kvBootstrapPassword ]
   properties: {
     managedEnvironmentId: env.id
     configuration: {
       ingress: { external: true, targetPort: 8080, transport: 'auto' }
       registries: [ { server: acr.properties.loginServer, identity: identity.id } ]
-      secrets: [
+      secrets: concat([
         { name: 'jwt-secret', keyVaultUrl: kvJwt.properties.secretUri, identity: identity.id }
         { name: 'database-url', keyVaultUrl: kvDbUrl.properties.secretUri, identity: identity.id }
         { name: 'database-password', keyVaultUrl: kvDbPassword.properties.secretUri, identity: identity.id }
-      ]
+      ], bootstrapOn ? [
+        { name: 'bootstrap-admin-password', keyVaultUrl: kvBootstrapPassword.properties.secretUri, identity: identity.id }
+      ] : [])
     }
     template: {
       containers: [
@@ -137,13 +168,14 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'api'
           image: '${acr.properties.loginServer}/alleviare-api:${imageTag}'
           resources: { cpu: json('0.5'), memory: '1Gi' }
-          env: [
+          env: concat([
             { name: 'JWT_SECRET', secretRef: 'jwt-secret' }
             { name: 'DATABASE_URL', secretRef: 'database-url' }
             { name: 'DATABASE_USER', value: databaseUser }
             { name: 'DATABASE_PASSWORD', secretRef: 'database-password' }
             { name: 'CORS_ALLOWED_ORIGINS', value: webOrigin }
-          ]
+            { name: 'WEB_ONLY_ROLES', value: webOnlyRoles }
+          ], bootstrapEnv)
           probes: [
             { type: 'Liveness', httpGet: { path: '/actuator/health', port: 8080 }, initialDelaySeconds: 30 }
             { type: 'Readiness', httpGet: { path: '/actuator/health', port: 8080 }, initialDelaySeconds: 20 }

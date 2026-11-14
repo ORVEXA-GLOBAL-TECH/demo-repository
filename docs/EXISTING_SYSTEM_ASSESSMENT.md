@@ -1,5 +1,7 @@
 # Alleviare Platform: Existing System Assessment (Phase 0)
 
+> **Historical document.** Written before the re-platform to Java / Next.js / React Native. The Node backend and old web/mobile apps it describes were archived under the git tag `legacy-snapshot` and removed from the tree. See `README.md` for the current state.
+
 Scope: repository at `demo-repository-main` as of 2026-11-14. This is a code-level audit by static inspection plus the runs noted in "Verified". It is not a regulatory or penetration-test report.
 
 ## 1. Technology inventory
