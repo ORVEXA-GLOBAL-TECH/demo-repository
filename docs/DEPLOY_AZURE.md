@@ -66,11 +66,12 @@ Users never talk to the database. Everyone, on web or phone, signs in against th
 The phone talks to the **public API URL**, so build the app after step 2.
 
 1. `cd apps/mobile`, `npm install`, `npx eas-cli login` (a free Expo account is enough).
-2. Build an installable APK with the API address baked in:
+2. Tell Expo where your API is (stored in Expo, not in the repository), then build an installable APK:
    ```bash
-   EXPO_PUBLIC_API_URL=https://<apiUrl-from-step-2> npx eas-cli build -p android --profile production
+   npx eas-cli env:create --name EXPO_PUBLIC_API_URL --value https://<apiUrl-from-step-2> --environment production --visibility plaintext
+   npx eas-cli build -p android --profile production
    ```
-   EAS prints a download link (and QR code) when it finishes.
+   Do **not** create `ALLOW_CLEARTEXT` for production: it only exists to let test builds talk to a plain-HTTP server on a local network. EAS prints a download link (and QR code) when the build finishes.
 3. Each user opens that link on their Android phone, downloads the APK and installs it (allow "install unknown apps" for the browser once). They sign in with the login the administrator created.
 4. For the Play Store or iPhones you need a Google Play developer account or an Apple developer account respectively; the same build profile is the starting point.
 

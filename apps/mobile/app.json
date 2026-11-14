@@ -5,8 +5,20 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "android": { "package": "com.alleviare.field" },
-    "ios": { "bundleIdentifier": "com.alleviare.field" },
-    "plugins": ["expo-secure-store"]
+    "android": {
+      "package": "com.alleviare.field"
+    },
+    "ios": {
+      "bundleIdentifier": "com.alleviare.field"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "45b1917e-d499-42a9-8db0-9b76f69c7a11"
+      }
+    },
+    "owner": "focus-trigger"
   }
 }
